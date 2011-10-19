@@ -1,0 +1,15 @@
+#
+# $Id: sawControllersConfig.cmake.in 3012 2011-10-06 15:17:27Z adeguet1 $
+
+# Author(s):  Anton Deguet
+# Created on: 2011-01-20
+#
+# (C) Copyright 2011 Johns Hopkins University (JHU), All Rights
+# Reserved.
+#
+
+
+set (sawControllers_INCLUDE_DIR "@sawControllers_INCLUDE_DIR@")
+set (sawControllers_LIBRARY_DIR "@sawControllers_LIBRARY_DIR@")
+set (sawControllers_LIBRARIES   "@sawControllers_LIBRARIES@")
+set (sawControllersQt_LIBRARIES "@sawControllersQt_LIBRARIES@")
