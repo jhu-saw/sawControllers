@@ -19,16 +19,20 @@ if( cisst_FOUND )
   set( 
     HEADER_FILES 
     ../osaGravityCompensation.h
+    ../osaPDGC.h
     
     ../mtsController.h
-    ../mtsGravityCompensation.h )
+    ../mtsGravityCompensation.h
+    ../mtsPDGC.h )
   
   set( 
     SOURCE_FILES 
     osaGravityCompensation.cpp
+    osaPDGC.cpp
 
     mtsController.cpp
-    mtsGravityCompensation.cpp )
+    mtsGravityCompensation.cpp
+    mtsPDGC.cpp )
   
   add_library( sawControllers ${HEADER_FILES} ${SOURCE_FILES} )
   cisst_target_link_libraries( sawControllers ${REQUIRED_CISST_LIBRARIES} )

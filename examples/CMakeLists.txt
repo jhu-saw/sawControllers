@@ -12,18 +12,26 @@ set(
 
 find_package( cisst REQUIRED ${REQUIRED_CISST_LIBRARIES} )
 find_package( sawControllers REQUIRED HINTS "${CISST_BINARY_DIR}/saw/components")
+find_package( sawKeyboard REQUIRED HINTS "${CISST_BINARY_DIR}/saw/components")
 
-if( cisst_FOUND AND sawControllers_FOUND )
+if( cisst_FOUND AND sawControllers_FOUND AND sawKeyboard_FOUND)
 
   # load cisst configuration
   include( ${CISST_USE_FILE} )
 
-  add_executable(
-    osaGravityCompensationExample osaGravityCompesnationExample.cpp)
+  add_executable(osaGCExample    osaGCExample.cpp)
+  add_executable(osaPDGCExample  osaPDGCExample.cpp)
 
-  target_link_libraries( osaGravityCompensationExample sawControllers )
+  add_executable(mtsGCExample    mtsGCExample.cpp)
 
-  cisst_target_link_libraries( 
-    osaGravityCompensationExample ${REQUIRED_CISST_LIBRARIES} )
+  target_link_libraries( osaGCExample   sawControllers )
+  target_link_libraries( osaPDGCExample sawControllers )
 
-endif( cisst_FOUND AND sawControllers_FOUND )
+  target_link_libraries( mtsGCExample   sawControllers sawKeyboard )
+
+  cisst_target_link_libraries( osaGCExample   ${REQUIRED_CISST_LIBRARIES} )
+  cisst_target_link_libraries( osaPDGCExample ${REQUIRED_CISST_LIBRARIES} )
+
+  cisst_target_link_libraries( mtsGCExample   ${REQUIRED_CISST_LIBRARIES} )
+
+endif( cisst_FOUND AND sawControllers_FOUND AND sawKeyboard_FOUND)

@@ -5,13 +5,13 @@
 
 mtsGravityCompensation::mtsGravityCompensation( const std::string& taskname,
 						double period,
-						const std::string& robfile,
+						const std::string& robfilename,
 						const vctFrame4x4<double>& Rtwb,
 						osaCPUMask cpumask ) :
   mtsController( taskname, period, cpumask ),
   GC( NULL ){
   
-  GC = new osaGravityCompensation( robfile, Rtwb );
+  GC = new osaGravityCompensation( robfilename, Rtwb );
 
   mtsInterfaceRequired* input = AddInterfaceRequired( "Input" );
   mtsInterfaceRequired* output = AddInterfaceRequired( "Output" );
