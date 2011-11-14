@@ -11,8 +11,8 @@ set(
   cisstNumerical )
 
 find_package( cisst REQUIRED ${REQUIRED_CISST_LIBRARIES} )
-find_package( sawControllers REQUIRED HINTS "${CISST_BINARY_DIR}/saw/components")
-find_package( sawKeyboard REQUIRED HINTS "${CISST_BINARY_DIR}/saw/components")
+find_package( sawControllers REQUIRED HINTS "${cisst_saw_BINARY_DIR}/saw/components")
+find_package( sawKeyboard REQUIRED HINTS "${cisst_saw_BINARY_DIR}/saw/components")
 
 if( cisst_FOUND AND sawControllers_FOUND AND sawKeyboard_FOUND)
 
