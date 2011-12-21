@@ -8,7 +8,7 @@
 
 class CISST_EXPORT mtsController : public mtsTaskPeriodic {
 
- private:
+ protected:
 
   osaCPUMask cpumask;
 

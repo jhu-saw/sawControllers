@@ -40,7 +40,7 @@ if( cisst_FOUND )
   # create/configure file for find_package (sawNDITracker)
   set(sawControllers_INCLUDE_DIR "${sawComponents_SOURCE_DIR}" "${sawComponents_BINARY_DIR}")
   set(sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
-  set(sawControllers_LIBRARIES sawBarrett)
+  set(sawControllers_LIBRARIES sawControllers)
 
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/sawControllersConfig.cmake.in"

@@ -35,7 +35,11 @@ mtsPDGC::~mtsPDGC(){
 
 void mtsPDGC::Configure( const std::string& ){}
 
-void mtsPDGC::Startup(){}
+void mtsPDGC::Startup(){
+
+  osaCPUSetAffinity( OSA_CPU3 );
+
+}
 
 void mtsPDGC::Run(){
   ProcessQueuedCommands();
@@ -48,17 +52,21 @@ void mtsPDGC::Run(){
 
   vctDynamicVector<double> tau( prmq.Position().size(), 0.0 );
   if( PDGC != NULL && IsEnabled() ){
+
     vctDynamicVector<double> qs = prmqs.Position();
     vctDynamicVector<double> q  = prmq.Position();
-    double dt = GetPeriodicity();
-    if( PDGC->Evaluate( qs, q, tau, dt ) != osaPDGC::ESUCCESS ){
-      CMN_LOG_RUN_ERROR << "Faile to evaluate the controller" << std::endl;
-    }
-  }
+    //std::cout << "qs: " << qs << std::endl
+    //      << "q : " << q << std::endl << std::endl;
 
-  prmForceTorqueJointSet t;
-  t.ForceTorque() = tau;
-  SetTorques( t );
+    double dt = GetPeriodicity();
+    if( PDGC->Evaluate( qs, q, tau, dt ) != osaPDGC::ESUCCESS )
+      { CMN_LOG_RUN_ERROR << "Faile to evaluate the controller" << std::endl; }
+
+    prmForceTorqueJointSet t;
+    t.ForceTorque() = tau;
+    SetTorques( t );
+    
+  }
 
 }
 

@@ -42,15 +42,17 @@ void mtsGravityCompensation::Run(){
 
   vctDynamicVector<double> tau( prmq.Position().size(), 0.0 );
   if( GC != NULL && IsEnabled() ){
+
     if( GC->Evaluate( prmq.Position(), tau ) != 
 	osaGravityCompensation::ESUCCESS ){
       CMN_LOG_RUN_ERROR << "Faile to evaluate the controller" << std::endl;
     }
-  }
 
-  prmForceTorqueJointSet t;
-  t.ForceTorque() = tau;
-  SetTorques( t );
+    prmForceTorqueJointSet t;
+    t.ForceTorque() = tau;
+    SetTorques( t );
+    
+  }
 
 }
 

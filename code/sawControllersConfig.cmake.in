@@ -12,4 +12,3 @@
 set (sawControllers_INCLUDE_DIR "@sawControllers_INCLUDE_DIR@")
 set (sawControllers_LIBRARY_DIR "@sawControllers_LIBRARY_DIR@")
 set (sawControllers_LIBRARIES   "@sawControllers_LIBRARIES@")
-set (sawControllersQt_LIBRARIES "@sawControllersQt_LIBRARIES@")

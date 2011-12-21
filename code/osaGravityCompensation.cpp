@@ -20,7 +20,7 @@ osaGravityCompensation::Evaluate
 
   // inverse dynamics 
   tau =  InverseDynamics( q, qd, qdd );
-  
+
   return osaGravityCompensation::ESUCCESS;
 
 }
