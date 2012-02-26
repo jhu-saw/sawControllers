@@ -11,27 +11,31 @@ set(
   cisstNumerical )
 
 find_package( cisst REQUIRED ${REQUIRED_CISST_LIBRARIES} )
-find_package( sawControllers REQUIRED HINTS "${cisst_saw_BINARY_DIR}/saw/components")
-find_package( sawKeyboard REQUIRED HINTS "${cisst_saw_BINARY_DIR}/saw/components")
 
 if( cisst_FOUND AND sawControllers_FOUND AND sawKeyboard_FOUND)
 
   # load cisst configuration
   include( ${CISST_USE_FILE} )
 
-  add_executable(osaGCExample    osaGCExample.cpp)
-  add_executable(osaPDGCExample  osaPDGCExample.cpp)
+  cisst_find_component( sawControllers REQUIRED )
+  cisst_find_component( sawKeyboard REQUIRED )
 
-  add_executable(mtsGCExample    mtsGCExample.cpp)
+  if( sawControllers_FOUND AND sawKeyboard_FOUND)
 
-  target_link_libraries( osaGCExample   sawControllers )
-  target_link_libraries( osaPDGCExample sawControllers )
+    add_executable(osaGCExample    osaGCExample.cpp)
+    add_executable(osaPDGCExample  osaPDGCExample.cpp)
 
-  target_link_libraries( mtsGCExample   sawControllers sawKeyboard )
+    add_executable(mtsGCExample    mtsGCExample.cpp)
 
-  cisst_target_link_libraries( osaGCExample   ${REQUIRED_CISST_LIBRARIES} )
-  cisst_target_link_libraries( osaPDGCExample ${REQUIRED_CISST_LIBRARIES} )
+    target_link_libraries( osaGCExample   sawControllers )
+    target_link_libraries( osaPDGCExample sawControllers )
 
-  cisst_target_link_libraries( mtsGCExample   ${REQUIRED_CISST_LIBRARIES} )
+    target_link_libraries( mtsGCExample   sawControllers sawKeyboard )
+
+    cisst_target_link_libraries( osaGCExample   ${REQUIRED_CISST_LIBRARIES} )
+    cisst_target_link_libraries( osaPDGCExample ${REQUIRED_CISST_LIBRARIES} )
+
+    cisst_target_link_libraries( mtsGCExample   ${REQUIRED_CISST_LIBRARIES} )
+  endif( sawControllers_FOUND AND sawKeyboard_FOUND)
 
 endif( cisst_FOUND AND sawControllers_FOUND AND sawKeyboard_FOUND)

@@ -47,4 +47,16 @@ if( cisst_FOUND )
     "${sawComponents_BINARY_DIR}/sawControllersConfig.cmake"
     @ONLY@ )
 
+  # Install targets for headers and library
+  install( FILES ${HEADER_FILES}
+    DESTINATION include/sawControllers)
+
+  install( TARGETS sawControllers
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib)
+
+  install( FILES "${sawComponents_BINARY_DIR}/sawControllersConfig.cmake"
+    DESTINATION ${CISST_CMAKE_MODULES_INSTALL_SUFFIX}/components)
+
 endif( cisst_FOUND )
