@@ -1,6 +1,7 @@
 #include <sawKeyboard/mtsKeyboard.h>
 #include <sawControllers/mtsGravityCompensation.h>
 
+#include <cisstCommon/cmnPath.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 #include <cisstMultiTask/mtsTaskManager.h>
 
@@ -10,23 +11,23 @@
 class Robot : public mtsTaskPeriodic{
 
 private:
-  
+
   prmForceTorqueJointSet tin;
   prmPositionJointGet qout;
-  
+
 public:
 
-  Robot( const vctDynamicVector<double>& q ) : 
+  Robot( const vctDynamicVector<double>& q ) :
     mtsTaskPeriodic( "Robot", 0.01, true ){
 
     qout.Position() = q;
-    
+
     mtsInterfaceProvided* input = AddInterfaceProvided( "Input" );
     if( input ){
-      
+
       StateTable.AddData( tin, "TorquesInput" );
       input->AddCommandWriteState( StateTable, tin, "SetTorqueJoint" );
-      
+
     }
     else{
       CMN_LOG_RUN_ERROR << "Failed to create interface Input for " << GetName()
@@ -44,13 +45,13 @@ public:
       CMN_LOG_RUN_ERROR << "Failed to create interface Output for " << GetName()
 			<< std::endl;
     }
-    
+
   }
 
   void Configure( const std::string& ){}
   void Startup(){}
-  void Run(){ 
-    ProcessQueuedCommands(); 
+  void Run(){
+    ProcessQueuedCommands();
     for( size_t i=0; i<qout.Position().size(); i++ )
       { qout.Position()[i] += 0.001; }
     std::cout << "q:   " << qout.Position() << std::endl;
@@ -73,7 +74,9 @@ int main(){
   kb.AddKeyWriteFunction( 'G', "GCEnable", "Enable", true );
   taskManager->AddComponent( &kb );
 
-  std::string path(  CISST_SOURCE_ROOT"/cisst/etc/cisstRobot/" );
+  cmnPath path;
+  path.AddRelativeToCisstShare("/models/WAM");
+  std::string fname = path.Find("wam7.rob", cmnPath::READ);
 
   // Rotate the base
   vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
@@ -81,35 +84,35 @@ int main(){
                                    1.0,  0.0,  0.0 );
   vctFixedSizeVector<double,3> tw0(0.0);
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
-  
-  mtsGravityCompensation GC( "GC", 
-			     0.01, 
-			     path+"WAM/wam7.rob", 
+
+  mtsGravityCompensation GC( "GC",
+			     0.01,
+			     fname,
 			     Rtw0 );
   taskManager->AddComponent( &GC );
-  
+
   vctDynamicVector<double> q( 7, 0.0 );
   q[1] = -cmnPI_2;
   q[3] =  cmnPI;
   Robot robot( q );
   taskManager->AddComponent( &robot );
-  
+
   if( !taskManager->Connect( kb.GetName(), "GCEnable",GC.GetName(),"Control") ){
-    std::cout << "Failed to connect: " 
+    std::cout << "Failed to connect: "
 	      << kb.GetName() << "::GCEnable to "
 	      << kb.GetName()  << "::Control" << std::endl;
     return -1;
   }
 
   if( !taskManager->Connect(robot.GetName(), "Input", GC.GetName(), "Output") ){
-    std::cout << "Failed to connect: " 
+    std::cout << "Failed to connect: "
 	      << robot.GetName() << "::Input to "
 	      << GC.GetName()    << "::Output" << std::endl;
     return -1;
   }
 
   if( !taskManager->Connect(robot.GetName(), "Output", GC.GetName(), "Input") ){
-    std::cout << "Failed to connect: " 
+    std::cout << "Failed to connect: "
 	      << robot.GetName() << "::Output to "
 	      << GC.GetName()    << "::Input" << std::endl;
     return -1;

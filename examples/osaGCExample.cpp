@@ -1,3 +1,4 @@
+#include <cisstCommon/cmnPath.h>
 #include <sawControllers/osaGravityCompensation.h>
 
 int main(){
@@ -6,7 +7,9 @@ int main(){
   cmnLogger::SetMaskFunction( CMN_LOG_ALLOW_ALL );
   cmnLogger::SetMaskDefaultLog( CMN_LOG_ALLOW_ALL );
 
-  std::string path(  CISST_SOURCE_ROOT"/cisst/etc/cisstRobot/" );
+  cmnPath path;
+  path.AddRelativeToCisstShare("/models/WAM");
+  std::string fname = path.Find("wam7.rob", cmnPath::READ);
 
   // Rotate the base
   vctMatrixRotation3<double> Rw0(  0.0,  0.0, -1.0,
@@ -14,8 +17,8 @@ int main(){
                                    1.0,  0.0,  0.0 );
   vctFixedSizeVector<double,3> tw0(0.0);
   vctFrame4x4<double> Rtw0( Rw0, tw0 );
-  
-  osaGravityCompensation GC( path+"WAM/wam7.rob", Rtw0 );
+
+  osaGravityCompensation GC( fname, Rtw0 );
 
 
   vctDynamicVector<double> q( 7, 0.0 );
