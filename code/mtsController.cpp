@@ -5,8 +5,8 @@ mtsController::mtsController( const std::string& taskname,
 			      double period,
 			      osaCPUMask cpumask ) :
   mtsTaskPeriodic( taskname, period, true ),
-  ctl( NULL ),
   cpumask( cpumask ),
+  ctl( NULL ),
   mtsEnabled( false ) {
 
   ctl = AddInterfaceProvided( "Control" );
