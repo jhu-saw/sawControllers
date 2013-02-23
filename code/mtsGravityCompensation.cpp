@@ -44,7 +44,7 @@ void mtsGravityCompensation::Run(){
   if( GC != NULL && IsEnabled() ){
 
     if( GC->Evaluate( prmq.Position(), tau ) != 
-	osaGravityCompensation::ESUCCESS ){
+      osaGravityCompensation::ESUCCESS ){
       CMN_LOG_RUN_ERROR << "Faile to evaluate the controller" << std::endl;
     }
 
