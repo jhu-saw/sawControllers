@@ -29,7 +29,7 @@ if( cisst_FOUND )
   # load cisst configuration
   include (${CISST_USE_FILE})
 
-  # create/configure file for find_package (sawNDITracker)
+  # create/configure file for find_package (sawControllers)
   set(sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include")
   set(sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
   set(sawControllers_LIBRARIES sawControllers)
@@ -44,7 +44,8 @@ if( cisst_FOUND )
 
     ${sawControllers_HEADER_DIR}/mtsController.h
     ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
-    ${sawControllers_HEADER_DIR}/mtsPDGC.h )
+    ${sawControllers_HEADER_DIR}/mtsPDGC.h
+    ${sawControllers_HEADER_DIR}/mtsPID.h )
 
   set(
     SOURCE_FILES
@@ -53,7 +54,8 @@ if( cisst_FOUND )
 
     mtsController.cpp
     mtsGravityCompensation.cpp
-    mtsPDGC.cpp )
+    mtsPDGC.cpp 
+    mtsPID.cpp )
 
   add_library( sawControllers ${HEADER_FILES} ${SOURCE_FILES} )
   cisst_target_link_libraries( sawControllers ${REQUIRED_CISST_LIBRARIES} )

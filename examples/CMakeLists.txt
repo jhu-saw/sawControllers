@@ -52,6 +52,12 @@ if (cisst_FOUND_AS_REQUIRED)
     # examples that also need sawKeyboard
     target_link_libraries (mtsGCExample ${sawKeyboard_LIBRARIES})
 
+    # copy configuration XML to the executable directory
+     execute_process(COMMAND ${CMAKE_COMMAND} -E copy
+       ${CMAKE_CURRENT_SOURCE_DIR}/configPID.xml
+       ${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/configPID.xml
+       )
+
   endif (sawControllers_FOUND AND sawKeyboard_FOUND)
 
 endif (cisst_FOUND_AS_REQUIRED)
