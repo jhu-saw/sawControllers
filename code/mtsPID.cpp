@@ -6,7 +6,6 @@
 
   Author(s):  Zihan Chen
   Created on: 2013-02-22
-  Email: zihan.chen@jhu.edu
 
   (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
 
@@ -33,20 +32,19 @@ mtsPID::mtsPID(const std::string &taskname, double period):
     mtsTaskPeriodic(taskname, period),
     enabled(false)
 {
-    // require RobotJointTorque interface
-    mtsInterfaceRequired *req = AddInterfaceRequired("RobotJointTorqueInterface");
-    if(req){
-        // sth. here
-        req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
-        req->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
-        req->AddFunction("SetTorqueJoint", Robot.SetTorque);
-    }
+    this->SetupInterfaces();
 }
 
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
     enabled(false)
+{
+    this->SetupInterfaces();
+}
+
+
+void mtsPID::SetupInterfaces(void)
 {
     // require RobotJointTorque interface
     mtsInterfaceRequired *req = AddInterfaceRequired("RobotJointTorqueInterface");

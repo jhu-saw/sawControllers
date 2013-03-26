@@ -1,7 +1,7 @@
 #
 # $Id$
 #
-# (C) Copyright 2011-2012 Johns Hopkins University (JHU), All Rights
+# (C) Copyright 2011-2013 Johns Hopkins University (JHU), All Rights
 # Reserved.
 #
 # --- begin cisst license - do not edit ---
@@ -54,12 +54,16 @@ if( cisst_FOUND )
 
     mtsController.cpp
     mtsGravityCompensation.cpp
-    mtsPDGC.cpp 
+    mtsPDGC.cpp
     mtsPID.cpp )
 
   add_library( sawControllers ${HEADER_FILES} ${SOURCE_FILES} )
   cisst_target_link_libraries( sawControllers ${REQUIRED_CISST_LIBRARIES} )
   set_property (TARGET sawControllers PROPERTY FOLDER "sawControllers")
+
+  # add Qt code
+  add_subdirectory (Qt)
+  set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} ${sawControllersQt_LIBRARIES})
 
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/sawControllersConfig.cmake.in"

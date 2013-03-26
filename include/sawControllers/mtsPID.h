@@ -5,7 +5,6 @@
 
   Author(s):  Zihan Chen
   Created on: 2013-02-22
-  Email: zihan.chen@jhu.edu
 
   (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
 
@@ -129,6 +128,8 @@ protected:
      * @param prmPos   The desired position
      */
     void SetDesiredPositions(const prmPositionJointSet &prmPos);
+
+    void SetupInterfaces(void);
 
 public:
 
