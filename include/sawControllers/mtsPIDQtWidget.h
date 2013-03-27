@@ -87,8 +87,6 @@ private:
     vctDoubleVec desiredPos;
 
     int numOfAxis;
-    double curFBOffset;
-
     vctDoubleVec analogIn;
     vctDoubleVec motorFeedbackCurrent;
     vctDoubleVec motorControlCurrent;

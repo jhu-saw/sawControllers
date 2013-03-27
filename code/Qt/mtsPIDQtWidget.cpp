@@ -37,12 +37,10 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED(mtsPIDQtWidget, mtsComponent);
 
-mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName)
+mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
     :mtsComponent(taskName)
 {
     numOfAxis = 8;
-//    curFBPGain = 1.0;
-    curFBOffset = 30.0;
     tmpStatic = 0;
     lastEnableState.SetSize(numOfAxis);
     lastEnableState.SetAll(false);
@@ -117,24 +115,23 @@ void mtsPIDQtWidget::slot_qcbEnablePID(bool toggle)
 void mtsPIDQtWidget::slot_qdsbPosition(double position)
 {
     desiredPos.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++){
+    for (size_t i = 0; i < numOfAxis; i++) {
         desiredPos.at(i) = qdsbPosition[i]->value();
     }
-    prmPositionJointSet  prmDesiredPos;
+    desiredPos.Multiply(cmnPI_180); // all UI is in degrees, all internals are in radians
+    prmPositionJointSet prmDesiredPos;
     prmDesiredPos.SetGoal(desiredPos);
     PID.SetDesiredPositions(prmDesiredPos);
 }
-
 
 void mtsPIDQtWidget::slot_qdsbPGain(double val)
 {
     vctDoubleVec pgain;
     pgain.SetSize(numOfAxis);
     pgain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++){
+    for (size_t i = 0; i < numOfAxis; i++) {
         pgain[i] = qdsbPGain[i]->value();
     }
-    std::cout << "pgain" << std::endl;
     PID.SetPGain(pgain);
 }
 
@@ -143,7 +140,7 @@ void mtsPIDQtWidget::slot_qdsbDGain(double val)
     vctDoubleVec dgain;
     dgain.SetSize(numOfAxis);
     dgain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++){
+    for (size_t i = 0; i < numOfAxis; i++) {
         dgain[i] = qdsbDGain[i]->value();
     }
     PID.SetDGain(dgain);
@@ -154,7 +151,7 @@ void mtsPIDQtWidget::slot_qdsbIGain(double val)
     vctDoubleVec igain;
     igain.SetSize(numOfAxis);
     igain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++){
+    for (size_t i = 0; i < numOfAxis; i++) {
         igain[i] = qdsbIGain[i]->value();
     }
     PID.SetIGain(igain);
@@ -168,24 +165,20 @@ void mtsPIDQtWidget::slot_qpbResetDesiredPosition()
     prmFeedbackPos.SetSize(numOfAxis);
     PID.GetPositionJoint(prmFeedbackPos);
     PID.GetPositionJoint(prmFeedbackPos);
-
     size_t i;
     for(i = 0; i < numOfAxis; i++){
         qdsbPosition[i]->blockSignals(true);
         qdsbPosition[i]->setValue(prmFeedbackPos.Position().at(i));
         qdsbPosition[i]->blockSignals(false);
     }
-
     PID.ResetController();
 }
-
 
 void mtsPIDQtWidget::slot_qpbResetPIDGain()
 {
     // get gains
     vctDoubleVec gain;
     gain.SetSize(numOfAxis);
-
     size_t i;
     // PGain
     PID.GetPGain(gain);
@@ -194,7 +187,6 @@ void mtsPIDQtWidget::slot_qpbResetPIDGain()
         qdsbPGain[i]->setValue(gain[i]);
         qdsbPGain[i]->blockSignals(false);
     }
-
     // DGain
     PID.GetDGain(gain);
     for(i = 0; i < numOfAxis; i++){
@@ -202,7 +194,6 @@ void mtsPIDQtWidget::slot_qpbResetPIDGain()
         qdsbDGain[i]->setValue(gain[i]);
         qdsbDGain[i]->blockSignals(false);
     }
-
     // IGain
     PID.GetIGain(gain);
     for(i = 0; i < numOfAxis; i++){
@@ -218,7 +209,6 @@ void mtsPIDQtWidget::setupUi()
     QFont font;
     font.setBold(true);
     font.setPointSize(12);
-
 
     //----------------- Command -------------------------------
     // Commands Title
@@ -268,7 +258,6 @@ void mtsPIDQtWidget::setupUi()
     cmdLabelFrame->setLayout(cmdLabelLayout);
     cmdLabelFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
 
-
     // Commands Info
     // [] Enable Axis i
     //   xx.xx mA  double spin box
@@ -281,19 +270,18 @@ void mtsPIDQtWidget::setupUi()
     qdsbDGain = new QDoubleSpinBox*[numOfAxis];
     qdsbIGain = new QDoubleSpinBox*[numOfAxis];
 
-
-    for(int i = 0; i < numOfAxis; i++){
+    for (int i = 0; i < numOfAxis; i++) {
         QLabel *blank = new QLabel("Joint " + QString::number(i+1));
         blank->setAlignment(Qt::AlignCenter);
         qdsbPosition[i] = new QDoubleSpinBox;
         qdsbPosition[i]->setSuffix(" deg");
         qdsbPosition[i]->setDecimals(2);
         qdsbPosition[i]->setSingleStep(0.1);
-        qdsbPosition[i]->setMinimum(-300);
-        qdsbPosition[i]->setMaximum(300);
+        qdsbPosition[i]->setMinimum(-360);
+        qdsbPosition[i]->setMaximum(360);
         qdsbPosition[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-        double range = 0.30;
+        double range = 100.0;
         qdsbPGain[i] = new QDoubleSpinBox;
         qdsbPGain[i]->setDecimals(3);
         qdsbPGain[i]->setSingleStep(0.001);
@@ -308,7 +296,7 @@ void mtsPIDQtWidget::setupUi()
         qdsbDGain[i]->setMaximum(range);
         qdsbDGain[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-        range = 0.05;
+        range = 100.0;
         qdsbIGain[i] = new QDoubleSpinBox;
         qdsbIGain[i]->setDecimals(3);
         qdsbIGain[i]->setSingleStep(0.001);
@@ -333,7 +321,7 @@ void mtsPIDQtWidget::setupUi()
     // cmdLabel | cmdInfo1 | cmdInfo2 |...
     QHBoxLayout* cmdLowerLayout = new QHBoxLayout;
     cmdLowerLayout->addWidget(cmdLabelFrame);
-    for(int i = 0; i < numOfAxis; i++){
+    for (int i = 0; i < numOfAxis; i++) {
         cmdLowerLayout->addWidget(cmdInfoFrame[i]);
     }
 
@@ -343,7 +331,6 @@ void mtsPIDQtWidget::setupUi()
     QVBoxLayout* cmdLayout = new QVBoxLayout;
     cmdLayout->addLayout(cmdTitleLayout);
     cmdLayout->addLayout(cmdLowerLayout);
-
 
     //------------ Test --------------------
     QPushButton* qpbResetDesiredPosition = new QPushButton("Reset Position");
@@ -357,7 +344,6 @@ void mtsPIDQtWidget::setupUi()
 
     connect(qpbResetDesiredPosition, SIGNAL(clicked()), this, SLOT(slot_qpbResetDesiredPosition()));
     connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(slot_qpbResetPIDGain()));
-
 
     //------------ main layout -------------
     QVBoxLayout* mainLayout = new QVBoxLayout;
@@ -375,7 +361,7 @@ void mtsPIDQtWidget::setupUi()
     // connect signals & slots
     // Commands
     connect(qcbEnablePID, SIGNAL(toggled(bool)), this, SLOT(slot_qcbEnablePID(bool)));
-    for(int i = 0; i < numOfAxis; i++){
+    for (int i = 0; i < numOfAxis; i++) {
         connect(qdsbPosition[i], SIGNAL(valueChanged(double)),
                 this, SLOT(slot_qdsbPosition(double)));
         connect(qdsbPGain[i], SIGNAL(valueChanged(double)),
@@ -387,7 +373,6 @@ void mtsPIDQtWidget::setupUi()
     }
 
 }
-
 
 void mtsPIDQtWidget::EventErrorLimitHandler()
 {
