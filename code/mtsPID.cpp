@@ -146,9 +146,11 @@ void mtsPID::Configure(const std::string &filename)
     // provide SetDesiredPosiitons
     mtsInterfaceProvided *prov = AddInterfaceProvided("Controller");
     if(prov){
-        StateTable.AddData( enabled, "Enabled" );
-        prov->AddCommandWriteState( StateTable, enabled, "Enable" );
+//        StateTable.AddData( enabled, "Enabled" );
+//        prov->AddCommandWriteState( StateTable, enabled, "Enable" );
         prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
+
+        prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
 
         prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetDesiredPositions", prmDesiredPos);
 
@@ -237,14 +239,17 @@ void mtsPID::Run()
         torque.AddElementwiseProductOf(Ki, iError);
         torque.Add(Offset);
 
+
+        // write torque to robot
+        prmTorque.SetForceTorque(torque);
+        Robot.SetTorque(prmTorque);
+
     }else{
         // set torque to 0
-        torque.SetAll(0.0);
+//        torque.SetAll(0.0);
+//        std::cerr << "disable " << StateTable.GetIndexReader().Index() << std::endl;
     }
 
-    // write torque to robot
-    prmTorque.SetForceTorque(torque);
-    Robot.SetTorque(prmTorque);
 }
 
 
@@ -327,6 +332,17 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet &prmPos)
 }
 
 
+void mtsPID::Enable(const mtsBool &ena)
+{
+    enabled = ena.Data;
+
+    // set torque to 0
+    torque.SetAll(0.0);
+
+    // write torque to robot
+    prmTorque.SetForceTorque(torque);
+    Robot.SetTorque(prmTorque);
+}
 
 
 

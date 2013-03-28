@@ -131,6 +131,8 @@ protected:
 
     void SetupInterfaces(void);
 
+    void Enable(const mtsBool &ena);
+
 public:
 
     /**
