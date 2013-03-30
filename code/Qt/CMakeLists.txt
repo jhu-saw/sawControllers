@@ -1,5 +1,5 @@
 #
-# $Id: CMakeLists.txt 4010 2013-03-14 15:59:27Z adeguet1 $
+# $Id$
 #
 # (C) Copyright 2013 Johns Hopkins University (JHU), All Rights
 # Reserved.
@@ -16,6 +16,7 @@ set (REQUIRED_CISST_LIBRARIES
      cisstCommon
      cisstCommonXML
      cisstVector
+     cisstVectorQt
      cisstNumerical
      cisstOSAbstraction
      cisstMultiTask
@@ -33,10 +34,13 @@ if (cisst_FOUND_AS_REQUIRED)
   # for Qt generated header files
   include_directories (${CMAKE_CURRENT_BINARY_DIR})
   qt4_wrap_cpp (SAW_CONTROLLERS_QT_WRAP_CPP
-                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h)
+                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
+                ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h)
   add_library (sawControllersQt
                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
+               ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h
                mtsPIDQtWidget.cpp
+               mtsTeleOperationQtWidget.cpp
                ${SAW_CONTROLLERS_QT_WRAP_CPP})
   set_property (TARGET sawControllersQt PROPERTY FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})

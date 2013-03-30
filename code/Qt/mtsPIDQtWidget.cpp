@@ -2,7 +2,7 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-  $Id: mtsPIDQtWidget.cpp 3536 2013-02-20 02:25:59 zchen24 $
+  $Id$
 
   Author(s):  Zihan Chen
   Created on: 2013-02-20

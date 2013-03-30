@@ -45,7 +45,8 @@ if( cisst_FOUND )
     ${sawControllers_HEADER_DIR}/mtsController.h
     ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
     ${sawControllers_HEADER_DIR}/mtsPDGC.h
-    ${sawControllers_HEADER_DIR}/mtsPID.h )
+    ${sawControllers_HEADER_DIR}/mtsPID.h
+    ${sawControllers_HEADER_DIR}/mtsTeleOperation.h)
 
   set(
     SOURCE_FILES
@@ -55,7 +56,8 @@ if( cisst_FOUND )
     mtsController.cpp
     mtsGravityCompensation.cpp
     mtsPDGC.cpp
-    mtsPID.cpp )
+    mtsPID.cpp
+    mtsTeleOperation.cpp)
 
   add_library( sawControllers ${HEADER_FILES} ${SOURCE_FILES} )
   cisst_target_link_libraries( sawControllers ${REQUIRED_CISST_LIBRARIES} )
