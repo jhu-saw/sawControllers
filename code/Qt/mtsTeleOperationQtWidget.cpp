@@ -46,7 +46,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & taskName)
         req->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
     }
     setupUi();
-    startTimer(30); // ms
+    startTimer(50); // ms
 }
 
 void mtsTeleOperationQtWidget::Configure(const std::string &filename)

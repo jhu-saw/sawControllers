@@ -191,14 +191,14 @@ void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rot)
 
 void mtsTeleOperation::ConfigureMaster(const std::string & filename)
 {
-    if (robManipulator::EFAILURE == Master.Configure(filename)) {
+    if (!Master.Configure(filename)) {
         CMN_LOG_CLASS_INIT_ERROR << "ConfigureMaster: failed to load file \"" << filename << "\"" << std::endl;
     }
 }
 
 void mtsTeleOperation::ConfigureSlave(const std::string & filename)
 {
-    if (robManipulator::EFAILURE == Slave.Configure(filename)) {
+    if (!Slave.Configure(filename)) {
         CMN_LOG_CLASS_INIT_ERROR << "ConfigureSlave: failed to load file \"" << filename << "\"" << std::endl;
     }
 }
