@@ -30,6 +30,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <cisstCommon/cmnConstants.h>
 
 #include <sawControllers/mtsPIDQtWidget.h>
 
@@ -168,7 +169,7 @@ void mtsPIDQtWidget::slot_qpbResetDesiredPosition()
     size_t i;
     for(i = 0; i < numOfAxis; i++){
         qdsbPosition[i]->blockSignals(true);
-        qdsbPosition[i]->setValue(prmFeedbackPos.Position().at(i));
+        qdsbPosition[i]->setValue(prmFeedbackPos.Position().at(i) * cmn180_PI);
         qdsbPosition[i]->blockSignals(false);
     }
     PID.ResetController();
@@ -281,7 +282,7 @@ void mtsPIDQtWidget::setupUi()
         qdsbPosition[i]->setMaximum(360);
         qdsbPosition[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-        double range = 100.0;
+        double range = 1000.0;
         qdsbPGain[i] = new QDoubleSpinBox;
         qdsbPGain[i]->setDecimals(3);
         qdsbPGain[i]->setSingleStep(0.001);
