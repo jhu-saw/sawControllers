@@ -25,7 +25,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <sawControllers/mtsPID.h>
 
 
-CMN_IMPLEMENT_SERVICES(mtsPID);
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 
 mtsPID::mtsPID(const std::string &taskname, double period):

@@ -36,7 +36,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #define SWITCH 0
 
-CMN_IMPLEMENT_SERVICES_DERIVED(mtsPIDQtWidget, mtsComponent);
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, std::string);
 
 mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
     :mtsComponent(taskName)
@@ -82,6 +82,8 @@ void mtsPIDQtWidget::Startup()
     // Set desired pos to cur pos
     slot_qpbResetPIDGain();
     slot_qpbResetDesiredPosition();
+    // Show the GUI
+    show();
 }
 
 void mtsPIDQtWidget::Cleanup()
