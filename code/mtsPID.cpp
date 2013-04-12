@@ -117,6 +117,9 @@ void mtsPID::Configure(const std::string &filename)
     forgetIError.SetSize(numJoints);
     forgetIError.SetAll(1.0);
 
+    deadZone.SetSize(numJoints);
+    deadZone.SetAll(0.0);
+
     // read data from xml file
     char context[64];
     for(int i = 0; i < numJoints; i++){
@@ -132,12 +135,14 @@ void mtsPID::Configure(const std::string &filename)
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
         config.GetXMLValue(context, "limit/@Forget", forgetIError[i]);
+        config.GetXMLValue(context, "limit/@DeadZone", deadZone[i]);
     }
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "DeadZone: " << deadZone << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "elimit: " << errorLimit << std::endl;
@@ -191,19 +196,28 @@ void mtsPID::Run()
     // compute torque
     if(enabled){
         // compute error
-        Error = desiredPos - feedbackPos;
+        Error.DifferenceOf(desiredPos, feedbackPos);
+        size_t i;
+        for (i = 0; i < Error.size(); i++) {
+            if ((Error[i] <= deadZone[i]) && (Error[i] >= -deadZone[i]))
+                Error[i] = 0.0;
+        }
 
         // compute error derivative
         if(Robot.GetFeedbackVelocity.IsValid()){
             Robot.GetFeedbackVelocity(prmFeedbackVel);
             prmFeedbackVel.GetVelocity(feedbackVel);
-            dError = desiredVel - feedbackVel;
+            dError.DifferenceOf(desiredVel, feedbackVel);
         }else{
             // ZC: TODO add dError filtering
             // compute error derivative
             double dt = StateTable.Period;
-            if (dt > 0)
-                dError = (Error - oldError)/dt;
+            if (dt > 0) {
+                dError.DifferenceOf(Error, oldError);
+                dError.Divide(dt);
+            }
+            else
+                dError.SetAll(0.0);
         }
 
         // compute error integral
@@ -212,12 +226,10 @@ void mtsPID::Run()
 
         // check error limit & clamp iError
         bool isOutOfLimit = false;
-        size_t i;
         for ( i = 0; i < iError.size(); i++){
             // error limit
-            if(Error.Abs().at(i) < errorLimit[i]){
+            if (fabs(Error[i]) > errorLimit[i])
                 isOutOfLimit = true;
-            }
 
             // iError clamping
             if(iError.at(i) > maxIErrorLimit.at(i))
@@ -230,8 +242,8 @@ void mtsPID::Run()
         if(isOutOfLimit) EventErrorLimit();
 
         // save Error to oldError
-        oldError = Error;
-        oldDesiredPos = desiredPos;
+        oldError.Assign(Error);
+        oldDesiredPos.Assign(desiredPos);
 
         // compute torque
         torque.ElementwiseProductOf(Kp, Error);
