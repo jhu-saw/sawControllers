@@ -137,6 +137,11 @@ void mtsPID::Configure(const std::string &filename)
         config.GetXMLValue(context, "limit/@Forget", forgetIError[i]);
         config.GetXMLValue(context, "limit/@DeadZone", deadZone[i]);
     }
+    // Convert from degrees to radians
+    // TODO: Decide whether to use degrees or radians in XML file
+    // TODO: Also do this for other parameters (not just deadZone)
+    // TODO: Only do this for revolute joints
+    deadZone.Multiply(cmnPI_180);
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
