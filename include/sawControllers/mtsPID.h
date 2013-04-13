@@ -107,8 +107,8 @@ private:
     //! iError forgetting factor
     vctDoubleVec forgetIError;
 
-    //! DeadZone (errors less than this are set to 0)
-    vctDoubleVec deadZone;
+    //! Deadband (errors less than this are set to 0)
+    vctDoubleVec deadBand;
 
     //! Enable mtsPID controller
     bool enabled;

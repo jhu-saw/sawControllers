@@ -117,8 +117,8 @@ void mtsPID::Configure(const std::string &filename)
     forgetIError.SetSize(numJoints);
     forgetIError.SetAll(1.0);
 
-    deadZone.SetSize(numJoints);
-    deadZone.SetAll(0.0);
+    deadBand.SetSize(numJoints);
+    deadBand.SetAll(0.0);
 
     // read data from xml file
     char context[64];
@@ -135,19 +135,19 @@ void mtsPID::Configure(const std::string &filename)
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
         config.GetXMLValue(context, "limit/@Forget", forgetIError[i]);
-        config.GetXMLValue(context, "limit/@DeadZone", deadZone[i]);
+        config.GetXMLValue(context, "limit/@Deadband", deadBand[i]);
     }
     // Convert from degrees to radians
     // TODO: Decide whether to use degrees or radians in XML file
-    // TODO: Also do this for other parameters (not just deadZone)
+    // TODO: Also do this for other parameters (not just Deadband)
     // TODO: Only do this for revolute joints
-    deadZone.Multiply(cmnPI_180);
+    deadBand.Multiply(cmnPI_180);
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "DeadZone: " << deadZone << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << deadBand << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "elimit: " << errorLimit << std::endl;
@@ -156,8 +156,6 @@ void mtsPID::Configure(const std::string &filename)
     // provide SetDesiredPosiitons
     mtsInterfaceProvided *prov = AddInterfaceProvided("Controller");
     if(prov){
-//        StateTable.AddData( enabled, "Enabled" );
-//        prov->AddCommandWriteState( StateTable, enabled, "Enable" );
         prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
 
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
@@ -204,7 +202,7 @@ void mtsPID::Run()
         Error.DifferenceOf(desiredPos, feedbackPos);
         size_t i;
         for (i = 0; i < Error.size(); i++) {
-            if ((Error[i] <= deadZone[i]) && (Error[i] >= -deadZone[i]))
+            if ((Error[i] <= deadBand[i]) && (Error[i] >= -deadBand[i]))
                 Error[i] = 0.0;
         }
 
