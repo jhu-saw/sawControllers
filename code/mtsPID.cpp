@@ -130,11 +130,12 @@ void mtsPID::Configure(const std::string &filename)
         config.GetXMLValue(context, "pid/@DGain", Kd[i]);
         config.GetXMLValue(context, "pid/@IGain", Ki[i]);
         config.GetXMLValue(context, "pid/@OffsetTorque", Offset[i]);
+        config.GetXMLValue(context, "pid/@Forget", forgetIError[i]);
+
         // limit
         config.GetXMLValue(context, "limit/@MinILimit", minIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
-        config.GetXMLValue(context, "limit/@Forget", forgetIError[i]);
         config.GetXMLValue(context, "limit/@Deadband", deadBand[i]);
     }
     // Convert from degrees to radians

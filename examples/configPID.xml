@@ -6,18 +6,18 @@
 
   <joints>
     <joint index="0" name="yaw"> 
-      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0"/>      
-      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Forget="1.0" Deadband="0.0"/>
+      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0" Forget="1.0"/>      
+      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Deadband="0.0" Units="rad"/>
     </joint>
 
     <joint index="1" name="pitch"> 
-      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0"/>      
-      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Forget="1.0" Deadband="0.0"/>
+      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0" Forget="1.0"/>      
+      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Deadband="0.0" Units="rad"/>
     </joint>
 
     <joint index="2" name="roll"> 
-      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0"/>      
-      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Forget="1.0" Deadband="0.0"/>
+      <pid PGain="-0.09" DGain="-0.05" IGain="0.0" OffsetTorque="0.0" Forget="1.0"/>      
+      <limit MinILimit="-1" MaxILimit="1" ErrorLimit="0.5" Deadband="0.0" Units="rad"/>
     </joint>
   </joints>
 
