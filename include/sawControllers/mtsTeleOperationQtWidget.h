@@ -27,7 +27,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
-#include <cisstVector/vctQtWidgetFrame4x4.h>
+#include <cisstVector/vctQtWidgetFrame.h>
 
 #include <QtCore>
 #include <QtGui>
@@ -68,7 +68,7 @@ protected:
 private:
 
     prmPositionCartesianGet PositionMaster;
-    vctQtWidgetFrame4x4DoubleRead * PositionMasterWidget;
+    vctQtWidgetFrameDoubleRead * PositionMasterWidget;
 
     // Control
     QPushButton* quitButton;

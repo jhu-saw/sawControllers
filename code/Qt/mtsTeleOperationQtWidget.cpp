@@ -67,17 +67,6 @@ void mtsTeleOperationQtWidget::Cleanup()
 //---------- Protected --------------------------
 void mtsTeleOperationQtWidget::closeEvent(QCloseEvent * event)
 {
-//    int ret = QMessageBox::warning(this, tr("ExitBox"),
-//                                 tr("Please power off the robot before quit. \n"
-//                                    "Continue?"),
-//                                 QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-//    if(ret == QMessageBox::Yes){
-////        Robot.DisablePower();
-
-//        event->accept();
-//    }else {
-//        event->ignore();
-//    }
     event->accept();
 }
 
@@ -131,7 +120,7 @@ void mtsTeleOperationQtWidget::setupUi()
     cmdTitleLayout->addWidget(cmdTitleRightLine, 1, 2);
 
     QGridLayout * frameLayout = new QGridLayout;
-    PositionMasterWidget = new vctQtWidgetFrame4x4DoubleRead;
+    PositionMasterWidget = new vctQtWidgetFrameDoubleRead;
     frameLayout->addWidget(PositionMasterWidget, 0, 0);
 
     //------------ main layout -------------
