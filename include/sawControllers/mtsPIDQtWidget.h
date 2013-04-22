@@ -36,7 +36,10 @@ class mtsPIDQtWidget : public QWidget, public mtsComponent
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsPIDQtWidget(const std::string& taskName);
+    mtsPIDQtWidget(const std::string& taskName, unsigned int numberOfAxis);
+    // For now, single arg constructor hard-codes number of actuators. Could replace this
+    // by a custom constructor arg.
+    mtsPIDQtWidget(const std::string &taskName);
     ~mtsPIDQtWidget(){}
 
     void Configure(const std::string &filename = "");

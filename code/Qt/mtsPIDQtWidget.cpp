@@ -38,10 +38,10 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, std::string);
 
-mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
-    :mtsComponent(taskName)
+mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName,
+                               unsigned int numberOfAxis)
+    :mtsComponent(taskName), numOfAxis(numberOfAxis)
 {
-    numOfAxis = 8;
     tmpStatic = 0;
     lastEnableState.SetSize(numOfAxis);
     lastEnableState.SetAll(false);
@@ -69,6 +69,11 @@ mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
         req->AddEventHandlerVoid(&mtsPIDQtWidget::EventErrorLimitHandler, this, "EventErrorLimit");
     }
     setupUi();
+}
+
+mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
+{
+    mtsPIDQtWidget(taskName, 8);
 }
 
 void mtsPIDQtWidget::Configure(const std::string &filename)
