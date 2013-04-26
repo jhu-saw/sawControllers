@@ -36,13 +36,23 @@ http://www.cisst.org/cisst/license.txt.
 
 #define SWITCH 0
 
-CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, std::string);
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, mtsComponentConstructorNameAndUInt)
 
 mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName,
                                unsigned int numberOfAxis)
-    :mtsComponent(taskName), numOfAxis(numberOfAxis)
+    : mtsComponent(taskName), numOfAxis(numberOfAxis)
 {
-    tmpStatic = 0;
+    Init();
+}
+
+mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg)
+    : mtsComponent(arg.Name), numOfAxis(arg.Arg)
+{
+    Init();
+}
+
+void mtsPIDQtWidget::Init(void)
+{
     lastEnableState.SetSize(numOfAxis);
     lastEnableState.SetAll(false);
     analogIn.SetSize(numOfAxis);
@@ -69,11 +79,6 @@ mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName,
         req->AddEventHandlerVoid(&mtsPIDQtWidget::EventErrorLimitHandler, this, "EventErrorLimit");
     }
     setupUi();
-}
-
-mtsPIDQtWidget::mtsPIDQtWidget(const std::string & taskName)
-{
-    mtsPIDQtWidget(taskName, 8);
 }
 
 void mtsPIDQtWidget::Configure(const std::string &filename)

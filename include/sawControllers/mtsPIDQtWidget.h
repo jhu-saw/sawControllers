@@ -37,9 +37,7 @@ class mtsPIDQtWidget : public QWidget, public mtsComponent
 
 public:
     mtsPIDQtWidget(const std::string& taskName, unsigned int numberOfAxis);
-    // For now, single arg constructor hard-codes number of actuators. Could replace this
-    // by a custom constructor arg.
-    mtsPIDQtWidget(const std::string &taskName);
+    mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg);
     ~mtsPIDQtWidget(){}
 
     void Configure(const std::string &filename = "");
@@ -47,6 +45,7 @@ public:
     void Cleanup();
 
 protected:
+    void Init(void);
     virtual void closeEvent(QCloseEvent *event);
 
 private slots:
@@ -99,7 +98,6 @@ private:
     unsigned short safetyRelay;
 
     // Interface
-    double tmpStatic;
     vctDynamicVector<bool> lastEnableState;
     double startTime;
 
