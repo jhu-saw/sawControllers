@@ -28,7 +28,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 
 
-CMN_IMPLEMENT_SERVICES_DERIVED(mtsTeleOperation, mtsTaskPeriodic);
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperation, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 
 bool mtsTeleOperation::Robot::Configure(const std::string & filename)
@@ -42,7 +42,19 @@ bool mtsTeleOperation::Robot::Configure(const std::string & filename)
 }
 
 mtsTeleOperation::mtsTeleOperation(const std::string & taskName, const double period)
-    :mtsTaskPeriodic(taskName, period)
+    : mtsTaskPeriodic(taskName, period)
+{
+
+    Init();
+}
+
+mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg &arg)
+    : mtsTaskPeriodic(arg)
+{
+    Init();
+}
+
+void mtsTeleOperation::Init(void)
 {
     this->StateTable.AddData(Master.CartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.CartesianCurrent, "MasterCartesianPosition");

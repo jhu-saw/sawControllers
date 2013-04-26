@@ -35,7 +35,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #define SWITCH 0
 
-CMN_IMPLEMENT_SERVICES_DERIVED(mtsTeleOperationQtWidget, mtsComponent);
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperationQtWidget, mtsComponent, std::string);
 
 mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & taskName)
     :mtsComponent(taskName)
@@ -57,6 +57,7 @@ void mtsTeleOperationQtWidget::Configure(const std::string &filename)
 void mtsTeleOperationQtWidget::Startup()
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsTeleOperationQtWidget::Startup" << std::endl;
+    show();
 }
 
 void mtsTeleOperationQtWidget::Cleanup()

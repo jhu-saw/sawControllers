@@ -36,7 +36,7 @@ http://www.cisst.org/cisst/license.txt.
 class mtsTeleOperationQtWidget : public QWidget, public mtsComponent
 {
     Q_OBJECT
-    CMN_DECLARE_SERVICES(CMN_NO_DYNAMIC_CREATION, CMN_LOG_ALLOW_DEFAULT);
+    CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
     mtsTeleOperationQtWidget(const std::string& taskName);
