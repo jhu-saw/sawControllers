@@ -63,12 +63,15 @@ protected:
 
     struct TeleOperationStruct {
         mtsFunctionRead GetPositionCartesianMaster;
+        mtsFunctionRead GetPositionCartesianSlave;
     } TeleOperation;
 
 private:
 
     prmPositionCartesianGet PositionMaster;
     vctQtWidgetFrameDoubleRead * PositionMasterWidget;
+    prmPositionCartesianGet PositionSlave;
+    vctQtWidgetFrameDoubleRead * PositionSlaveWidget;
 
     // Control
     QPushButton* quitButton;

@@ -51,8 +51,8 @@ public:
     void Cleanup(void);
 
     // Setter
-    void SetScale(const mtsDouble &scale);
-    void SetRegistrationRotation(const vctMatRot3 &rot);
+    void SetScale(const mtsDouble & scale);
+    void SetRegistrationRotation(const vctMatRot3 & rot);
 
     void ConfigureMaster(const std::string & filename);
     void ConfigureSlave(const std::string & filename);
@@ -61,9 +61,9 @@ private:
 
     void Init(void);
 
-    void EventHandlerClutched(const prmEventButton &button);
+    void EventHandlerClutched(const prmEventButton & button);
 
-    void AllignMasterToSlave();
+    void AllignMasterToSlave(void);
 
     /**
      * @brief Compute Master Pos with reference to slave ref frame

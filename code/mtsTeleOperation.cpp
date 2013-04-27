@@ -57,19 +57,25 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg &arg)
 void mtsTeleOperation::Init(void)
 {
     this->StateTable.AddData(Master.CartesianCurrent, "MasterCartesianPosition");
-    this->StateTable.AddData(Slave.CartesianCurrent, "MasterCartesianPosition");
+    this->StateTable.AddData(Slave.CartesianCurrent, "SlaveCartesianPosition");
 
     // Setup CISST Interface
-    mtsInterfaceRequired *req = AddInterfaceRequired("Master");
+    mtsInterfaceRequired * req;
+    req = AddInterfaceRequired("Master");
     if (req) {
         req->AddFunction("GetPositionJoint", Master.GetPositionJoint);
         // req->AddFunction("SetCartesianPosition", Master.SetCartesianPosition);
     }
 
-    std::cerr << CMN_LOG_DETAILS << " this need to be required when I have a working slave" << std::endl;
-    req = AddInterfaceRequired("Slave", MTS_OPTIONAL);
+    req = AddInterfaceRequired("Slave");
     if (req) {
         req->AddFunction("GetPositionJoint", Slave.GetPositionJoint);
+        // req->AddFunction("SetCartesianPosition", Slave.SetPositionCartesian);
+    }
+
+    req = AddInterfaceRequired("Clutch");
+    if (req) {
+        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
         // req->AddFunction("SetCartesianPosition", Slave.SetPositionCartesian);
     }
 
@@ -77,11 +83,11 @@ void mtsTeleOperation::Init(void)
     if (prov) {
         prov->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
         prov->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
-                              "SetRegistrationRoation", vctMatRot3());
+                              "SetRegistrationRotation", vctMatRot3());
 
         prov->AddCommandVoid(&mtsTeleOperation::AllignMasterToSlave, this, "AllignMasterToSlave");
         prov->AddCommandReadState(this->StateTable, Master.CartesianCurrent, "GetPositionCartesianMaster");
-        prov->AddCommandReadState(this->StateTable, Slave.CartesianCurrent, "GetCartesianPositionSlave");
+        prov->AddCommandReadState(this->StateTable, Slave.CartesianCurrent, "GetPositionCartesianSlave");
     }
 }
 
@@ -102,6 +108,9 @@ void mtsTeleOperation::Startup(void)
 
 void mtsTeleOperation::Run(void)
 {
+    ProcessQueuedCommands();
+    ProcessQueuedEvents();
+
     mtsExecutionResult executionResult;
     executionResult = Master.GetPositionJoint(Master.JointCurrent);
     if (!executionResult.IsOK()) {
@@ -111,6 +120,15 @@ void mtsTeleOperation::Run(void)
     vctFrm4x4 masterPosition;
     masterPosition = Master.Manipulator.ForwardKinematics(Master.JointCurrent.Position());
     Master.CartesianCurrent.Position().From(masterPosition);
+
+    executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
+    if (!executionResult.IsOK()) {
+        CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetJointPosition failed \""
+                                << executionResult << "\"" << std::endl;
+    }
+    vctFrm4x4 slavePosition;
+    slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
+    Slave.CartesianCurrent.Position().From(slavePosition);
 
     // Clutch
     // Follow mode
@@ -142,15 +160,16 @@ void mtsTeleOperation::Cleanup(void)
 
 void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 {
-
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
+        std::cerr << "--------------- clutch pressed --------- " << std::endl;
         /*
         Master.GetCartesianPosition(Master.PositionCurrent);
         MasterClutchedOrientation.Assign(Master.PositionCurrent.Position().Rotation());
         */
     } else {
         this->IsClutched = false;
+        std::cerr << "--------------- clutch released --------- " << std::endl;
 /*
         //! \todo compute clutch offset
 

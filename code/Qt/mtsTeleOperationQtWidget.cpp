@@ -41,9 +41,10 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & taskName)
     :mtsComponent(taskName)
 {
     // Setup CISST Interface
-    mtsInterfaceRequired *req = AddInterfaceRequired("TeleOperation");
+    mtsInterfaceRequired * req = AddInterfaceRequired("TeleOperation");
     if (req) {
         req->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
+        req->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
     }
     setupUi();
     startTimer(50); // ms
@@ -82,11 +83,17 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent *event)
 {
     mtsExecutionResult executionResult;
     executionResult = TeleOperation.GetPositionCartesianMaster(PositionMaster);
-    if (!executionResult.IsOK()) {
+    if (!executionResult) {
         CMN_LOG_CLASS_RUN_ERROR << "TeleOperation.GetPositionCartesianMaster failed, \""
                                 << executionResult << "\"" << std::endl;
     }
+    executionResult = TeleOperation.GetPositionCartesianSlave(PositionSlave);
+    if (!executionResult) {
+        CMN_LOG_CLASS_RUN_ERROR << "TeleOperation.GetPositionCartesianSlave failed, \""
+                                << executionResult << "\"" << std::endl;
+    }
     PositionMasterWidget->SetValue(PositionMaster.Position());
+    PositionSlaveWidget->SetValue(PositionSlave.Position());
 }
 
 ////------------ Private Methods ----------------
@@ -123,6 +130,8 @@ void mtsTeleOperationQtWidget::setupUi()
     QGridLayout * frameLayout = new QGridLayout;
     PositionMasterWidget = new vctQtWidgetFrameDoubleRead;
     frameLayout->addWidget(PositionMasterWidget, 0, 0);
+    PositionSlaveWidget = new vctQtWidgetFrameDoubleRead;
+    frameLayout->addWidget(PositionSlaveWidget, 1, 0);
 
     //------------ main layout -------------
     QVBoxLayout* mainLayout = new QVBoxLayout;
