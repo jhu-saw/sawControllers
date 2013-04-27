@@ -23,48 +23,53 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnXMLPath.h>
-#include <cisstOSAbstraction/osaTimeServer.h>
+// #include <cisstOSAbstraction/osaTimeServer.h>
 #include <cisstMultiTask/mtsComponent.h>
+#include <cisstVector/vctQtWidgetDynamicVector.h>
 
 #include <QtCore>
 #include <QtGui>
 
 
-class mtsPIDQtWidget : public QWidget, public mtsComponent
+class mtsPIDQtWidget: public QWidget, public mtsComponent
 {
-    Q_OBJECT
+    Q_OBJECT;
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsPIDQtWidget(const std::string& taskName, unsigned int numberOfAxis);
+    mtsPIDQtWidget(const std::string & componentName, unsigned int numberOfAxis);
     mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg);
     ~mtsPIDQtWidget(){}
 
-    void Configure(const std::string &filename = "");
+    void Configure(const std::string & filename = "");
     void Startup();
     void Cleanup();
 
 protected:
     void Init(void);
-    virtual void closeEvent(QCloseEvent *event);
+    virtual void closeEvent(QCloseEvent * event);
 
 private slots:
     //! qslot enable/disable mtsPID controller
     void slot_qcbEnablePID(bool toggle);
     //! qslot send desired pos when input changed
-    void slot_qdsbPosition(double position);
-    void slot_qdsbPGain(double val);
-    void slot_qdsbDGain(double val);
-    void slot_qdsbIGain(double val);
+    void slot_PositionChanged(void);
+    void slot_PGainChanged(void);
+    void slot_DGainChanged(void);
+    void slot_IGainChanged(void);
     //! qslot reset desired pos to current pos
-    void slot_qpbResetDesiredPosition();
+    void slot_MaintainPosition(void);
+    //! go to zero position
+    void slot_ZeroPosition(void);
     //! qslot reset pid gain to current gain
-    void slot_qpbResetPIDGain();
+    void slot_ResetPIDGain(void);
+
+    void timerEvent(QTimerEvent * event);
 
 private:
     //! setup PID controller GUI
-    void setupUi();
-    void EventErrorLimitHandler();
+    void setupUi(void);
+    void EventErrorLimitHandler(void);
 
 protected:
 
@@ -88,7 +93,7 @@ private:
     //! SetPosition
     vctDoubleVec desiredPos;
 
-    int numOfAxis;
+    int NumberOfAxis;
     vctDoubleVec analogIn;
     vctDoubleVec motorFeedbackCurrent;
     vctDoubleVec motorControlCurrent;
@@ -103,10 +108,11 @@ private:
 
     // GUI: Commands
     QCheckBox* qcbEnablePID;
-    QDoubleSpinBox** qdsbPosition;
-    QDoubleSpinBox** qdsbPGain;
-    QDoubleSpinBox** qdsbDGain;
-    QDoubleSpinBox** qdsbIGain;
+    vctQtWidgetDynamicVectorDoubleWrite * DesiredPositionWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * PGainWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * DGainWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * IGainWidget;
+    vctQtWidgetDynamicVectorDoubleRead * CurrentPositionWidget;
 
     // Control
     QPushButton* quitButton;

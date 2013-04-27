@@ -34,32 +34,30 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <sawControllers/mtsPIDQtWidget.h>
 
-#define SWITCH 0
-
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, mtsComponentConstructorNameAndUInt)
 
 mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName,
                                unsigned int numberOfAxis)
-    : mtsComponent(taskName), numOfAxis(numberOfAxis)
+    : mtsComponent(taskName), NumberOfAxis(numberOfAxis)
 {
     Init();
 }
 
 mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg)
-    : mtsComponent(arg.Name), numOfAxis(arg.Arg)
+    : mtsComponent(arg.Name), NumberOfAxis(arg.Arg)
 {
     Init();
 }
 
 void mtsPIDQtWidget::Init(void)
 {
-    lastEnableState.SetSize(numOfAxis);
+    lastEnableState.SetSize(NumberOfAxis);
     lastEnableState.SetAll(false);
-    analogIn.SetSize(numOfAxis);
-    motorFeedbackCurrent.SetSize(numOfAxis);
+    analogIn.SetSize(NumberOfAxis);
+    motorFeedbackCurrent.SetSize(NumberOfAxis);
 
     // ZC
-    desiredPos.SetSize(numOfAxis);
+    desiredPos.SetSize(NumberOfAxis);
     desiredPos.SetAll(0.0);
 
     // Setup CISST Interface
@@ -79,6 +77,7 @@ void mtsPIDQtWidget::Init(void)
         req->AddEventHandlerVoid(&mtsPIDQtWidget::EventErrorLimitHandler, this, "EventErrorLimit");
     }
     setupUi();
+    startTimer(50); // ms
 }
 
 void mtsPIDQtWidget::Configure(const std::string &filename)
@@ -90,8 +89,8 @@ void mtsPIDQtWidget::Startup()
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQtWidget::Startup" << std::endl;
     // Set desired pos to cur pos
-    slot_qpbResetPIDGain();
-    slot_qpbResetDesiredPosition();
+    slot_ResetPIDGain();
+    slot_MaintainPosition();
     // Show the GUI
     show();
 }
@@ -125,95 +124,81 @@ void mtsPIDQtWidget::slot_qcbEnablePID(bool toggle)
     PID.Enable(toggle);
 }
 
-void mtsPIDQtWidget::slot_qdsbPosition(double position)
+void mtsPIDQtWidget::slot_PositionChanged(void)
 {
     desiredPos.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++) {
-        desiredPos.at(i) = qdsbPosition[i]->value();
-    }
+    DesiredPositionWidget->GetValue(desiredPos);
     desiredPos.Multiply(cmnPI_180); // all UI is in degrees, all internals are in radians
     prmPositionJointSet prmDesiredPos;
     prmDesiredPos.SetGoal(desiredPos);
     PID.SetDesiredPositions(prmDesiredPos);
 }
 
-void mtsPIDQtWidget::slot_qdsbPGain(double val)
+void mtsPIDQtWidget::slot_PGainChanged(void)
 {
-    vctDoubleVec pgain;
-    pgain.SetSize(numOfAxis);
-    pgain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++) {
-        pgain[i] = qdsbPGain[i]->value();
-    }
+    vctDoubleVec pgain(NumberOfAxis, 0.0);
+    PGainWidget->GetValue(pgain);
     PID.SetPGain(pgain);
 }
 
-void mtsPIDQtWidget::slot_qdsbDGain(double val)
+void mtsPIDQtWidget::slot_DGainChanged(void)
 {
-    vctDoubleVec dgain;
-    dgain.SetSize(numOfAxis);
-    dgain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++) {
-        dgain[i] = qdsbDGain[i]->value();
-    }
+    vctDoubleVec dgain(NumberOfAxis, 0.0);
+    DGainWidget->GetValue(dgain);
     PID.SetDGain(dgain);
 }
 
-void mtsPIDQtWidget::slot_qdsbIGain(double val)
+void mtsPIDQtWidget::slot_IGainChanged(void)
 {
-    vctDoubleVec igain;
-    igain.SetSize(numOfAxis);
-    igain.SetAll(0.0);
-    for (size_t i = 0; i < numOfAxis; i++) {
-        igain[i] = qdsbIGain[i]->value();
-    }
+    vctDoubleVec igain(NumberOfAxis, 0.0);
+    IGainWidget->GetValue(igain);
     PID.SetIGain(igain);
-    CMN_LOG_CLASS_RUN_DEBUG << igain << std::endl;
 }
 
-void mtsPIDQtWidget::slot_qpbResetDesiredPosition()
+void mtsPIDQtWidget::slot_MaintainPosition(void)
 {
     // reset desired position
     prmPositionJointGet prmFeedbackPos;
-    prmFeedbackPos.SetSize(numOfAxis);
+    prmFeedbackPos.SetSize(NumberOfAxis);
     PID.GetPositionJoint(prmFeedbackPos);
-    PID.GetPositionJoint(prmFeedbackPos);
-    size_t i;
-    for(i = 0; i < numOfAxis; i++){
-        qdsbPosition[i]->blockSignals(true);
-        qdsbPosition[i]->setValue(prmFeedbackPos.Position().at(i) * cmn180_PI);
-        qdsbPosition[i]->blockSignals(false);
-    }
+    prmFeedbackPos.Position().Multiply(cmn180_PI);
+    DesiredPositionWidget->SetValue(prmFeedbackPos.Position());
     PID.ResetController();
+    slot_PositionChanged();
 }
 
-void mtsPIDQtWidget::slot_qpbResetPIDGain()
+void mtsPIDQtWidget::slot_ZeroPosition(void)
+{
+    // reset desired position
+    desiredPos.SetAll(0.0);
+    DesiredPositionWidget->SetValue(desiredPos);
+    PID.ResetController();
+    slot_PositionChanged();
+}
+
+void mtsPIDQtWidget::slot_ResetPIDGain(void)
 {
     // get gains
     vctDoubleVec gain;
-    gain.SetSize(numOfAxis);
-    size_t i;
+    gain.SetSize(NumberOfAxis);
     // PGain
     PID.GetPGain(gain);
-    for(i = 0; i < numOfAxis; i++){
-        qdsbPGain[i]->blockSignals(true);
-        qdsbPGain[i]->setValue(gain[i]);
-        qdsbPGain[i]->blockSignals(false);
-    }
+    PGainWidget->SetValue(gain);
     // DGain
     PID.GetDGain(gain);
-    for(i = 0; i < numOfAxis; i++){
-        qdsbDGain[i]->blockSignals(true);
-        qdsbDGain[i]->setValue(gain[i]);
-        qdsbDGain[i]->blockSignals(false);
-    }
+    DGainWidget->SetValue(gain);
     // IGain
     PID.GetIGain(gain);
-    for(i = 0; i < numOfAxis; i++){
-        qdsbIGain[i]->blockSignals(true);
-        qdsbIGain[i]->setValue(gain[i]);
-        qdsbIGain[i]->blockSignals(false);
-    }
+    IGainWidget->SetValue(gain);
+}
+
+void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
+{
+    prmPositionJointGet prmFeedbackPos;
+    prmFeedbackPos.SetSize(NumberOfAxis);
+    PID.GetPositionJoint(prmFeedbackPos);
+    prmFeedbackPos.Position().Multiply(cmn180_PI);
+    CurrentPositionWidget->SetValue(prmFeedbackPos.Position());
 }
 
 ////------------ Private Methods ----------------
@@ -223,171 +208,90 @@ void mtsPIDQtWidget::setupUi()
     font.setBold(true);
     font.setPointSize(12);
 
-    //----------------- Command -------------------------------
-    // Commands Title
-    // spacer          spacer
-    // -----  Commands ------
-    QGridLayout* cmdTitleLayout = new QGridLayout;
-    QSpacerItem* cmdTitleLeftSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
-    QSpacerItem* cmdTitleRightSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
-    cmdTitleLayout->addItem(cmdTitleLeftSpacer, 0, 0);
-    cmdTitleLayout->addItem(cmdTitleRightSpacer, 0, 2);
+    QGridLayout * gridLayout = new QGridLayout();
 
-    QFrame* cmdTitleLeftLine = new QFrame;
-    cmdTitleLeftLine->setFrameShape(QFrame::HLine);
-    cmdTitleLeftLine->setFrameShadow(QFrame::Sunken);
-    QFrame* cmdTitleRightLine = new QFrame;
-    cmdTitleRightLine->setFrameShape(QFrame::HLine);
-    cmdTitleRightLine->setFrameShadow(QFrame::Sunken);
-    QLabel* cmdTitleLabel = new QLabel("PID Controller");
-    cmdTitleLabel->setFont(font);
-    cmdTitleLabel->setAlignment(Qt::AlignCenter);
+    int row = 0;
+    QLabel * currentPosLabel = new QLabel("Current position (deg)");
+    currentPosLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(currentPosLabel, row, 0);
+    CurrentPositionWidget = new vctQtWidgetDynamicVectorDoubleRead();
+    gridLayout->addWidget(CurrentPositionWidget, row, 1);
+    row++;
 
-    cmdTitleLayout->addWidget(cmdTitleLeftLine, 1, 0);
-    cmdTitleLayout->addWidget(cmdTitleLabel, 1, 1);
-    cmdTitleLayout->addWidget(cmdTitleRightLine, 1, 2);
-
-    // Commands Label
-    // [] Enable PID
-    // Desired Positions
-    //    QLabel
-    QVBoxLayout* cmdLabelLayout = new QVBoxLayout;
-    QFrame* cmdLabelFrame = new QFrame;
-    qcbEnablePID = new QCheckBox("Enable");
-    QLabel* desiredPosLabel = new QLabel("Position");
+    QLabel * desiredPosLabel = new QLabel("Desired position (deg)");
     desiredPosLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(desiredPosLabel, row, 0);
+    DesiredPositionWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    // DesiredPositionWidget->SetDecimals(2);
+    DesiredPositionWidget->SetStep(0.1);
+    DesiredPositionWidget->SetRange(-360.0, 360.0);
+    gridLayout->addWidget(DesiredPositionWidget, row, 1);
+    row++;
+
     QLabel* pLabel = new QLabel("PGain");
     pLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(pLabel);
+    PGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    PGainWidget->SetStep(0.01);
+    PGainWidget->SetRange(-1000.0, 1000.0);
+    gridLayout->addWidget(PGainWidget, row, 1);
+    row++;
+
     QLabel* dLabel = new QLabel("DGain");
     dLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(dLabel);
+    DGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    DGainWidget->SetStep(0.01);
+    DGainWidget->SetRange(-1000.0, 1000.0);
+    gridLayout->addWidget(DGainWidget, row, 1);
+    row++;
+
     QLabel* iLabel = new QLabel("IGain");
     iLabel->setAlignment(Qt::AlignRight);
-
-    cmdLabelLayout->addWidget(qcbEnablePID);
-    cmdLabelLayout->addWidget(desiredPosLabel);
-    cmdLabelLayout->addWidget(pLabel);
-    cmdLabelLayout->addWidget(dLabel);
-    cmdLabelLayout->addWidget(iLabel);
-    cmdLabelFrame->setLayout(cmdLabelLayout);
-    cmdLabelFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-
-    // Commands Info
-    // [] Enable Axis i
-    //   xx.xx mA  double spin box
-    //   --|--     slider
-    QVBoxLayout** cmdInfoLayout = new QVBoxLayout*[numOfAxis];
-    QFrame** cmdInfoFrame = new QFrame*[numOfAxis];
-//    qcbEnable = new QCheckBox*[numOfAxis];
-    qdsbPosition = new QDoubleSpinBox*[numOfAxis];
-    qdsbPGain = new QDoubleSpinBox*[numOfAxis];
-    qdsbDGain = new QDoubleSpinBox*[numOfAxis];
-    qdsbIGain = new QDoubleSpinBox*[numOfAxis];
-
-    for (int i = 0; i < numOfAxis; i++) {
-        QLabel *blank = new QLabel("Joint " + QString::number(i+1));
-        blank->setAlignment(Qt::AlignCenter);
-        qdsbPosition[i] = new QDoubleSpinBox;
-        qdsbPosition[i]->setSuffix(" deg");
-        qdsbPosition[i]->setDecimals(2);
-        qdsbPosition[i]->setSingleStep(0.1);
-        qdsbPosition[i]->setMinimum(-360);
-        qdsbPosition[i]->setMaximum(360);
-        qdsbPosition[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-
-        double range = 1000.0;
-        qdsbPGain[i] = new QDoubleSpinBox;
-        qdsbPGain[i]->setDecimals(3);
-        qdsbPGain[i]->setSingleStep(0.001);
-        qdsbPGain[i]->setMinimum(-range);
-        qdsbPGain[i]->setMaximum(range);
-        qdsbPGain[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-
-        qdsbDGain[i] = new QDoubleSpinBox;
-        qdsbDGain[i]->setDecimals(3);
-        qdsbDGain[i]->setSingleStep(0.001);
-        qdsbDGain[i]->setMinimum(-range);
-        qdsbDGain[i]->setMaximum(range);
-        qdsbDGain[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-
-        range = 100.0;
-        qdsbIGain[i] = new QDoubleSpinBox;
-        qdsbIGain[i]->setDecimals(3);
-        qdsbIGain[i]->setSingleStep(0.001);
-        qdsbIGain[i]->setMinimum(-range);
-        qdsbIGain[i]->setMaximum(range);
-        qdsbIGain[i]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-
-        cmdInfoLayout[i] = new QVBoxLayout;
-        cmdInfoLayout[i]->addWidget(blank);
-        cmdInfoLayout[i]->addWidget(qdsbPosition[i]);
-        cmdInfoLayout[i]->addWidget(qdsbPGain[i]);
-        cmdInfoLayout[i]->addWidget(qdsbDGain[i]);
-        cmdInfoLayout[i]->addWidget(qdsbIGain[i]);
-
-        cmdInfoFrame[i] = new QFrame;
-        cmdInfoFrame[i]->setLayout(cmdInfoLayout[i]);
-        cmdInfoFrame[i]->setFrameShape(QFrame::StyledPanel);
-        cmdInfoFrame[i]->setFrameShadow(QFrame::Sunken);
-    }
-
-    // Commands lower layout
-    // cmdLabel | cmdInfo1 | cmdInfo2 |...
-    QHBoxLayout* cmdLowerLayout = new QHBoxLayout;
-    cmdLowerLayout->addWidget(cmdLabelFrame);
-    for (int i = 0; i < numOfAxis; i++) {
-        cmdLowerLayout->addWidget(cmdInfoFrame[i]);
-    }
-
-    // Commands layout
-    // cmdTitleLayout
-    // cmdLowerLayout
-    QVBoxLayout* cmdLayout = new QVBoxLayout;
-    cmdLayout->addLayout(cmdTitleLayout);
-    cmdLayout->addLayout(cmdLowerLayout);
+    gridLayout->addWidget(iLabel);
+    IGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    IGainWidget->SetStep(0.01);
+    IGainWidget->SetRange(-1000.0, 1000.0);
+    gridLayout->addWidget(IGainWidget, row, 1);
+    row++;
 
     //------------ Test --------------------
-    QPushButton* qpbResetDesiredPosition = new QPushButton("Reset Position");
-    QPushButton* qpbResetPIDGain = new QPushButton("Reset PIDGain");
-    QHBoxLayout* testLayout = new QHBoxLayout;
-    testLayout->addWidget(qpbResetDesiredPosition);
+    qcbEnablePID = new QCheckBox("Enable PID");
+    QPushButton * qpbMaintainPosition = new QPushButton("Maintain position");
+    QPushButton * qpbZeroPosition = new QPushButton("Zero position");
+    QPushButton * qpbResetPIDGain = new QPushButton("Reset PID gains");
+    QHBoxLayout * testLayout = new QHBoxLayout;
+    testLayout->addWidget(qcbEnablePID);
+    testLayout->addWidget(qpbMaintainPosition);
+    testLayout->addWidget(qpbZeroPosition);
     testLayout->addWidget(qpbResetPIDGain);
     testLayout->addStretch();
-    QGroupBox* testGroupBox = new QGroupBox("Function Test");
+    QGroupBox * testGroupBox = new QGroupBox("Control");
     testGroupBox->setLayout(testLayout);
 
-    connect(qpbResetDesiredPosition, SIGNAL(clicked()), this, SLOT(slot_qpbResetDesiredPosition()));
-    connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(slot_qpbResetPIDGain()));
+    connect(qcbEnablePID, SIGNAL(toggled(bool)), this, SLOT(slot_qcbEnablePID(bool)));
+    connect(qpbMaintainPosition, SIGNAL(clicked()), this, SLOT(slot_MaintainPosition()));
+    connect(qpbZeroPosition, SIGNAL(clicked()), this, SLOT(slot_ZeroPosition()));
+    connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(slot_ResetPIDGain()));
 
     //------------ main layout -------------
-    QVBoxLayout* mainLayout = new QVBoxLayout;
-    mainLayout->addLayout(cmdLayout);
+    QVBoxLayout * mainLayout = new QVBoxLayout;
+    mainLayout->addLayout(gridLayout);
     mainLayout->addWidget(testGroupBox);
 
     setLayout(mainLayout);
 
-////    setFixedWidth(750);
-////    setFixedHeight(sizeHint().height());
-
-    setWindowTitle("PID Controller");
+    setWindowTitle(this->GetName().c_str());
     resize(sizeHint());
 
     // connect signals & slots
-    // Commands
-    connect(qcbEnablePID, SIGNAL(toggled(bool)), this, SLOT(slot_qcbEnablePID(bool)));
-    for (int i = 0; i < numOfAxis; i++) {
-        connect(qdsbPosition[i], SIGNAL(valueChanged(double)),
-                this, SLOT(slot_qdsbPosition(double)));
-        connect(qdsbPGain[i], SIGNAL(valueChanged(double)),
-                this, SLOT(slot_qdsbPGain(double)));
-        connect(qdsbDGain[i], SIGNAL(valueChanged(double)),
-                this, SLOT(slot_qdsbDGain(double)));
-        connect(qdsbIGain[i], SIGNAL(valueChanged(double)),
-                this, SLOT(slot_qdsbIGain(double)));
-    }
-
+    connect(DesiredPositionWidget, SIGNAL(valueChanged()), this, SLOT(slot_PositionChanged()));
+    connect(PGainWidget, SIGNAL(valueChanged()), this, SLOT(slot_PGainChanged()));
+    connect(DGainWidget, SIGNAL(valueChanged()), this, SLOT(slot_DGainChanged()));
+    connect(IGainWidget, SIGNAL(valueChanged()), this, SLOT(slot_IGainChanged()));
 }
 
-void mtsPIDQtWidget::EventErrorLimitHandler()
+void mtsPIDQtWidget::EventErrorLimitHandler(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << "EventErrorLimitHandler" << std::endl;
 }

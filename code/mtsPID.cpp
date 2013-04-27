@@ -255,7 +255,6 @@ void mtsPID::Run()
         torque.AddElementwiseProductOf(Ki, iError);
         torque.Add(Offset);
 
-
         // write torque to robot
         prmTorque.SetForceTorque(torque);
         Robot.SetTorque(prmTorque);
