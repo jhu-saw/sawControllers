@@ -47,8 +47,8 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
 void mtsPID::SetupInterfaces(void)
 {
     // require RobotJointTorque interface
-    mtsInterfaceRequired *req = AddInterfaceRequired("RobotJointTorqueInterface");
-    if(req){
+    mtsInterfaceRequired * req = AddInterfaceRequired("RobotJointTorqueInterface");
+    if (req) {
         req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
         req->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
@@ -155,13 +155,13 @@ void mtsPID::Configure(const std::string &filename)
     CMN_LOG_CLASS_INIT_VERBOSE << "forget: " << forgetIError << std::endl;
 
     // provide SetDesiredPosiitons
-    mtsInterfaceProvided *prov = AddInterfaceProvided("Controller");
+    mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
     if(prov){
         prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
 
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
 
-        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetDesiredPositions", prmDesiredPos);
+        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", prmDesiredPos);
 
         StateTable.AddData( prmFeedbackPos, "prmFeedbackPos");
         prov->AddCommandReadState(StateTable, prmFeedbackPos, "GetPositionJoint");

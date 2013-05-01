@@ -79,7 +79,9 @@ protected:
     public:
         bool Configure(const std::string & filename);
         mtsFunctionRead GetPositionJoint;
+        mtsFunctionWrite SetPositionJoint;
         prmPositionCartesianGet CartesianCurrent;
+        vctFrm4x4 CartesianPrevious;
         prmPositionJointGet JointCurrent;
         prmPositionJointSet JointDesired;
         robManipulator Manipulator;

@@ -65,7 +65,7 @@ void mtsPIDQtWidget::Init(void)
     if (req) {
         req->AddFunction("ResetController", PID.ResetController);
         req->AddFunction("Enable", PID.Enable);
-        req->AddFunction("SetDesiredPositions", PID.SetDesiredPositions);
+        req->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         req->AddFunction("GetPositionJoint", PID.GetPositionJoint);
         req->AddFunction("GetPGain", PID.GetPGain);
         req->AddFunction("GetDGain", PID.GetDGain);
@@ -131,7 +131,7 @@ void mtsPIDQtWidget::slot_PositionChanged(void)
     desiredPos.Multiply(cmnPI_180); // all UI is in degrees, all internals are in radians
     prmPositionJointSet prmDesiredPos;
     prmDesiredPos.SetGoal(desiredPos);
-    PID.SetDesiredPositions(prmDesiredPos);
+    PID.SetPositionJoint(prmDesiredPos);
 }
 
 void mtsPIDQtWidget::slot_PGainChanged(void)

@@ -76,7 +76,7 @@ protected:
     struct ControllerPIDStruct {
         mtsFunctionVoid  ResetController;
         mtsFunctionWrite Enable;
-        mtsFunctionWrite SetDesiredPositions;
+        mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
 
         mtsFunctionRead  GetPGain;

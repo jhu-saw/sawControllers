@@ -56,6 +56,8 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg &arg)
 
 void mtsTeleOperation::Init(void)
 {
+    this->IsClutched = true;
+
     this->StateTable.AddData(Master.CartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.CartesianCurrent, "SlaveCartesianPosition");
 
@@ -70,7 +72,7 @@ void mtsTeleOperation::Init(void)
     req = AddInterfaceRequired("Slave");
     if (req) {
         req->AddFunction("GetPositionJoint", Slave.GetPositionJoint);
-        // req->AddFunction("SetCartesianPosition", Slave.SetPositionCartesian);
+        req->AddFunction("SetPositionJoint", Slave.SetPositionJoint);
     }
 
     req = AddInterfaceRequired("Clutch");
@@ -122,6 +124,7 @@ void mtsTeleOperation::Run(void)
     Master.CartesianCurrent.Position().From(masterPosition);
 
     executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
+    Slave.JointCurrent.Position()[2] = Slave.JointCurrent.Position()[2] * cmn180_PI / 1000.0; // ugly hack to convert radians to degrees to meters
     if (!executionResult.IsOK()) {
         CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetJointPosition failed \""
                                 << executionResult << "\"" << std::endl;
@@ -130,27 +133,31 @@ void mtsTeleOperation::Run(void)
     slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
     Slave.CartesianCurrent.Position().From(slavePosition);
 
-    // Clutch
-    // Follow mode
-
-    if (IsClutched) {
-        /*
-        Master.GetCartesianPosition(Master.PositionCurrent);
-        Master.PositionCurrent.Position().Rotation().Assign(MasterClutchedOrientation);
-
-        Master.PositionDesired.SetGoal(Master.PositionCurrent.Position());
-        Master.SetCartesianPosition(Master.PositionDesired);
-*/
-    } else {
-/*
-        Master.GetCartesianPosition(Master.PositionCurrent);
-        vctFrm3 mPos;
-        ComputeMasterToSlaveFrame(Master.PositionCurrent.Position(), mPos);
-
-        Slave.PositionDesired.SetGoal(Offset.ApplyTo(mPos));
-        Slave.SetCartesianPosition(Slave.PositionDesired);
-        */
+    // follow mode
+    if (!IsClutched) {
+        // computer master motion
+        vctFrm4x4 masterCartesianMotion;
+        masterPosition.ApplyTo(Master.CartesianPrevious.Inverse(), masterCartesianMotion);
+        // compute desired slave motion
+        vctFrm4x4 slaveCartesianMotion;
+        slaveCartesianMotion.Translation().ProductOf(masterCartesianMotion.Translation(), this->Scale);
+        // compute desired slave position
+        vctFrm4x4 slaveCartesianDesired;
+        slaveCartesianMotion.ApplyTo(slavePosition, slaveCartesianDesired);
+        vctDoubleVec slaveJointDesired(Slave.JointCurrent.Position());
+        slaveJointDesired.resize(6);
+        std::cerr << "current frame:\n" << slavePosition << std::endl
+                  << "joints: " << slaveJointDesired << std::endl
+                  << "frame:\n" << slaveCartesianDesired << std::endl;
+        Slave.Manipulator.InverseKinematics(slaveJointDesired, slaveCartesianDesired);
+        slaveJointDesired.resize(7);
+        slaveJointDesired.Element(6) = 0.0;
+        // apply desired slave position
+        Slave.JointDesired.Goal().ForceAssign(slaveJointDesired);
+        Slave.SetPositionJoint(Slave.JointDesired);
     }
+    Master.CartesianPrevious.Assign(masterPosition);
+    Slave.CartesianPrevious.Assign(slavePosition);
 }
 
 void mtsTeleOperation::Cleanup(void)
@@ -162,30 +169,8 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 {
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
-        std::cerr << "--------------- clutch pressed --------- " << std::endl;
-        /*
-        Master.GetCartesianPosition(Master.PositionCurrent);
-        MasterClutchedOrientation.Assign(Master.PositionCurrent.Position().Rotation());
-        */
     } else {
         this->IsClutched = false;
-        std::cerr << "--------------- clutch released --------- " << std::endl;
-/*
-        //! \todo compute clutch offset
-
-        Master.GetCartesianPosition(Master.PositionCurrent);
-        Slave.GetCartesianPosition(Slave.PositionCurrent);
-
-        vctFrm3 Rt_ms;
-        ComputeMasterToSlaveFrame(Master.PositionCurrent.Position(), Rt_ms);
-
-        // update Offset
-        Offset = Rt_ms * Slave.PositionCurrent.Position().Inverse();
-
-        //! \todo add a flag
-        // set rot to identity()
-        Offset.Rotation().Assign(vctMatRot3::Identity());
-        */
     }
 }
 
