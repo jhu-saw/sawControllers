@@ -41,15 +41,16 @@ bool mtsTeleOperation::Robot::Configure(const std::string & filename)
     return true;
 }
 
-mtsTeleOperation::mtsTeleOperation(const std::string & taskName, const double period)
-    : mtsTaskPeriodic(taskName, period)
+mtsTeleOperation::mtsTeleOperation(const std::string & taskName, const double period):
+    mtsTaskPeriodic(taskName, period),
+    Scale(0.2)
 {
-
     Init();
 }
 
-mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg &arg)
-    : mtsTaskPeriodic(arg)
+mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
+    mtsTaskPeriodic(arg),
+    Scale(0.2)
 {
     Init();
 }
@@ -137,7 +138,9 @@ void mtsTeleOperation::Run(void)
     if (!IsClutched) {
         // computer master motion
         vctFrm4x4 masterCartesianMotion;
-        masterPosition.ApplyTo(Master.CartesianPrevious.Inverse(), masterCartesianMotion);
+        Master.CartesianPrevious.ApplyInverseTo(masterPosition, masterCartesianMotion);
+
+        masterCartesianMotion = masterPosition - Master.CartesianPrevious;
         // compute desired slave motion
         vctFrm4x4 slaveCartesianMotion;
         slaveCartesianMotion.Translation().ProductOf(masterCartesianMotion.Translation(), this->Scale);
@@ -146,15 +149,39 @@ void mtsTeleOperation::Run(void)
         slaveCartesianMotion.ApplyTo(slavePosition, slaveCartesianDesired);
         vctDoubleVec slaveJointDesired(Slave.JointCurrent.Position());
         slaveJointDesired.resize(6);
-        std::cerr << "current frame:\n" << slavePosition << std::endl
-                  << "joints: " << slaveJointDesired << std::endl
-                  << "frame:\n" << slaveCartesianDesired << std::endl;
         Slave.Manipulator.InverseKinematics(slaveJointDesired, slaveCartesianDesired);
+        slaveJointDesired[2] = slaveJointDesired[2] / cmn180_PI * 1000.0; // ugly hack that other way around, Zihan wouldn't approve
         slaveJointDesired.resize(7);
         slaveJointDesired.Element(6) = 0.0;
         // apply desired slave position
         Slave.JointDesired.Goal().ForceAssign(slaveJointDesired);
         Slave.SetPositionJoint(Slave.JointDesired);
+
+//        std::cerr << "=== master cartesian motion ===" << std::endl;
+//        std::cerr << masterCartesianMotion << std::endl;
+//        std::cerr << "=== slave cartesian motion ===" << std::endl;
+//        std::cerr << slaveCartesianMotion << std::endl;
+
+//        std::cerr << "=== slave joint current ===" << std::endl;
+//        std::cerr << Slave.JointCurrent.Position() << std::endl;
+//        std::cerr << "=== slave joint desired ===" << std::endl;
+//        std::cerr << slaveJointDesired << std::endl;
+
+//        std::cerr << "=== slave cart position ===" << std::endl;
+//        std::cerr << slavePosition << std::endl;
+
+//        std::cerr << "=== slave cart desired ===" << std::endl;
+//        slaveJointDesired[2] = slaveJointDesired[2] * cmn180_PI / 1000.0;
+//        std::cerr << Slave.Manipulator.ForwardKinematics(slaveJointDesired) << std::endl;
+
+//        std::cerr << "=== slave cart desired ===" << std::endl;
+//        std::cerr << slavePosition - Slave.Manipulator.ForwardKinematics(slaveJointDesired) << std::endl;
+
+//        //        std::cerr << "=== slave joint diff ===" << std::endl;
+//        //        std::cerr << slaveJointDesired - Slave.JointCurrent.Position() << std::endl;
+
+//        std::cerr << "==============================" << std::endl;
+
     }
     Master.CartesianPrevious.Assign(masterPosition);
     Slave.CartesianPrevious.Assign(slavePosition);
