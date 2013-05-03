@@ -30,17 +30,15 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 
 mtsPID::mtsPID(const std::string &taskname, double period):
     mtsTaskPeriodic(taskname, period),
-    enabled(false)
+    Enabled(false)
 {
-    this->SetupInterfaces();
 }
 
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
-    enabled(false)
+    Enabled(false)
 {
-    this->SetupInterfaces();
 }
 
 
@@ -53,10 +51,36 @@ void mtsPID::SetupInterfaces(void)
         req->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
+
+    StateTable.AddData(prmFeedbackPos, "prmFeedbackPos");
+    StateTable.AddData(Kp, "Kp");
+    StateTable.AddData(Kd, "Kd");
+    StateTable.AddData(Ki, "Ki");
+
+    // provide SetDesiredPositions
+    mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
+    if (prov) {
+        prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
+        prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
+        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", prmDesiredPos);
+        prov->AddCommandReadState(StateTable, prmFeedbackPos, "GetPositionJoint");
+
+        // Get PID gains
+        prov->AddCommandReadState(StateTable, Kp, "GetPGain");
+        prov->AddCommandReadState(StateTable, Kd, "GetDGain");
+        prov->AddCommandReadState(StateTable, Ki, "GetIGain");
+
+        // Set PID gains
+        prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
+        prov->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
+        prov->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", Ki);
+
+        // Events
+        prov->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
+    }
 }
 
-
-void mtsPID::Configure(const std::string &filename)
+void mtsPID::Configure(const std::string & filename)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "Configure: using " << filename << std::endl;
     cmnXMLPath config;
@@ -86,12 +110,12 @@ void mtsPID::Configure(const std::string &filename)
     Offset.SetSize(numJoints);
 
     // feedback
-    feedbackPos.SetSize(numJoints);
-    desiredPos.SetSize(numJoints);
-    feedbackVel.SetSize(numJoints);
-    desiredVel.SetSize(numJoints);
-    torque.SetSize(numJoints);
-    torque.SetAll(0.0);
+    FeedbackPosition.SetSize(numJoints);
+    DesiredPosition.SetSize(numJoints);
+    FeedbackVelocity.SetSize(numJoints);
+    DesiredVelocity.SetSize(numJoints);
+    Torque.SetSize(numJoints);
+    Torque.SetAll(0.0);
 
     prmFeedbackPos.SetSize(numJoints);
     prmDesiredPos.SetSize(numJoints);
@@ -117,8 +141,8 @@ void mtsPID::Configure(const std::string &filename)
     forgetIError.SetSize(numJoints);
     forgetIError.SetAll(1.0);
 
-    deadBand.SetSize(numJoints);
-    deadBand.SetAll(0.0);
+    DeadBand.SetSize(numJoints);
+    DeadBand.SetAll(0.0);
 
     // read data from xml file
     char context[64];
@@ -136,83 +160,57 @@ void mtsPID::Configure(const std::string &filename)
         config.GetXMLValue(context, "limit/@MinILimit", minIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
-        config.GetXMLValue(context, "limit/@Deadband", deadBand[i]);
+        config.GetXMLValue(context, "limit/@Deadband", DeadBand[i]);
     }
     // Convert from degrees to radians
     // TODO: Decide whether to use degrees or radians in XML file
     // TODO: Also do this for other parameters (not just Deadband)
     // TODO: Only do this for revolute joints
-    deadBand.Multiply(cmnPI_180);
+    DeadBand.Multiply(cmnPI_180);
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << deadBand << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << DeadBand << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "elimit: " << errorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "forget: " << forgetIError << std::endl;
 
-    // provide SetDesiredPosiitons
-    mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
-    if(prov){
-        prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
-
-        prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
-
-        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", prmDesiredPos);
-
-        StateTable.AddData( prmFeedbackPos, "prmFeedbackPos");
-        prov->AddCommandReadState(StateTable, prmFeedbackPos, "GetPositionJoint");
-
-        // Get PID gains
-        StateTable.AddData( Kp, "Kp");
-        StateTable.AddData( Kd, "Kd");
-        StateTable.AddData( Ki, "Ki");
-        prov->AddCommandReadState( StateTable, Kp, "GetPGain" );
-        prov->AddCommandReadState( StateTable, Kd, "GetDGain" );
-        prov->AddCommandReadState( StateTable, Ki, "GetIGain" );
-
-        // Set PID gains
-        prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
-        prov->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
-        prov->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", Ki);
-
-        // Events
-        prov->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
-    }
+    // now that we know the sizes of vectors, create interfaces
+    this->SetupInterfaces();
 }
 
-void mtsPID::Startup()
+void mtsPID::Startup(void)
 {
     // startup
 }
 
-void mtsPID::Run()
+void mtsPID::Run(void)
 {
     ProcessQueuedEvents();
     ProcessQueuedCommands();
 
     Robot.GetFeedbackPosition(prmFeedbackPos);
-    prmFeedbackPos.GetPosition(feedbackPos);
+    prmFeedbackPos.GetPosition(FeedbackPosition);
 
     // compute torque
-    if(enabled){
+    if (Enabled) {
         // compute error
-        Error.DifferenceOf(desiredPos, feedbackPos);
+        Error.DifferenceOf(DesiredPosition, FeedbackPosition);
         size_t i;
         for (i = 0; i < Error.size(); i++) {
-            if ((Error[i] <= deadBand[i]) && (Error[i] >= -deadBand[i]))
+            if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
                 Error[i] = 0.0;
         }
 
         // compute error derivative
-        if(Robot.GetFeedbackVelocity.IsValid()){
+        if (Robot.GetFeedbackVelocity.IsValid()) {
             Robot.GetFeedbackVelocity(prmFeedbackVel);
-            prmFeedbackVel.GetVelocity(feedbackVel);
-            dError.DifferenceOf(desiredVel, feedbackVel);
-        }else{
+            prmFeedbackVel.GetVelocity(FeedbackVelocity);
+            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
+        } else {
             // ZC: TODO add dError filtering
             // compute error derivative
             double dt = StateTable.Period;
@@ -220,8 +218,9 @@ void mtsPID::Run()
                 dError.DifferenceOf(Error, oldError);
                 dError.Divide(dt);
             }
-            else
+            else {
                 dError.SetAll(0.0);
+            }
         }
 
         // compute error integral
@@ -230,36 +229,36 @@ void mtsPID::Run()
 
         // check error limit & clamp iError
         bool isOutOfLimit = false;
-        for ( i = 0; i < iError.size(); i++){
+        for (i = 0; i < iError.size(); i++) {
             // error limit
             if (fabs(Error[i]) > errorLimit[i])
                 isOutOfLimit = true;
 
             // iError clamping
-            if(iError.at(i) > maxIErrorLimit.at(i))
+            if (iError.at(i) > maxIErrorLimit.at(i))
                 iError.at(i) = maxIErrorLimit.at(i);
             else if (iError.at(i) < minIErrorLimit.at(i))
                 iError.at(i) = minIErrorLimit[i];
         }
 
         // send EventErrorLimit
-        if(isOutOfLimit) EventErrorLimit();
+        if (isOutOfLimit) EventErrorLimit();
 
         // save Error to oldError
         oldError.Assign(Error);
-        oldDesiredPos.Assign(desiredPos);
+        oldDesiredPos.Assign(DesiredPosition);
 
         // compute torque
-        torque.ElementwiseProductOf(Kp, Error);
-        torque.AddElementwiseProductOf(Kd, dError);
-        torque.AddElementwiseProductOf(Ki, iError);
-        torque.Add(Offset);
+        Torque.ElementwiseProductOf(Kp, Error);
+        Torque.AddElementwiseProductOf(Kd, dError);
+        Torque.AddElementwiseProductOf(Ki, iError);
+        Torque.Add(Offset);
 
         // write torque to robot
-        prmTorque.SetForceTorque(torque);
+        prmTorque.SetForceTorque(Torque);
         Robot.SetTorque(prmTorque);
 
-    }else{
+    } else {
         // set torque to 0
 //        torque.SetAll(0.0);
 //        std::cerr << "disable " << StateTable.GetIndexReader().Index() << std::endl;
@@ -268,50 +267,50 @@ void mtsPID::Run()
 }
 
 
-void mtsPID::Cleanup()
+void mtsPID::Cleanup(void)
 {
     // cleanup
 }
 
 
-void mtsPID::SetPGain(const vctDoubleVec &pgain)
+void mtsPID::SetPGain(const vctDoubleVec & pgain)
 {
-    if( pgain.size() != Kp.size() ){
-        CMN_LOG_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
-    }else{
+    if (pgain.size() != Kp.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
+    } else {
         Kp.Assign(pgain);
     }
 }
 
-void mtsPID::SetDGain(const vctDoubleVec &dgain)
+void mtsPID::SetDGain(const vctDoubleVec & dgain)
 {
-    if( dgain.size() != Kd.size() ){
-        CMN_LOG_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
-    }else{
+    if (dgain.size() != Kd.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
+    } else {
         Kd.Assign(dgain);
     }
 }
 
-void mtsPID::SetIGain(const vctDoubleVec &igain)
+void mtsPID::SetIGain(const vctDoubleVec & igain)
 {
-    if( igain.size() != Ki.size() ){
-        CMN_LOG_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
-    }else{
+    if (igain.size() != Ki.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
+    } else {
         Ki.Assign(igain);
     }
 }
 
-void mtsPID::SetMinIErrorLimit(const vctDoubleVec &iminlim)
+void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
     minIErrorLimit = iminlim;
 }
 
-void mtsPID::SetMaxIErrorLimit(const vctDoubleVec &imaxlim)
+void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
 {
     maxIErrorLimit = imaxlim;
 }
 
-void mtsPID::SetForgetIError(const double &forget)
+void mtsPID::SetForgetIError(const double & forget)
 {
     forgetIError = forget;
 }
@@ -319,7 +318,7 @@ void mtsPID::SetForgetIError(const double &forget)
 
 //------------- Protected Method ---------------
 
-void mtsPID::ResetController()
+void mtsPID::ResetController(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << "Reset Controller" << std::endl;
 
@@ -330,45 +329,31 @@ void mtsPID::ResetController()
 
     prmPositionJointSet setPrmPos;
     setPrmPos.SetSize(Error.size());
-    setPrmPos.SetGoal(feedbackPos);
+    setPrmPos.SetGoal(FeedbackPosition);
     SetDesiredPositions(setPrmPos);
 
-    desiredVel.SetAll(0.0);
+    DesiredVelocity.SetAll(0.0);
 }
 
 void mtsPID::SetDesiredPositions(const prmPositionJointSet &prmPos)
 {
     prmDesiredPos = prmPos;
-    prmDesiredPos.GetGoal(desiredPos);
+    prmDesiredPos.GetGoal(DesiredPosition);
 
     //    prmPos.GetVlocity(desiredVel);
     double dt = StateTable.Period;
-    desiredVel = (desiredPos - oldDesiredPos)/dt;
+    DesiredVelocity = (DesiredPosition - oldDesiredPos)/dt;
 }
 
 
 void mtsPID::Enable(const mtsBool &ena)
 {
-    enabled = ena.Data;
+    Enabled = ena.Data;
 
     // set torque to 0
-    torque.SetAll(0.0);
+    Torque.SetAll(0.0);
 
     // write torque to robot
-    prmTorque.SetForceTorque(torque);
+    prmTorque.SetForceTorque(Torque);
     Robot.SetTorque(prmTorque);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

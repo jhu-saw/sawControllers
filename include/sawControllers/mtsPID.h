@@ -53,7 +53,7 @@ private:
         mtsFunctionRead GetFeedbackVelocity;
         //! Write the joint torques
         mtsFunctionWrite SetTorque;
-    }Robot;
+    } Robot;
 
     //! Proportional gains
     vctDoubleVec Kp;
@@ -66,15 +66,15 @@ private:
 
     // TODO: change to prmPositionJointGet
     //! Feedback joint positions
-    vctDoubleVec feedbackPos;
+    vctDoubleVec FeedbackPosition;
     //! Desired joint positions
-    vctDoubleVec desiredPos;
+    vctDoubleVec DesiredPosition;
     //! Feedback joint velocities
-    vctDoubleVec feedbackVel;
+    vctDoubleVec FeedbackVelocity;
     //! Desired joint velocities
-    vctDoubleVec desiredVel;
+    vctDoubleVec DesiredVelocity;
     //! Torque set to robot
-    vctDoubleVec torque;
+    vctDoubleVec Torque;
 
     //! prm type feedback positoin
     prmPositionJointGet prmFeedbackPos;
@@ -108,10 +108,10 @@ private:
     vctDoubleVec forgetIError;
 
     //! Deadband (errors less than this are set to 0)
-    vctDoubleVec deadBand;
+    vctDoubleVec DeadBand;
 
     //! Enable mtsPID controller
-    bool enabled;
+    bool Enabled;
 
 
 protected:
@@ -130,11 +130,11 @@ protected:
      *
      * @param prmPos   The desired position
      */
-    void SetDesiredPositions(const prmPositionJointSet &prmPos);
+    void SetDesiredPositions(const prmPositionJointSet & prmPos);
 
     void SetupInterfaces(void);
 
-    void Enable(const mtsBool &ena);
+    void Enable(const mtsBool & enable);
 
 public:
 
@@ -144,9 +144,9 @@ public:
      * @param taskname   The name of the MTS periodic task
      * @param period     The period of the task
      */
-    mtsPID( const std::string& taskname,
-            double period );
-    mtsPID( const mtsTaskPeriodicConstructorArg &arg);
+    mtsPID(const std::string & taskname,
+           double period);
+    mtsPID(const mtsTaskPeriodicConstructorArg & arg);
     ~mtsPID(){}
 
     /**
@@ -154,38 +154,38 @@ public:
      *
      * @param filename  The name of the configuration file
      */
-    void Configure( const std::string& filename );
-    void Startup();
-    void Run();
-    void Cleanup();
+    void Configure(const std::string& filename);
+    void Startup(void);
+    void Run(void);
+    void Cleanup(void);
 
     /**
      * @brief Set controller P gains
      *
      * @param pgain   new P gains
      */
-    void SetPGain(const vctDoubleVec &pgain);
+    void SetPGain(const vctDoubleVec & pgain);
 
     /**
      * @brief Set controller D gains
      *
      * @param dgain   new D gains
      */
-    void SetDGain(const vctDoubleVec &dgain);
+    void SetDGain(const vctDoubleVec & dgain);
 
     /**
      * @brief Set controller I gains
      *
      * @param igain  new I gains
      */
-    void SetIGain(const vctDoubleVec &igain);
+    void SetIGain(const vctDoubleVec & igain);
 
     /**
      * @brief Set minimum iError limit
      *
      * @param iminlim  minmum iError limit
      */
-    void SetMinIErrorLimit(const vctDoubleVec &iminlim);
+    void SetMinIErrorLimit(const vctDoubleVec & iminlim);
 
 
     /**
@@ -193,14 +193,14 @@ public:
      *
      * @param imaxlim  maximum iError limit
      */
-    void SetMaxIErrorLimit(const vctDoubleVec &imaxlim);
+    void SetMaxIErrorLimit(const vctDoubleVec & imaxlim);
 
     /**
      * @brief Set error integral forgetting factor
      *
      * @param forget  iError forgetting factor
      */
-    void SetForgetIError(const double &forget);
+    void SetForgetIError(const double & forget);
 
 };
 
