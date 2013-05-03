@@ -122,6 +122,7 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 masterPosition;
     masterPosition = Master.Manipulator.ForwardKinematics(Master.JointCurrent.Position());
+    masterPosition.Rotation().NormalizedSelf();
     Master.CartesianCurrent.Position().From(masterPosition);
 
     executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
@@ -132,27 +133,29 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 slavePosition;
     slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
+    slavePosition.Rotation().NormalizedSelf();
     Slave.CartesianCurrent.Position().From(slavePosition);
 
     // follow mode
     if (!IsClutched) {
         // computer master motion
         vctFrm4x4 masterCartesianMotion;
-        Master.CartesianPrevious.ApplyInverseTo(masterPosition, masterCartesianMotion);
-
+        // Master.CartesianPrevious.ApplyInverseTo(masterPosition, masterCartesianMotion);
         masterCartesianMotion = masterPosition - Master.CartesianPrevious;
+        // masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
         // compute desired slave motion
         vctFrm4x4 slaveCartesianMotion;
         slaveCartesianMotion.Translation().ProductOf(masterCartesianMotion.Translation(), this->Scale);
+        slaveCartesianMotion.Rotation().Assign(masterCartesianMotion.Rotation());
         // compute desired slave position
         vctFrm4x4 slaveCartesianDesired;
-        slaveCartesianMotion.ApplyTo(slavePosition, slaveCartesianDesired);
+        slaveCartesianMotion.ApplyTo(Slave.CartesianPrevious, slaveCartesianDesired);
         vctDoubleVec slaveJointDesired(Slave.JointCurrent.Position());
         slaveJointDesired.resize(6);
         Slave.Manipulator.InverseKinematics(slaveJointDesired, slaveCartesianDesired);
-        slaveJointDesired[2] = slaveJointDesired[2] / cmn180_PI * 1000.0; // ugly hack that other way around, Zihan wouldn't approve
+        slaveJointDesired[2] = slaveJointDesired[2] / cmn180_PI * 1000.0;
         slaveJointDesired.resize(7);
-        slaveJointDesired.Element(6) = 0.0;
+        slaveJointDesired.Element(6) = 0.5;
         // apply desired slave position
         Slave.JointDesired.Goal().ForceAssign(slaveJointDesired);
         Slave.SetPositionJoint(Slave.JointDesired);
@@ -181,10 +184,7 @@ void mtsTeleOperation::Run(void)
 //        //        std::cerr << slaveJointDesired - Slave.JointCurrent.Position() << std::endl;
 
 //        std::cerr << "==============================" << std::endl;
-
     }
-    Master.CartesianPrevious.Assign(masterPosition);
-    Slave.CartesianPrevious.Assign(slavePosition);
 }
 
 void mtsTeleOperation::Cleanup(void)
@@ -198,6 +198,31 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
         this->IsClutched = true;
     } else {
         this->IsClutched = false;
+
+        mtsExecutionResult executionResult;
+        executionResult = Master.GetPositionJoint(Master.JointCurrent);
+        if (!executionResult.IsOK()) {
+            CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetJointPosition failed \""
+                                    << executionResult << "\"" << std::endl;
+        }
+        vctFrm4x4 masterPosition;
+        masterPosition = Master.Manipulator.ForwardKinematics(Master.JointCurrent.Position());
+        masterPosition.Rotation().NormalizedSelf();
+        Master.CartesianCurrent.Position().From(masterPosition);
+
+        executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
+        Slave.JointCurrent.Position()[2] = Slave.JointCurrent.Position()[2] * cmn180_PI / 1000.0; // ugly hack to convert radians to degrees to meters
+        if (!executionResult.IsOK()) {
+            CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetJointPosition failed \""
+                                    << executionResult << "\"" << std::endl;
+        }
+        vctFrm4x4 slavePosition;
+        slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
+        slavePosition.Rotation().NormalizedSelf();
+        Slave.CartesianCurrent.Position().From(slavePosition);
+
+        Master.CartesianPrevious.Assign(masterPosition);
+        Slave.CartesianPrevious.Assign(slavePosition);
     }
 }
 
