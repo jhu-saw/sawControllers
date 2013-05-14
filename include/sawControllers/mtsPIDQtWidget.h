@@ -79,6 +79,7 @@ protected:
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
 
+        mtsFunctionRead  GetJointType;
         mtsFunctionRead  GetPGain;
         mtsFunctionRead  GetDGain;
         mtsFunctionRead  GetIGain;
@@ -92,6 +93,7 @@ private:
 
     //! SetPosition
     vctDoubleVec desiredPos;
+    vctDoubleVec unitFactor;
 
     int NumberOfAxis;
     vctDoubleVec analogIn;

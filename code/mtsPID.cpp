@@ -47,12 +47,14 @@ void mtsPID::SetupInterfaces(void)
     // require RobotJointTorque interface
     mtsInterfaceRequired * req = AddInterfaceRequired("RobotJointTorqueInterface");
     if (req) {
+        req->AddFunction("GetJointType", Robot.GetJointType);
         req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
         req->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
 
     StateTable.AddData(prmFeedbackPos, "prmFeedbackPos");
+    StateTable.AddData(jointType, "jointType");
     StateTable.AddData(Kp, "Kp");
     StateTable.AddData(Kd, "Kd");
     StateTable.AddData(Ki, "Ki");
@@ -64,6 +66,7 @@ void mtsPID::SetupInterfaces(void)
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
         prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", prmDesiredPos);
         prov->AddCommandReadState(StateTable, prmFeedbackPos, "GetPositionJoint");
+        prov->AddCommandReadState(StateTable, jointType, "GetJointType");
 
         // Get PID gains
         prov->AddCommandReadState(StateTable, Kp, "GetPGain");
@@ -185,6 +188,12 @@ void mtsPID::Configure(const std::string & filename)
 void mtsPID::Startup(void)
 {
     // startup
+    mtsExecutionResult result;
+    result = Robot.GetJointType(jointType);
+    if (!result) {
+        CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
+                                 << result << std::endl;
+    }
 }
 
 void mtsPID::Run(void)

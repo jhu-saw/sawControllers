@@ -30,7 +30,9 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <cisstParameterTypes/prmJointType.h>
 #include <cisstCommon/cmnConstants.h>
+#include <cisstCommon/cmnUnits.h>
 
 #include <sawControllers/mtsPIDQtWidget.h>
 
@@ -59,6 +61,8 @@ void mtsPIDQtWidget::Init(void)
     // ZC
     desiredPos.SetSize(NumberOfAxis);
     desiredPos.SetAll(0.0);
+    unitFactor.SetSize(NumberOfAxis);
+    unitFactor.SetAll(1.0);
 
     // Setup CISST Interface
     mtsInterfaceRequired *req = AddInterfaceRequired("Controller");
@@ -67,6 +71,7 @@ void mtsPIDQtWidget::Init(void)
         req->AddFunction("Enable", PID.Enable);
         req->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         req->AddFunction("GetPositionJoint", PID.GetPositionJoint);
+        req->AddFunction("GetJointType", PID.GetJointType);
         req->AddFunction("GetPGain", PID.GetPGain);
         req->AddFunction("GetDGain", PID.GetDGain);
         req->AddFunction("GetIGain", PID.GetIGain);
@@ -91,6 +96,28 @@ void mtsPIDQtWidget::Startup()
     // Set desired pos to cur pos
     slot_ResetPIDGain();
     slot_MaintainPosition();
+
+    mtsExecutionResult result;
+    prmJointTypeVec jointType;
+    result = PID.GetJointType(jointType);
+    if (!result) {
+        CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
+                                 << result << std::endl;
+        unitFactor.SetAll(0.0);
+    } else {
+        // set unitFactor;
+        for(size_t i = 0; i < this->NumberOfAxis; i++){
+            if (jointType[i] == PRM_REVOLUTE)
+                unitFactor[i] = cmn180_PI;
+            else if (jointType[i] == PRM_PRISMATIC)
+                unitFactor[i] = cmn_mm;
+            else
+                cmnThrow("mtsRobotIO1394QtWidget: Unknown joint type");
+        }
+    }
+
+    std::cout << "unit factor: " << unitFactor << std::endl;
+
     // Show the GUI
     show();
 }
@@ -128,7 +155,8 @@ void mtsPIDQtWidget::slot_PositionChanged(void)
 {
     desiredPos.SetAll(0.0);
     DesiredPositionWidget->GetValue(desiredPos);
-    desiredPos.Multiply(cmnPI_180); // all UI is in degrees, all internals are in radians
+//    desiredPos.Multiply(cmnPI_180); // all UI is in degrees, all internals are in radians
+    desiredPos.ElementwiseDivide(unitFactor);
     prmPositionJointSet prmDesiredPos;
     prmDesiredPos.SetGoal(desiredPos);
     PID.SetPositionJoint(prmDesiredPos);
@@ -161,7 +189,8 @@ void mtsPIDQtWidget::slot_MaintainPosition(void)
     prmPositionJointGet prmFeedbackPos;
     prmFeedbackPos.SetSize(NumberOfAxis);
     PID.GetPositionJoint(prmFeedbackPos);
-    prmFeedbackPos.Position().Multiply(cmn180_PI);
+//    prmFeedbackPos.Position().Multiply(cmn180_PI);
+    prmFeedbackPos.Position().ElementwiseMultiply(unitFactor);
     DesiredPositionWidget->SetValue(prmFeedbackPos.Position());
     PID.ResetController();
     slot_PositionChanged();
@@ -250,7 +279,9 @@ void mtsPIDQtWidget::setupUi()
     iLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(iLabel);
     IGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    IGainWidget->SetStep(0.01);
+    IGainWidget->SetStep(0.001);
+    IGainWidget->SetPrecision(5);
+//    IGainWidget->SetFormat();
     IGainWidget->SetRange(-1000.0, 1000.0);
     gridLayout->addWidget(IGainWidget, row, 1);
     row++;

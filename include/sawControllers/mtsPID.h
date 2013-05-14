@@ -37,6 +37,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmVelocityJointGet.h>
+#include <cisstParameterTypes/prmJointType.h>
 
 #include <sawControllers/sawControllersExport.h>
 
@@ -47,6 +48,8 @@ class CISST_EXPORT mtsPID : public mtsTaskPeriodic
 private:
     // Required interface
     struct InterfaceRobotTorque {
+        //! Read joint type form robot
+        mtsFunctionRead GetJointType;
         //! Read joint position from robot
         mtsFunctionRead GetFeedbackPosition;
         //! Read joint velocity from robot
@@ -76,6 +79,8 @@ private:
     //! Torque set to robot
     vctDoubleVec Torque;
 
+    //! prm type joint type
+    prmJointTypeVec jointType;
     //! prm type feedback positoin
     prmPositionJointGet prmFeedbackPos;
     //! prm type desired position
