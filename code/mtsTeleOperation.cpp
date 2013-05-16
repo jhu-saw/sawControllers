@@ -4,7 +4,7 @@
 /*
   $Id$
 
-  Author(s):  Zihan Chen
+  Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
   (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
@@ -30,19 +30,8 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperation, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
-
-bool mtsTeleOperation::Robot::Configure(const std::string & filename)
-{
-    robManipulator::Errno result;
-    result = this->Manipulator.LoadRobot(filename);
-    if (result == robManipulator::EFAILURE) {
-        return false;
-    }
-    return true;
-}
-
-mtsTeleOperation::mtsTeleOperation(const std::string & taskName, const double period):
-    mtsTaskPeriodic(taskName, period),
+mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const double periodInSeconds):
+    mtsTaskPeriodic(componentName, periodInSeconds),
     Scale(0.2)
 {
     Init();
@@ -59,42 +48,41 @@ void mtsTeleOperation::Init(void)
 {
     this->IsClutched = true;
 
-    this->StateTable.AddData(Master.CartesianCurrent, "MasterCartesianPosition");
-    this->StateTable.AddData(Slave.CartesianCurrent, "SlaveCartesianPosition");
+    this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
+    this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
 
     // Setup CISST Interface
     mtsInterfaceRequired * req;
     req = AddInterfaceRequired("Master");
     if (req) {
-        req->AddFunction("GetPositionJoint", Master.GetPositionJoint);
-        // req->AddFunction("SetCartesianPosition", Master.SetCartesianPosition);
+        req->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
+        req->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
     }
 
     req = AddInterfaceRequired("Slave");
     if (req) {
-        req->AddFunction("GetPositionJoint", Slave.GetPositionJoint);
-        req->AddFunction("SetPositionJoint", Slave.SetPositionJoint);
+        req->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
+        req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
     }
 
     req = AddInterfaceRequired("Clutch");
     if (req) {
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
-        // req->AddFunction("SetCartesianPosition", Slave.SetPositionCartesian);
     }
 
-    mtsInterfaceProvided *prov = AddInterfaceProvided("Setting");
+    mtsInterfaceProvided * prov = AddInterfaceProvided("Setting");
     if (prov) {
         prov->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
         prov->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                               "SetRegistrationRotation", vctMatRot3());
 
         prov->AddCommandVoid(&mtsTeleOperation::AllignMasterToSlave, this, "AllignMasterToSlave");
-        prov->AddCommandReadState(this->StateTable, Master.CartesianCurrent, "GetPositionCartesianMaster");
-        prov->AddCommandReadState(this->StateTable, Slave.CartesianCurrent, "GetPositionCartesianSlave");
+        prov->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
+        prov->AddCommandReadState(this->StateTable, Slave.PositionCartesianCurrent, "GetPositionCartesianSlave");
     }
 }
 
-void mtsTeleOperation::Configure(const std::string &filename)
+void mtsTeleOperation::Configure(const std::string & filename)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "Configure: " << filename << std::endl;
 }
@@ -102,11 +90,6 @@ void mtsTeleOperation::Configure(const std::string &filename)
 void mtsTeleOperation::Startup(void)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQt::Startup" << std::endl;
-
-    // Set desired pos to cur pos
-
-    // align master to align slave position on startup();
-
 }
 
 void mtsTeleOperation::Run(void)
@@ -115,26 +98,19 @@ void mtsTeleOperation::Run(void)
     ProcessQueuedEvents();
 
     mtsExecutionResult executionResult;
-    executionResult = Master.GetPositionJoint(Master.JointCurrent);
+    executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetJointPosition failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetPositionCartesian failed \""
                                 << executionResult << "\"" << std::endl;
     }
-    vctFrm4x4 masterPosition;
-    masterPosition = Master.Manipulator.ForwardKinematics(Master.JointCurrent.Position());
-    masterPosition.Rotation().NormalizedSelf();
-    Master.CartesianCurrent.Position().From(masterPosition);
+    vctFrm4x4 masterPosition(Master.PositionCartesianCurrent.Position());
 
-    executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
-    Slave.JointCurrent.Position()[2] = Slave.JointCurrent.Position()[2] * cmn180_PI / 1000.0; // ugly hack to convert radians to degrees to meters
+    executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetJointPosition failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetPositionCartesian failed \""
                                 << executionResult << "\"" << std::endl;
     }
-    vctFrm4x4 slavePosition;
-    slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
-    slavePosition.Rotation().NormalizedSelf();
-    Slave.CartesianCurrent.Position().From(slavePosition);
+    vctFrm4x4 slavePosition(Slave.PositionCartesianCurrent.Position());
 
     // follow mode
     if (!IsClutched) {
@@ -150,15 +126,9 @@ void mtsTeleOperation::Run(void)
         // compute desired slave position
         vctFrm4x4 slaveCartesianDesired;
         slaveCartesianMotion.ApplyTo(Slave.CartesianPrevious, slaveCartesianDesired);
-        vctDoubleVec slaveJointDesired(Slave.JointCurrent.Position());
-        slaveJointDesired.resize(6);
-        Slave.Manipulator.InverseKinematics(slaveJointDesired, slaveCartesianDesired);
-        slaveJointDesired[2] = slaveJointDesired[2] / cmn180_PI * 1000.0;
-        slaveJointDesired.resize(7);
-        slaveJointDesired.Element(6) = 0.5;
         // apply desired slave position
-        Slave.JointDesired.Goal().ForceAssign(slaveJointDesired);
-        Slave.SetPositionJoint(Slave.JointDesired);
+        Slave.PositionCartesianDesired.Goal().From(slaveCartesianDesired);
+        Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
 
 //        std::cerr << "=== master cartesian motion ===" << std::endl;
 //        std::cerr << masterCartesianMotion << std::endl;
@@ -198,31 +168,19 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
         this->IsClutched = true;
     } else {
         this->IsClutched = false;
-
         mtsExecutionResult executionResult;
-        executionResult = Master.GetPositionJoint(Master.JointCurrent);
+        executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
         if (!executionResult.IsOK()) {
-            CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetJointPosition failed \""
+            CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetPositionCartesian failed \""
                                     << executionResult << "\"" << std::endl;
         }
-        vctFrm4x4 masterPosition;
-        masterPosition = Master.Manipulator.ForwardKinematics(Master.JointCurrent.Position());
-        masterPosition.Rotation().NormalizedSelf();
-        Master.CartesianCurrent.Position().From(masterPosition);
-
-        executionResult = Slave.GetPositionJoint(Slave.JointCurrent);
-        Slave.JointCurrent.Position()[2] = Slave.JointCurrent.Position()[2] * cmn180_PI / 1000.0; // ugly hack to convert radians to degrees to meters
+        executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
         if (!executionResult.IsOK()) {
-            CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetJointPosition failed \""
+            CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetPositionCartesian failed \""
                                     << executionResult << "\"" << std::endl;
         }
-        vctFrm4x4 slavePosition;
-        slavePosition = Slave.Manipulator.ForwardKinematics(Slave.JointCurrent.Position());
-        slavePosition.Rotation().NormalizedSelf();
-        Slave.CartesianCurrent.Position().From(slavePosition);
-
-        Master.CartesianPrevious.Assign(masterPosition);
-        Slave.CartesianPrevious.Assign(slavePosition);
+        Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
+        Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
     }
 }
 
@@ -255,18 +213,4 @@ void mtsTeleOperation::SetScale(const mtsDouble & scale)
 void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rot)
 {
     this->RegistrationRotation = rot;
-}
-
-void mtsTeleOperation::ConfigureMaster(const std::string & filename)
-{
-    if (!Master.Configure(filename)) {
-        CMN_LOG_CLASS_INIT_ERROR << "ConfigureMaster: failed to load file \"" << filename << "\"" << std::endl;
-    }
-}
-
-void mtsTeleOperation::ConfigureSlave(const std::string & filename)
-{
-    if (!Slave.Configure(filename)) {
-        CMN_LOG_CLASS_INIT_ERROR << "ConfigureSlave: failed to load file \"" << filename << "\"" << std::endl;
-    }
 }

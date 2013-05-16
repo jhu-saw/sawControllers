@@ -18,16 +18,13 @@ http://www.cisst.org/cisst/license.txt.
 --- end cisst license ---
 */
 
-
 #ifndef _mtsTeleOperation_h
 #define _mtsTeleOperation_h
 
-#include <cisstOSAbstraction/osaTimeServer.h>
 #include <cisstMultiTask/mtsTaskPeriodic.h>
 #include <cisstParameterTypes/prmEventButton.h>
-#include <cisstParameterTypes/prmPositionJointSet.h>
-#include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
+#include <cisstParameterTypes/prmPositionCartesianSet.h>
 #include <cisstRobot/robManipulator.h>
 
 /**
@@ -41,8 +38,8 @@ class mtsTeleOperation : public mtsTaskPeriodic
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsTeleOperation(const std::string& taskName, const double period);
-    mtsTeleOperation(const mtsTaskPeriodicConstructorArg &arg);
+    mtsTeleOperation(const std::string & componentName, const double periodInSeconds);
+    mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg);
     ~mtsTeleOperation(){}
 
     void Configure(const std::string & filename = "");
@@ -77,14 +74,11 @@ protected:
 
     class Robot {
     public:
-        bool Configure(const std::string & filename);
-        mtsFunctionRead GetPositionJoint;
-        mtsFunctionWrite SetPositionJoint;
-        prmPositionCartesianGet CartesianCurrent;
+        mtsFunctionRead GetPositionCartesian;
+        mtsFunctionWrite SetPositionCartesian;
+        prmPositionCartesianGet PositionCartesianCurrent;
+        prmPositionCartesianSet PositionCartesianDesired;
         vctFrm4x4 CartesianPrevious;
-        prmPositionJointGet JointCurrent;
-        prmPositionJointSet JointDesired;
-        robManipulator Manipulator;
     };
 
     Robot Master, Slave;

@@ -106,13 +106,14 @@ void mtsPIDQtWidget::Startup()
         unitFactor.SetAll(0.0);
     } else {
         // set unitFactor;
-        for(size_t i = 0; i < this->NumberOfAxis; i++){
-            if (jointType[i] == PRM_REVOLUTE)
+        for (size_t i = 0; i < this->NumberOfAxis; i++) {
+            if (jointType[i] == PRM_REVOLUTE) {
                 unitFactor[i] = cmn180_PI;
-            else if (jointType[i] == PRM_PRISMATIC)
+            } else if (jointType[i] == PRM_PRISMATIC) {
                 unitFactor[i] = cmn_mm;
-            else
+            } else {
                 cmnThrow("mtsRobotIO1394QtWidget: Unknown joint type");
+            }
         }
     }
 
