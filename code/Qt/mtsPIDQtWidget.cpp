@@ -177,7 +177,6 @@ void mtsPIDQtWidget::slot_MaintainPosition(void)
     prmPositionJointGet prmFeedbackPos;
     prmFeedbackPos.SetSize(NumberOfAxis);
     PID.GetPositionJoint(prmFeedbackPos);
-//    prmFeedbackPos.Position().Multiply(cmn180_PI);
     prmFeedbackPos.Position().ElementwiseMultiply(unitFactor);
     DesiredPositionWidget->SetValue(prmFeedbackPos.Position());
     PID.ResetController();
@@ -214,7 +213,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
     prmPositionJointGet prmFeedbackPos;
     prmFeedbackPos.SetSize(NumberOfAxis);
     PID.GetPositionJoint(prmFeedbackPos);
-    prmFeedbackPos.Position().Multiply(cmn180_PI);
+    prmFeedbackPos.Position().ElementwiseMultiply(unitFactor);
     CurrentPositionWidget->SetValue(prmFeedbackPos.Position());
 }
 
@@ -301,6 +300,7 @@ void mtsPIDQtWidget::setupUi()
     setLayout(mainLayout);
 
     setWindowTitle(this->GetName().c_str());
+    setMinimumWidth(750);
     resize(sizeHint());
 
     // connect signals & slots
