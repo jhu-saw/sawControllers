@@ -127,7 +127,7 @@ void mtsTeleOperation::Run(void)
         vctFrm4x4 slaveCartesianDesired;
         slaveCartesianMotion.ApplyTo(Slave.CartesianPrevious, slaveCartesianDesired);
         // apply desired slave position
-        Slave.PositionCartesianDesired.Goal().From(slaveCartesianDesired);
+        Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
         Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
 
 //        std::cerr << "=== master cartesian motion ===" << std::endl;
