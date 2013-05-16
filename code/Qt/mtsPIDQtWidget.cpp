@@ -117,8 +117,6 @@ void mtsPIDQtWidget::Startup()
         }
     }
 
-    std::cout << "unit factor: " << unitFactor << std::endl;
-
     // Show the GUI
     show();
 }
@@ -131,17 +129,6 @@ void mtsPIDQtWidget::Cleanup()
 //---------- Protected --------------------------
 void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
 {
-//    int ret = QMessageBox::warning(this, tr("ExitBox"),
-//                                 tr("Please power off the robot before quit. \n"
-//                                    "Continue?"),
-//                                 QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-//    if(ret == QMessageBox::Yes){
-////        Robot.DisablePower();
-
-//        event->accept();
-//    }else {
-//        event->ignore();
-//    }
     event->accept();
 }
 

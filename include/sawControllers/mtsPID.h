@@ -66,6 +66,13 @@ private:
     vctDoubleVec Ki;
     //! Offset
     vctDoubleVec Offset;
+    //! Joint lower limit
+    vctDoubleVec JointLowerLimit;
+    //! Joint upper limit
+    vctDoubleVec JointUpperLimit;
+    //! Flag whether check joint limit
+    bool IsCheckJointLimit;
+
 
     // TODO: change to prmPositionJointGet
     //! Feedback joint positions
@@ -184,6 +191,21 @@ public:
      * @param igain  new I gains
      */
     void SetIGain(const vctDoubleVec & igain);
+
+    /**
+     * @brief Set joint lower limit
+     *
+     * @param lowerLimit  new joint lower limit
+     */
+    void SetJointLowerLimit(const vctDoubleVec & lowerLimit);
+
+    /**
+     * @brief Set joint upper limit
+     *
+     * @param upperLimit  new joint upper limit
+     */
+    void SetJointUpperLimit(const vctDoubleVec & upperLimit);
+
 
     /**
      * @brief Set minimum iError limit

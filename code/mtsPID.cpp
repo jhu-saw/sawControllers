@@ -58,6 +58,9 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(Kp, "Kp");
     StateTable.AddData(Kd, "Kd");
     StateTable.AddData(Ki, "Ki");
+    StateTable.AddData(JointLowerLimit, "JointLowerLimit");
+    StateTable.AddData(JointUpperLimit, "JointUpperLimit");
+
 
     // provide SetDesiredPositions
     mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
@@ -72,11 +75,18 @@ void mtsPID::SetupInterfaces(void)
         prov->AddCommandReadState(StateTable, Kp, "GetPGain");
         prov->AddCommandReadState(StateTable, Kd, "GetDGain");
         prov->AddCommandReadState(StateTable, Ki, "GetIGain");
+        // Get joint limits
+        prov->AddCommandReadState(StateTable, JointLowerLimit, "GetJointLowerLimit");
+        prov->AddCommandReadState(StateTable, JointUpperLimit, "GetJointUpperLimit");
+
 
         // Set PID gains
         prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
         prov->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
         prov->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", Ki);
+        // Set joint limits
+        prov->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
+        prov->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
 
         // Events
         prov->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
@@ -111,6 +121,11 @@ void mtsPID::Configure(const std::string & filename)
     Kd.SetSize(numJoints);
     Ki.SetSize(numJoints);
     Offset.SetSize(numJoints);
+    JointLowerLimit.SetSize(numJoints);
+    JointLowerLimit.SetAll(0.0);
+    JointUpperLimit.SetSize(numJoints);
+    JointUpperLimit.SetAll(0.0);
+
 
     // feedback
     FeedbackPosition.SetSize(numJoints);
@@ -164,7 +179,28 @@ void mtsPID::Configure(const std::string & filename)
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
         config.GetXMLValue(context, "limit/@Deadband", DeadBand[i]);
+
+        // joint limit
+        IsCheckJointLimit = true;
+        std::string tmpUnits;
+        bool ret = false;
+        ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
+        if (ret){
+            config.GetXMLValue(context, "pos/@LowerLimit", JointLowerLimit[i]);
+            config.GetXMLValue(context, "pos/@UpperLimit", JointUpperLimit[i]);
+            if(tmpUnits == "deg"){
+                JointLowerLimit[i] *= cmnPI_180;
+                JointUpperLimit[i] *= cmnPI_180;
+            }else if (tmpUnits == "mm"){
+                JointLowerLimit[i] *= cmn_mm;
+                JointUpperLimit[i] *= cmn_mm;
+            }
+        }else{
+            IsCheckJointLimit = false;
+        }
     }
+
+
     // Convert from degrees to radians
     // TODO: Decide whether to use degrees or radians in XML file
     // TODO: Also do this for other parameters (not just Deadband)
@@ -175,6 +211,8 @@ void mtsPID::Configure(const std::string & filename)
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "JointLowerLimit" << JointLowerLimit << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "JointUpperLimit" << JointUpperLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << DeadBand << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
@@ -309,6 +347,25 @@ void mtsPID::SetIGain(const vctDoubleVec & igain)
     }
 }
 
+void mtsPID::SetJointLowerLimit(const vctDoubleVec &lowerLimit)
+{
+    if (lowerLimit.size() != JointLowerLimit.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetJointLowerLimit: size mismatch" << std::endl;
+    } else {
+        JointLowerLimit.Assign(lowerLimit);
+    }
+}
+
+void mtsPID::SetJointUpperLimit(const vctDoubleVec &upperLimit)
+{
+    if (upperLimit.size() != JointUpperLimit.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetJointUpperLimit: size mismatch" << std::endl;
+    } else {
+        JointUpperLimit.Assign(upperLimit);
+    }
+}
+
+
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
     minIErrorLimit = iminlim;
@@ -349,7 +406,12 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet &prmPos)
     prmDesiredPos = prmPos;
     prmDesiredPos.GetGoal(DesiredPosition);
 
-    //    prmPos.GetVlocity(desiredVel);
+    if(IsCheckJointLimit){
+        // limit check: clip the desired position
+        DesiredPosition.ElementwiseMin(JointUpperLimit);
+        DesiredPosition.ElementwiseMax(JointLowerLimit);
+    }
+
     double dt = StateTable.Period;
     DesiredVelocity = (DesiredPosition - oldDesiredPos)/dt;
 }
