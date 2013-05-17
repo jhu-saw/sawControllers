@@ -122,8 +122,14 @@ void mtsTeleOperation::Run(void)
         // compute desired slave motion
         vctFrm4x4 slaveCartesianMotion;
         slaveCartesianMotion.Translation().ProductOf(masterCartesianMotion.Translation(), this->Scale);
-        slaveCartesianMotion.Rotation().Assign(masterCartesianMotion.Rotation());
+        // HACK: ZC translation ONLY
+        //        slaveCartesianMotion.Rotation().Assign(masterCartesianMotion.Rotation());
+
+
         // compute desired slave position
+        // HACK
+        slaveCartesianMotion.Rotation().Identity();
+
         vctFrm4x4 slaveCartesianDesired;
         slaveCartesianMotion.ApplyTo(Slave.CartesianPrevious, slaveCartesianDesired);
         // apply desired slave position
