@@ -116,50 +116,44 @@ void mtsTeleOperation::Run(void)
     if (!IsClutched) {
         // computer master motion
         vctFrm4x4 masterCartesianMotion;
-        // Master.CartesianPrevious.ApplyInverseTo(masterPosition, masterCartesianMotion);
-        masterCartesianMotion = masterPosition - Master.CartesianPrevious;
-        // masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
+        masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
         // compute desired slave motion
         vctFrm4x4 slaveCartesianMotion;
-        slaveCartesianMotion.Translation().ProductOf(masterCartesianMotion.Translation(), this->Scale);
-        // HACK: ZC translation ONLY
-        //        slaveCartesianMotion.Rotation().Assign(masterCartesianMotion.Rotation());
+
+        vct3 zcTranslation;
+        zcTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation()) * this->Scale;
+
+
+        vctAxAnRot3 masterRotation;
+        masterRotation.FromNormalized(masterCartesianMotion.Rotation());
+        vctFrm4x4 masterWRTslave;
+        masterWRTslave = Slave.CartesianPrevious.Inverse() * Master.CartesianPrevious;
+//        Slave.CartesianPrevious.ApplyInverseTo(Master.CartesianPrevious, masterWRTslave);
+
+        vct3 slaveRotationAxis;
+        slaveRotationAxis = masterWRTslave.Rotation() * masterRotation.Axis();
+        vctMatRot3 slaveRotation(vctAxAnRot3(slaveRotationAxis, masterRotation.Angle()));
 
 
         // compute desired slave position
-        // HACK
-        slaveCartesianMotion.Rotation().Identity();
-
         vctFrm4x4 slaveCartesianDesired;
-        slaveCartesianMotion.ApplyTo(Slave.CartesianPrevious, slaveCartesianDesired);
+
+        // slaveCartesianDesired = slaveCartesianPrevious * slaveCartesianMotion
+        // output = motion * input -> motion.ApplyTo(input, output)
+        slaveRotation = Slave.CartesianPrevious.Rotation() * slaveRotation;
+
+        slaveCartesianDesired.Rotation().FromNormalized(slaveRotation);
+
+        // Translation
+        slaveCartesianDesired.Translation() = Slave.CartesianPrevious.Translation() + zcTranslation;
+
+
+        // ZC: I think this is wrong
         // apply desired slave position
         Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
+
+        // Slave go this cartesian position
         Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
-
-//        std::cerr << "=== master cartesian motion ===" << std::endl;
-//        std::cerr << masterCartesianMotion << std::endl;
-//        std::cerr << "=== slave cartesian motion ===" << std::endl;
-//        std::cerr << slaveCartesianMotion << std::endl;
-
-//        std::cerr << "=== slave joint current ===" << std::endl;
-//        std::cerr << Slave.JointCurrent.Position() << std::endl;
-//        std::cerr << "=== slave joint desired ===" << std::endl;
-//        std::cerr << slaveJointDesired << std::endl;
-
-//        std::cerr << "=== slave cart position ===" << std::endl;
-//        std::cerr << slavePosition << std::endl;
-
-//        std::cerr << "=== slave cart desired ===" << std::endl;
-//        slaveJointDesired[2] = slaveJointDesired[2] * cmn180_PI / 1000.0;
-//        std::cerr << Slave.Manipulator.ForwardKinematics(slaveJointDesired) << std::endl;
-
-//        std::cerr << "=== slave cart desired ===" << std::endl;
-//        std::cerr << slavePosition - Slave.Manipulator.ForwardKinematics(slaveJointDesired) << std::endl;
-
-//        //        std::cerr << "=== slave joint diff ===" << std::endl;
-//        //        std::cerr << slaveJointDesired - Slave.JointCurrent.Position() << std::endl;
-
-//        std::cerr << "==============================" << std::endl;
     }
 }
 
