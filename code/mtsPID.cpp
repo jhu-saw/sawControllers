@@ -60,7 +60,7 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(Ki, "Ki");
     StateTable.AddData(JointLowerLimit, "JointLowerLimit");
     StateTable.AddData(JointUpperLimit, "JointUpperLimit");
-
+    StateTable.AddData(IsCheckJointLimit, "IsCheckJointLimit");
 
     // provide SetDesiredPositions
     mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
@@ -78,7 +78,8 @@ void mtsPID::SetupInterfaces(void)
         // Get joint limits
         prov->AddCommandReadState(StateTable, JointLowerLimit, "GetJointLowerLimit");
         prov->AddCommandReadState(StateTable, JointUpperLimit, "GetJointUpperLimit");
-
+        // Set check limits
+        prov->AddCommandWriteState(StateTable, IsCheckJointLimit, "SetIsCheckJointLimit");
 
         // Set PID gains
         prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
@@ -410,6 +411,7 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet &prmPos)
         // limit check: clip the desired position
         DesiredPosition.ElementwiseMin(JointUpperLimit);
         DesiredPosition.ElementwiseMax(JointLowerLimit);
+    }else{
     }
 
     double dt = StateTable.Period;
