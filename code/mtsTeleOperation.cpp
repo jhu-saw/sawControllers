@@ -63,6 +63,7 @@ void mtsTeleOperation::Init(void)
     if (req) {
         req->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
         req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
+        req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
     }
 
     req = AddInterfaceRequired("Clutch");
@@ -182,6 +183,8 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
         Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
         Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
     }
+
+//    Slave.SetRobotControlState(mtsInt(3));
 }
 
 void mtsTeleOperation::AllignMasterToSlave(void)

@@ -76,6 +76,8 @@ protected:
     public:
         mtsFunctionRead GetPositionCartesian;
         mtsFunctionWrite SetPositionCartesian;
+        mtsFunctionWrite SetRobotControlState;
+
         prmPositionCartesianGet PositionCartesianCurrent;
         prmPositionCartesianSet PositionCartesianDesired;
         vctFrm4x4 CartesianPrevious;
