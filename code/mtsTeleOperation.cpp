@@ -98,6 +98,7 @@ void mtsTeleOperation::Run(void)
     ProcessQueuedCommands();
     ProcessQueuedEvents();
 
+    // get master Cartesian position
     mtsExecutionResult executionResult;
     executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
@@ -106,6 +107,7 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 masterPosition(Master.PositionCartesianCurrent.Position());
 
+    // get slave Cartesian position
     executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
         CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetPositionCartesian failed \""
@@ -113,27 +115,32 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 slavePosition(Slave.PositionCartesianCurrent.Position());
 
+
     // follow mode
     if (!IsClutched) {
-        // computer master motion
+        // compute master Cartesian motion
         vctFrm4x4 masterCartesianMotion;
         masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
-        // compute desired slave motion
-        vctFrm4x4 slaveCartesianMotion;
 
-        vct3 zcTranslation;
-        zcTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation()) * this->Scale;
+        // compute master translation
+        vct3 masterTranslation;
+        masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
+        vct3 slaveTranslation;
+        slaveTranslation = masterTranslation * this->Scale;
+        vctMatRot3 master2slave;
+        master2slave.Assign(-1.0, 0.0, 0.0,
+                             0.0,-1.0, 0.0,
+                             0.0, 0.0, 1.0);
+        slaveTranslation = slaveTranslation * master2slave;
 
-
-        vctAxAnRot3 masterRotation;
-        masterRotation.FromNormalized(masterCartesianMotion.Rotation());
+        vctAxAnRot3 masterMotionOrientation;
+        masterMotionOrientation.FromNormalized(masterCartesianMotion.Rotation());
         vctFrm4x4 masterWRTslave;
         masterWRTslave = Slave.CartesianPrevious.Inverse() * Master.CartesianPrevious;
-//        Slave.CartesianPrevious.ApplyInverseTo(Master.CartesianPrevious, masterWRTslave);
 
         vct3 slaveRotationAxis;
-        slaveRotationAxis = masterWRTslave.Rotation() * masterRotation.Axis();
-        vctMatRot3 slaveRotation(vctAxAnRot3(slaveRotationAxis, masterRotation.Angle()));
+        slaveRotationAxis = masterWRTslave.Rotation() * masterMotionOrientation.Axis();
+        vctMatRot3 slaveRotation(vctAxAnRot3(slaveRotationAxis, masterMotionOrientation.Angle()));
 
 
         // compute desired slave position
@@ -142,11 +149,12 @@ void mtsTeleOperation::Run(void)
         // slaveCartesianDesired = slaveCartesianPrevious * slaveCartesianMotion
         // output = motion * input -> motion.ApplyTo(input, output)
         slaveRotation = Slave.CartesianPrevious.Rotation() * slaveRotation;
+        slaveRotation = master2slave * slaveRotation;
 
         slaveCartesianDesired.Rotation().FromNormalized(slaveRotation);
 
         // Translation
-        slaveCartesianDesired.Translation() = Slave.CartesianPrevious.Translation() + zcTranslation;
+        slaveCartesianDesired.Translation() = Slave.CartesianPrevious.Translation() + slaveTranslation;
 
 
         // ZC: I think this is wrong
@@ -165,26 +173,32 @@ void mtsTeleOperation::Cleanup(void)
 
 void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 {
+    mtsExecutionResult executionResult;
+    executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
+    if (!executionResult.IsOK()) {
+        CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetPositionCartesian failed \""
+                                << executionResult << "\"" << std::endl;
+    }
+    executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
+    if (!executionResult.IsOK()) {
+        CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetPositionCartesian failed \""
+                                << executionResult << "\"" << std::endl;
+    }
+
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
-    } else {
+        Master.PositionCartesianDesired.Goal().Rotation().FromNormalized(
+                    Slave.PositionCartesianCurrent.Position().Rotation());
+        Master.PositionCartesianDesired.Goal().Translation().Assign(
+                    Master.PositionCartesianCurrent.Position().Translation());
+//        Master.SetPositionCartesian(Master.PositionCartesianDesired);
+    }
+    else {
         this->IsClutched = false;
-        mtsExecutionResult executionResult;
-        executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
-        if (!executionResult.IsOK()) {
-            CMN_LOG_CLASS_RUN_ERROR << "Call to Master.GetPositionCartesian failed \""
-                                    << executionResult << "\"" << std::endl;
-        }
-        executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
-        if (!executionResult.IsOK()) {
-            CMN_LOG_CLASS_RUN_ERROR << "Call to Slave.GetPositionCartesian failed \""
-                                    << executionResult << "\"" << std::endl;
-        }
+
         Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
         Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
     }
-
-//    Slave.SetRobotControlState(mtsInt(3));
 }
 
 void mtsTeleOperation::AllignMasterToSlave(void)
