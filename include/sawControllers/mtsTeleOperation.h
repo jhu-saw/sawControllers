@@ -78,6 +78,9 @@ protected:
         mtsFunctionWrite SetPositionCartesian;
         mtsFunctionWrite SetRobotControlState;
 
+        mtsFunctionRead GetGripperPosition;
+        mtsFunctionWrite SetGripperPosition;
+
         prmPositionCartesianGet PositionCartesianCurrent;
         prmPositionCartesianSet PositionCartesianDesired;
         vctFrm4x4 CartesianPrevious;

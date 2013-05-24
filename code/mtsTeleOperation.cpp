@@ -57,12 +57,14 @@ void mtsTeleOperation::Init(void)
     if (req) {
         req->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
         req->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
+        req->AddFunction("GetGripperPosition", Master.GetGripperPosition);
     }
 
     req = AddInterfaceRequired("Slave");
     if (req) {
         req->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
         req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
+        req->AddFunction("SetGripperPosition", Slave.SetGripperPosition);
         req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
     }
 
@@ -163,6 +165,13 @@ void mtsTeleOperation::Run(void)
 
         // Slave go this cartesian position
         Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
+
+        // Gripper
+        if (Master.GetGripperPosition.IsValid()) {
+            double gripperPosition;
+            Master.GetGripperPosition(gripperPosition);
+            Slave.SetGripperPosition(gripperPosition);
+        }
     }
 }
 
