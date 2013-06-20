@@ -4,7 +4,7 @@
 /*
   $Id$
 
-  Author(s):  Zihan Chen
+  Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
   (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
@@ -33,48 +33,40 @@ http://www.cisst.org/cisst/license.txt.
 #include <QtGui>
 
 
-class mtsTeleOperationQtWidget : public QWidget, public mtsComponent
+class mtsTeleOperationQtWidget: public QWidget, public mtsComponent
 {
-    Q_OBJECT
+    Q_OBJECT;
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsTeleOperationQtWidget(const std::string& taskName);
+    mtsTeleOperationQtWidget(const std::string & componentName);
     ~mtsTeleOperationQtWidget(){}
 
-    void Configure(const std::string &filename = "");
-    void Startup();
-    void Cleanup();
+    void Configure(const std::string & filename = "");
+    void Startup(void);
+    void Cleanup(void);
 
 protected:
-    virtual void closeEvent(QCloseEvent *event);
+    virtual void closeEvent(QCloseEvent * event);
 
 private slots:
-    //! qslot to clutch
-    void slot_qcbClutch(bool toggle);
-
     void timerEvent(QTimerEvent * event);
 
 private:
     //! setup TeleOperation controller GUI
-    void setupUi();
+    void setupUi(void);
 
 protected:
-
     struct TeleOperationStruct {
         mtsFunctionRead GetPositionCartesianMaster;
         mtsFunctionRead GetPositionCartesianSlave;
     } TeleOperation;
 
 private:
-
     prmPositionCartesianGet PositionMaster;
-    vctQtWidgetFrameDoubleRead * PositionMasterWidget;
+    vctQtWidgetFrameDoubleRead * QFRPositionMasterWidget;
     prmPositionCartesianGet PositionSlave;
-    vctQtWidgetFrameDoubleRead * PositionSlaveWidget;
-
-    // Control
-    QPushButton* quitButton;
+    vctQtWidgetFrameDoubleRead * QFRPositionSlaveWidget;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperationQtWidget);

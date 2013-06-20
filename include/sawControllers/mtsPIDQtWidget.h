@@ -4,7 +4,7 @@
 /*
   $Id$
 
-  Author(s):  Zihan Chen
+  Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
   (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
@@ -51,18 +51,18 @@ protected:
 
 private slots:
     //! qslot enable/disable mtsPID controller
-    void slot_qcbEnablePID(bool toggle);
+    void SlotEnablePID(bool toggle);
     //! qslot send desired pos when input changed
-    void slot_PositionChanged(void);
-    void slot_PGainChanged(void);
-    void slot_DGainChanged(void);
-    void slot_IGainChanged(void);
+    void SlotPositionChanged(void);
+    void SlotPGainChanged(void);
+    void SlotDGainChanged(void);
+    void SlotIGainChanged(void);
     //! qslot reset desired pos to current pos
-    void slot_MaintainPosition(void);
+    void SlotMaintainPosition(void);
     //! go to zero position
-    void slot_ZeroPosition(void);
+    void SlotZeroPosition(void);
     //! qslot reset pid gain to current gain
-    void slot_ResetPIDGain(void);
+    void SlotResetPIDGain(void);
 
     void timerEvent(QTimerEvent * event);
 
@@ -90,34 +90,22 @@ protected:
     } PID;
 
 private:
-
     //! SetPosition
-    vctDoubleVec desiredPos;
-    vctDoubleVec unitFactor;
+    vctDoubleVec DesiredPosition;
+    vctDoubleVec UnitFactor;
 
     int NumberOfAxis;
-    vctDoubleVec analogIn;
-    vctDoubleVec motorFeedbackCurrent;
-    vctDoubleVec motorControlCurrent;
-    vctBoolVec ampEnable;
-    vctBoolVec ampStatus;
-    bool powerStatus;
-    unsigned short safetyRelay;
-
-    // Interface
-    vctDynamicVector<bool> lastEnableState;
-    double startTime;
 
     // GUI: Commands
-    QCheckBox* qcbEnablePID;
-    vctQtWidgetDynamicVectorDoubleWrite * DesiredPositionWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * PGainWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * DGainWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * IGainWidget;
-    vctQtWidgetDynamicVectorDoubleRead * CurrentPositionWidget;
+    QCheckBox * QCBEnablePID;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPositionWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWPGainWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWIGainWidget;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
 
     // Control
-    QPushButton* quitButton;
+    QPushButton* QPBQuitButton;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPIDQtWidget);

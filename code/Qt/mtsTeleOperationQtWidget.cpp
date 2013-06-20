@@ -37,14 +37,14 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperationQtWidget, mtsComponent, std::string);
 
-mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & taskName)
-    :mtsComponent(taskName)
+mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & componentName)
+    :mtsComponent(componentName)
 {
     // Setup CISST Interface
-    mtsInterfaceRequired * req = AddInterfaceRequired("TeleOperation");
-    if (req) {
-        req->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
-        req->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
+    mtsInterfaceRequired * rinterfaceRequired = AddInterfaceRequired("TeleOperation");
+    if (rinterfaceRequired) {
+        rinterfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
+        rinterfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
     }
     setupUi();
     startTimer(50); // ms
@@ -55,31 +55,32 @@ void mtsTeleOperationQtWidget::Configure(const std::string &filename)
     CMN_LOG_CLASS_INIT_VERBOSE << "Configure: " << filename << std::endl;
 }
 
-void mtsTeleOperationQtWidget::Startup()
+void mtsTeleOperationQtWidget::Startup(void)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsTeleOperationQtWidget::Startup" << std::endl;
     show();
 }
 
-void mtsTeleOperationQtWidget::Cleanup()
+void mtsTeleOperationQtWidget::Cleanup(void)
 {
+    this->hide();
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsTeleOperationQtWidget::Cleanup" << std::endl;
 }
 
-//---------- Protected --------------------------
 void mtsTeleOperationQtWidget::closeEvent(QCloseEvent * event)
 {
-    event->accept();
+    int answer = QMessageBox::warning(this, tr("mtsTeleOperationQtWidget"),
+                                      tr("Do you really want to quit this application?"),
+                                      QMessageBox::No | QMessageBox::Yes);
+    if (answer == QMessageBox::Yes) {
+        event->accept();
+        QCoreApplication::exit();
+    } else {
+        event->ignore();
+    }
 }
 
-//----------- Private Slot ------------------------------
-
-void mtsTeleOperationQtWidget::slot_qcbClutch(bool toggle)
-{
-    // TeleOperation.Enable(toggle);
-}
-
-void mtsTeleOperationQtWidget::timerEvent(QTimerEvent *event)
+void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
 {
     mtsExecutionResult executionResult;
     executionResult = TeleOperation.GetPositionCartesianMaster(PositionMaster);
@@ -92,34 +93,29 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent *event)
         CMN_LOG_CLASS_RUN_ERROR << "TeleOperation.GetPositionCartesianSlave failed, \""
                                 << executionResult << "\"" << std::endl;
     }
-    PositionMasterWidget->SetValue(PositionMaster.Position());
-    PositionSlaveWidget->SetValue(PositionSlave.Position());
+    QFRPositionMasterWidget->SetValue(PositionMaster.Position());
+    QFRPositionSlaveWidget->SetValue(PositionSlave.Position());
 }
 
-////------------ Private Methods ----------------
-void mtsTeleOperationQtWidget::setupUi()
+void mtsTeleOperationQtWidget::setupUi(void)
 {
     QFont font;
     font.setBold(true);
     font.setPointSize(12);
 
-    //----------------- Command -------------------------------
-    // Commands Title
-    // spacer          spacer
-    // -----  Commands ------
-    QGridLayout* cmdTitleLayout = new QGridLayout;
-    QSpacerItem* cmdTitleLeftSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
-    QSpacerItem* cmdTitleRightSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
+    QGridLayout * cmdTitleLayout = new QGridLayout;
+    QSpacerItem * cmdTitleLeftSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
+    QSpacerItem * cmdTitleRightSpacer = new QSpacerItem(341, 20, QSizePolicy::Expanding);
     cmdTitleLayout->addItem(cmdTitleLeftSpacer, 0, 0);
     cmdTitleLayout->addItem(cmdTitleRightSpacer, 0, 2);
 
-    QFrame* cmdTitleLeftLine = new QFrame;
+    QFrame * cmdTitleLeftLine = new QFrame;
     cmdTitleLeftLine->setFrameShape(QFrame::HLine);
     cmdTitleLeftLine->setFrameShadow(QFrame::Sunken);
-    QFrame* cmdTitleRightLine = new QFrame;
+    QFrame * cmdTitleRightLine = new QFrame;
     cmdTitleRightLine->setFrameShape(QFrame::HLine);
     cmdTitleRightLine->setFrameShadow(QFrame::Sunken);
-    QLabel* cmdTitleLabel = new QLabel("TeleOperation Controller");
+    QLabel * cmdTitleLabel = new QLabel("TeleOperation Controller");
     cmdTitleLabel->setFont(font);
     cmdTitleLabel->setAlignment(Qt::AlignCenter);
 
@@ -128,12 +124,10 @@ void mtsTeleOperationQtWidget::setupUi()
     cmdTitleLayout->addWidget(cmdTitleRightLine, 1, 2);
 
     QGridLayout * frameLayout = new QGridLayout;
-    PositionMasterWidget = new vctQtWidgetFrameDoubleRead;
-    frameLayout->addWidget(PositionMasterWidget, 0, 0);
-    PositionSlaveWidget = new vctQtWidgetFrameDoubleRead;
-    frameLayout->addWidget(PositionSlaveWidget, 1, 0);
-
-    //------------ main layout -------------
+    QFRPositionMasterWidget = new vctQtWidgetFrameDoubleRead;
+    frameLayout->addWidget(QFRPositionMasterWidget, 0, 0);
+    QFRPositionSlaveWidget = new vctQtWidgetFrameDoubleRead;
+    frameLayout->addWidget(QFRPositionSlaveWidget, 1, 0);
     QVBoxLayout* mainLayout = new QVBoxLayout;
     mainLayout->addLayout(frameLayout);
 
@@ -141,6 +135,4 @@ void mtsTeleOperationQtWidget::setupUi()
 
     setWindowTitle("TeleOperation Controller");
     resize(sizeHint());
-
-    //connect(qcbEnableTeleOperation, SIGNAL(toggled(bool)), this, SLOT(slot_qcbEnableTeleOperation(bool)));
 }
