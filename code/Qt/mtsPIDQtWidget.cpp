@@ -251,6 +251,7 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(pLabel);
     QVWPGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
     QVWPGainWidget->SetStep(0.01);
+    QVWPGainWidget->SetPrecision(3);
     QVWPGainWidget->SetRange(-1000.0, 1000.0);
     gridLayout->addWidget(QVWPGainWidget, row, 1);
     row++;
@@ -260,6 +261,7 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(dLabel);
     QVWDGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
     QVWDGainWidget->SetStep(0.01);
+    QVWDGainWidget->SetPrecision(3);
     QVWDGainWidget->SetRange(-1000.0, 1000.0);
     gridLayout->addWidget(QVWDGainWidget, row, 1);
     row++;
