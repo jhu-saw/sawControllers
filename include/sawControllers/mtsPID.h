@@ -71,7 +71,7 @@ private:
     //! Joint upper limit
     vctDoubleVec JointUpperLimit;
     //! Flag whether check joint limit
-    bool IsCheckJointLimit;
+    bool CheckJointLimit;
 
 
     // TODO: change to prmPositionJointGet
@@ -87,15 +87,15 @@ private:
     vctDoubleVec Torque;
 
     //! prm type joint type
-    prmJointTypeVec jointType;
+    prmJointTypeVec JointType;
     //! prm type feedback positoin
-    prmPositionJointGet prmFeedbackPos;
+    prmPositionJointGet FeedbackPositionParam;
     //! prm type desired position
-    prmPositionJointSet prmDesiredPos;
+    prmPositionJointSet DesiredPositionParam;
     //! prm type feedback velocity
-    prmVelocityJointGet prmFeedbackVel;
+    prmVelocityJointGet FeedbackVelocityParam;
     //! prm type set torque
-    prmForceTorqueJointSet prmTorque;
+    prmForceTorqueJointSet TorqueParam;
 
     //! Error
     vctDoubleVec Error;

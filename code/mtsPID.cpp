@@ -30,6 +30,7 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 
 mtsPID::mtsPID(const std::string &taskname, double period):
     mtsTaskPeriodic(taskname, period),
+    CheckJointLimit(true),
     Enabled(false)
 {
 }
@@ -37,6 +38,7 @@ mtsPID::mtsPID(const std::string &taskname, double period):
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
+    CheckJointLimit(true),
     Enabled(false)
 {
 }
@@ -53,23 +55,23 @@ void mtsPID::SetupInterfaces(void)
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
 
-    StateTable.AddData(prmFeedbackPos, "prmFeedbackPos");
-    StateTable.AddData(jointType, "jointType");
+    StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
+    StateTable.AddData(JointType, "jointType");
     StateTable.AddData(Kp, "Kp");
     StateTable.AddData(Kd, "Kd");
     StateTable.AddData(Ki, "Ki");
     StateTable.AddData(JointLowerLimit, "JointLowerLimit");
     StateTable.AddData(JointUpperLimit, "JointUpperLimit");
-    StateTable.AddData(IsCheckJointLimit, "IsCheckJointLimit");
+    StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
 
     // provide SetDesiredPositions
     mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
     if (prov) {
         prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
-        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", prmDesiredPos);
-        prov->AddCommandReadState(StateTable, prmFeedbackPos, "GetPositionJoint");
-        prov->AddCommandReadState(StateTable, jointType, "GetJointType");
+        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
+        prov->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
+        prov->AddCommandReadState(StateTable, JointType, "GetJointType");
 
         // Get PID gains
         prov->AddCommandReadState(StateTable, Kp, "GetPGain");
@@ -79,7 +81,7 @@ void mtsPID::SetupInterfaces(void)
         prov->AddCommandReadState(StateTable, JointLowerLimit, "GetJointLowerLimit");
         prov->AddCommandReadState(StateTable, JointUpperLimit, "GetJointUpperLimit");
         // Set check limits
-        prov->AddCommandWriteState(StateTable, IsCheckJointLimit, "SetIsCheckJointLimit");
+        prov->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
 
         // Set PID gains
         prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
@@ -106,13 +108,13 @@ void mtsPID::Configure(const std::string & filename)
     config.GetXMLValue("/controller", "@type", type, "");
     config.GetXMLValue("/controller", "@interface", interface, "");
     config.GetXMLValue("/controller", "@numofjoints", numJoints, -1);
-    if(type != "PID"){
+    if (type != "PID") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong controller type" << std::endl;
         return;
-    }else if (interface != "JointTorqueInterface"){
+    } else if (interface != "JointTorqueInterface") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong interface. Require JointTorqueInterface" << std::endl;
         return;
-    }else if (numJoints < 0){
+    } else if (numJoints < 0) {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: invalid number of joints" << std::endl;
         return;
     }
@@ -127,7 +129,6 @@ void mtsPID::Configure(const std::string & filename)
     JointUpperLimit.SetSize(numJoints);
     JointUpperLimit.SetAll(0.0);
 
-
     // feedback
     FeedbackPosition.SetSize(numJoints);
     DesiredPosition.SetSize(numJoints);
@@ -136,10 +137,10 @@ void mtsPID::Configure(const std::string & filename)
     Torque.SetSize(numJoints);
     Torque.SetAll(0.0);
 
-    prmFeedbackPos.SetSize(numJoints);
-    prmDesiredPos.SetSize(numJoints);
-    prmFeedbackVel.SetSize(numJoints);
-    prmTorque.SetSize(numJoints);
+    FeedbackPositionParam.SetSize(numJoints);
+    DesiredPositionParam.SetSize(numJoints);
+    FeedbackVelocityParam.SetSize(numJoints);
+    TorqueParam.SetSize(numJoints);
 
     // errors
     Error.SetSize(numJoints);
@@ -165,7 +166,7 @@ void mtsPID::Configure(const std::string & filename)
 
     // read data from xml file
     char context[64];
-    for(int i = 0; i < numJoints; i++){
+    for (int i = 0; i < numJoints; i++) {
         // joint
         sprintf(context, "controller/joints/joint[%d]", i+1);
         // pid
@@ -182,7 +183,7 @@ void mtsPID::Configure(const std::string & filename)
         config.GetXMLValue(context, "limit/@Deadband", DeadBand[i]);
 
         // joint limit
-        IsCheckJointLimit = true;
+        CheckJointLimit = true;
         std::string tmpUnits;
         bool ret = false;
         ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
@@ -197,7 +198,7 @@ void mtsPID::Configure(const std::string & filename)
                 JointUpperLimit[i] *= cmn_mm;
             }
         }else{
-            IsCheckJointLimit = false;
+            CheckJointLimit = false;
         }
     }
 
@@ -228,7 +229,7 @@ void mtsPID::Startup(void)
 {
     // startup
     mtsExecutionResult result;
-    result = Robot.GetJointType(jointType);
+    result = Robot.GetJointType(JointType);
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
@@ -240,8 +241,8 @@ void mtsPID::Run(void)
     ProcessQueuedEvents();
     ProcessQueuedCommands();
 
-    Robot.GetFeedbackPosition(prmFeedbackPos);
-    prmFeedbackPos.GetPosition(FeedbackPosition);
+    Robot.GetFeedbackPosition(FeedbackPositionParam);
+    FeedbackPositionParam.GetPosition(FeedbackPosition);
 
     // compute torque
     if (Enabled) {
@@ -255,8 +256,8 @@ void mtsPID::Run(void)
 
         // compute error derivative
         if (Robot.GetFeedbackVelocity.IsValid()) {
-            Robot.GetFeedbackVelocity(prmFeedbackVel);
-            prmFeedbackVel.GetVelocity(FeedbackVelocity);
+            Robot.GetFeedbackVelocity(FeedbackVelocityParam);
+            FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
             dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
         } else {
             // ZC: TODO add dError filtering
@@ -303,8 +304,8 @@ void mtsPID::Run(void)
         Torque.Add(Offset);
 
         // write torque to robot
-        prmTorque.SetForceTorque(Torque);
-        Robot.SetTorque(prmTorque);
+        TorqueParam.SetForceTorque(Torque);
+        Robot.SetTorque(TorqueParam);
 
     } else {
         // set torque to 0
@@ -402,31 +403,30 @@ void mtsPID::ResetController(void)
     DesiredVelocity.SetAll(0.0);
 }
 
-void mtsPID::SetDesiredPositions(const prmPositionJointSet &prmPos)
+void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
 {
-    prmDesiredPos = prmPos;
-    prmDesiredPos.GetGoal(DesiredPosition);
+    DesiredPositionParam = positionParam;
+    DesiredPositionParam.GetGoal(DesiredPosition);
 
-    if(IsCheckJointLimit){
+    if (CheckJointLimit) {
         // limit check: clip the desired position
         DesiredPosition.ElementwiseMin(JointUpperLimit);
         DesiredPosition.ElementwiseMax(JointLowerLimit);
-    }else{
     }
 
     double dt = StateTable.Period;
-    DesiredVelocity = (DesiredPosition - oldDesiredPos)/dt;
+    DesiredVelocity = (DesiredPosition - oldDesiredPos) / dt;
 }
 
 
-void mtsPID::Enable(const mtsBool &ena)
+void mtsPID::Enable(const mtsBool & enable)
 {
-    Enabled = ena.Data;
+    Enabled = enable.Data;
 
     // set torque to 0
     Torque.SetAll(0.0);
 
     // write torque to robot
-    prmTorque.SetForceTorque(Torque);
-    Robot.SetTorque(prmTorque);
+    TorqueParam.SetForceTorque(Torque);
+    Robot.SetTorque(TorqueParam);
 }
