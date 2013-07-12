@@ -112,7 +112,9 @@ void mtsPIDQtWidget::Startup(void)
     }
 
     // Show the GUI
-    show();
+    if (!parent()) {
+        show();
+    }
 }
 
 void mtsPIDQtWidget::Cleanup(void)

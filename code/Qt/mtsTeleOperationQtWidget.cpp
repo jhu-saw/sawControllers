@@ -58,7 +58,9 @@ void mtsTeleOperationQtWidget::Configure(const std::string &filename)
 void mtsTeleOperationQtWidget::Startup(void)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsTeleOperationQtWidget::Startup" << std::endl;
-    show();
+    if (!parent()) {
+        show();
+    }
 }
 
 void mtsTeleOperationQtWidget::Cleanup(void)
