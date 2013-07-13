@@ -28,7 +28,6 @@ http://www.cisst.org/cisst/license.txt.
 
 // cisst
 #include <cisstMultiTask/mtsInterfaceRequired.h>
-#include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmJointType.h>
 #include <cisstCommon/cmnConstants.h>
 #include <cisstCommon/cmnUnits.h>
@@ -37,15 +36,15 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, mtsComponentConstructorNameAndUInt)
 
-mtsPIDQtWidget::mtsPIDQtWidget(const std::string &taskName,
-                               unsigned int numberOfAxis)
-    : mtsComponent(taskName), NumberOfAxis(numberOfAxis)
+mtsPIDQtWidget::mtsPIDQtWidget(const std::string & componentName,
+                               unsigned int numberOfAxis):
+    mtsComponent(componentName), NumberOfAxis(numberOfAxis)
 {
     Init();
 }
 
-mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg)
-    : mtsComponent(arg.Name), NumberOfAxis(arg.Arg)
+mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
+    mtsComponent(arg.Name), NumberOfAxis(arg.Arg)
 {
     Init();
 }
@@ -59,6 +58,8 @@ void mtsPIDQtWidget::Init(void)
     DesiredPosition.SetAll(0.0);
     UnitFactor.SetSize(NumberOfAxis);
     UnitFactor.SetAll(1.0);
+
+    PlotIndex = 0;
 
     // Setup cisst interface
     mtsInterfaceRequired * interfaceRequired = AddInterfaceRequired("Controller");
@@ -140,8 +141,6 @@ void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
     }
 }
 
-//----------- Private Slot ------------------------------
-
 void mtsPIDQtWidget::SlotEnablePID(bool toggle)
 {
     PID.Enable(toggle);
@@ -151,10 +150,9 @@ void mtsPIDQtWidget::SlotPositionChanged(void)
 {
     DesiredPosition.SetAll(0.0);
     QVWDesiredPositionWidget->GetValue(DesiredPosition);
-    DesiredPosition.ElementwiseDivide(UnitFactor);
-    prmPositionJointSet prmDesiredPos;
-    prmDesiredPos.SetGoal(DesiredPosition);
-    PID.SetPositionJoint(prmDesiredPos);
+    DesiredPositionParam.SetGoal(DesiredPosition);
+    DesiredPositionParam.Goal().ElementwiseDivide(UnitFactor);
+    PID.SetPositionJoint(DesiredPositionParam);
 }
 
 void mtsPIDQtWidget::SlotPGainChanged(void)
@@ -215,6 +213,11 @@ void mtsPIDQtWidget::SlotResetPIDGain(void)
     QVWIGainWidget->SetValue(gain);
 }
 
+void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
+{
+    PlotIndex = newAxis;
+}
+
 void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
 {
     PID.GetPositionJoint(PID.PositionJointGetParam);
@@ -222,6 +225,12 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
     QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
     PID.GetEffortJoint(PID.EffortJoint);
     QVRCurrentEffortWidget->SetValue(PID.EffortJoint);
+    // plot
+    CurrentPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
+                                                  PID.PositionJointGetParam.Position().Element(PlotIndex)));
+    DesiredPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
+                                                  DesiredPosition.Element(PlotIndex)));
+    QVPlot->updateGL();
 }
 
 ////------------ Private Methods ----------------
@@ -290,6 +299,27 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(QVRCurrentEffortWidget, row, 1);
     row++;
 
+    // plot
+    QHBoxLayout * plotLayout = new QHBoxLayout;
+    // plot control
+    QVBoxLayout * plotButtonsLayout = new QVBoxLayout;
+    // - pick axis to display
+    QLabel * plotIndexLabel = new QLabel("Index");
+    plotButtonsLayout->addWidget(plotIndexLabel);
+    QSBPlotIndex = new QSpinBox();
+    QSBPlotIndex->setRange(0, NumberOfAxis);
+    plotButtonsLayout->addWidget(QSBPlotIndex);
+    plotButtonsLayout->addStretch();
+    plotLayout->addLayout(plotButtonsLayout);
+    // plotting area
+    QVPlot = new vctPlot2DOpenGLQtWidget();
+    CurrentPositionSignal = QVPlot->AddSignal("position-current");
+    CurrentPositionSignal->SetColor(vctDouble3(1.0, 0.0, 0.0));
+    DesiredPositionSignal = QVPlot->AddSignal("position-desired");
+    DesiredPositionSignal->SetColor(vctDouble3(0.0, 1.0, 0.0));
+    QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
+    plotLayout->addWidget(QVPlot);
+
     //------------ Test --------------------
     QCBEnablePID = new QCheckBox("Enable PID");
     QPushButton * qpbMaintainPosition = new QPushButton("Maintain position");
@@ -308,10 +338,12 @@ void mtsPIDQtWidget::setupUi(void)
     connect(qpbMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(qpbZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
     connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
+    connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
 
     //------------ main layout -------------
     QVBoxLayout * mainLayout = new QVBoxLayout;
     mainLayout->addLayout(gridLayout);
+    mainLayout->addLayout(plotLayout);
     mainLayout->addWidget(testGroupBox);
 
     setLayout(mainLayout);

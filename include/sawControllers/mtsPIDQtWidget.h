@@ -23,9 +23,11 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnXMLPath.h>
+#include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstVector/vctQtWidgetDynamicVector.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
+#include <cisstParameterTypes/prmPositionJointSet.h>
 
 #include <QtCore>
 #include <QtGui>
@@ -50,19 +52,21 @@ protected:
     virtual void closeEvent(QCloseEvent * event);
 
 private slots:
-    //! qslot enable/disable mtsPID controller
+    //! slot enable/disable mtsPID controller
     void SlotEnablePID(bool toggle);
-    //! qslot send desired pos when input changed
+    //! slot send desired pos when input changed
     void SlotPositionChanged(void);
     void SlotPGainChanged(void);
     void SlotDGainChanged(void);
     void SlotIGainChanged(void);
-    //! qslot reset desired pos to current pos
+    //! slot reset desired pos to current pos
     void SlotMaintainPosition(void);
     //! go to zero position
     void SlotZeroPosition(void);
-    //! qslot reset pid gain to current gain
+    //! slot reset pid gain to current gain
     void SlotResetPIDGain(void);
+    //! slot to select which axis to plot
+    void SlotPlotIndex(int newAxis);
 
     void timerEvent(QTimerEvent * event);
 
@@ -96,6 +100,7 @@ protected:
 private:
     //! SetPosition
     vctDoubleVec DesiredPosition;
+    prmPositionJointSet DesiredPositionParam;
     vctDoubleVec UnitFactor;
 
     int NumberOfAxis;
@@ -109,8 +114,12 @@ private:
     vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
     vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffortWidget;
 
-    // Control
-    QPushButton* QPBQuitButton;
+    // GUI: plot
+    vctPlot2DOpenGLQtWidget * QVPlot;
+    vctPlot2DBase::Signal * CurrentPositionSignal;
+    vctPlot2DBase::Signal * DesiredPositionSignal;
+    QSpinBox * QSBPlotIndex;
+    int PlotIndex;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPIDQtWidget);
