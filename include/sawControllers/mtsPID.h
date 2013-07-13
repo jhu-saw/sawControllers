@@ -119,6 +119,9 @@ private:
     //! iError forgetting factor
     vctDoubleVec forgetIError;
 
+    //! If 0, use regular PID, else use as nonlinear factor
+    vctDoubleVec nonlinear;
+
     //! Deadband (errors less than this are set to 0)
     vctDoubleVec DeadBand;
 

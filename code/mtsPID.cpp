@@ -51,7 +51,7 @@ void mtsPID::SetupInterfaces(void)
     if (req) {
         req->AddFunction("GetJointType", Robot.GetJointType);
         req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
-        req->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
+        req->AddFunction("GetVelocityJointSTOP", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
 
@@ -166,6 +166,10 @@ void mtsPID::Configure(const std::string & filename)
     forgetIError.SetSize(numJoints);
     forgetIError.SetAll(1.0);
 
+    // default: use regular PID
+    nonlinear.SetSize(numJoints);
+    nonlinear.SetAll(0.0);
+
     DeadBand.SetSize(numJoints);
     DeadBand.SetAll(0.0);
 
@@ -180,6 +184,7 @@ void mtsPID::Configure(const std::string & filename)
         config.GetXMLValue(context, "pid/@IGain", Ki[i]);
         config.GetXMLValue(context, "pid/@OffsetTorque", Offset[i]);
         config.GetXMLValue(context, "pid/@Forget", forgetIError[i]);
+        config.GetXMLValue(context, "pid/@Nonlinear", nonlinear[i]);
 
         // limit
         config.GetXMLValue(context, "limit/@MinILimit", minIErrorLimit[i]);
@@ -263,7 +268,9 @@ void mtsPID::Run(void)
         if (Robot.GetFeedbackVelocity.IsValid()) {
             Robot.GetFeedbackVelocity(FeedbackVelocityParam);
             FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
-            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
+//            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
+            dError.Assign(FeedbackVelocity);
+            dError.Multiply(-1.0);
         } else {
             // ZC: TODO add dError filtering
             // compute error derivative
@@ -306,6 +313,15 @@ void mtsPID::Run(void)
         Torque.ElementwiseProductOf(Kp, Error);
         Torque.AddElementwiseProductOf(Kd, dError);
         Torque.AddElementwiseProductOf(Ki, iError);
+
+        // nonlinear control mode
+        for (size_t i = 0; i < Error.size(); i++) {
+            if (nonlinear[i] > 0 && fabs(Error[i] < nonlinear[i])) {
+                Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
+            }
+        }
+
+        // Add torque (e.g. gravity compensation)
         Torque.Add(Offset);
 
         // write torque to robot
@@ -375,12 +391,20 @@ void mtsPID::SetJointUpperLimit(const vctDoubleVec &upperLimit)
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
-    minIErrorLimit = iminlim;
+    if (iminlim.size() != minIErrorLimit.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetMinIErrorLimit: size mismatch" << std::endl;
+    } else {
+        minIErrorLimit.Assign(iminlim);
+    }
 }
 
 void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
 {
-    maxIErrorLimit = imaxlim;
+    if (imaxlim.size() != maxIErrorLimit.size()) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetMaxIErrorLimit: size mismatch" << std::endl;
+    } else {
+        maxIErrorLimit.Assign(imaxlim);
+    }
 }
 
 void mtsPID::SetForgetIError(const double & forget)
