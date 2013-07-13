@@ -55,7 +55,11 @@ void mtsPID::SetupInterfaces(void)
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
 
+    // this should go in "write" state table
+    StateTable.AddData(Torque, "RequestedTorque");
+    // this should go in a "read" state table
     StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
+    // this should go in a configuration state table with occasional start/advance
     StateTable.AddData(JointType, "jointType");
     StateTable.AddData(Kp, "Kp");
     StateTable.AddData(Kd, "Kd");
@@ -71,6 +75,7 @@ void mtsPID::SetupInterfaces(void)
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
         prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
         prov->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
+        prov->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
         prov->AddCommandReadState(StateTable, JointType, "GetJointType");
 
         // Get PID gains

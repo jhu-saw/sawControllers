@@ -28,7 +28,6 @@ http://www.cisst.org/cisst/license.txt.
 
 // cisst
 #include <cisstMultiTask/mtsInterfaceRequired.h>
-#include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmJointType.h>
 #include <cisstCommon/cmnConstants.h>
@@ -53,6 +52,9 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg)
 
 void mtsPIDQtWidget::Init(void)
 {
+    PID.PositionJointGetParam.Position().SetSize(NumberOfAxis);
+    PID.EffortJoint.SetSize(NumberOfAxis);
+
     DesiredPosition.SetSize(NumberOfAxis);
     DesiredPosition.SetAll(0.0);
     UnitFactor.SetSize(NumberOfAxis);
@@ -65,6 +67,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("Enable", PID.Enable);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
+        interfaceRequired->AddFunction("GetEffortJoint", PID.GetEffortJoint);
         interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
@@ -214,11 +217,11 @@ void mtsPIDQtWidget::SlotResetPIDGain(void)
 
 void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
 {
-    prmPositionJointGet prmFeedbackPos;
-    prmFeedbackPos.SetSize(NumberOfAxis);
-    PID.GetPositionJoint(prmFeedbackPos);
-    prmFeedbackPos.Position().ElementwiseMultiply(UnitFactor);
-    QVRCurrentPositionWidget->SetValue(prmFeedbackPos.Position());
+    PID.GetPositionJoint(PID.PositionJointGetParam);
+    PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
+    QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
+    PID.GetEffortJoint(PID.EffortJoint);
+    QVRCurrentEffortWidget->SetValue(PID.EffortJoint);
 }
 
 ////------------ Private Methods ----------------
@@ -235,6 +238,7 @@ void mtsPIDQtWidget::setupUi(void)
     currentPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(currentPosLabel, row, 0);
     QVRCurrentPositionWidget = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRCurrentPositionWidget->SetPrecision(3);
     gridLayout->addWidget(QVRCurrentPositionWidget, row, 1);
     row++;
 
@@ -276,6 +280,14 @@ void mtsPIDQtWidget::setupUi(void)
     QVWIGainWidget->SetPrecision(5);
     QVWIGainWidget->SetRange(-1000.0, 1000.0);
     gridLayout->addWidget(QVWIGainWidget, row, 1);
+    row++;
+
+    QLabel * currentEffortLabel = new QLabel("Current effort (Nm)");
+    currentEffortLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(currentEffortLabel, row, 0);
+    QVRCurrentEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRCurrentEffortWidget->SetPrecision(5);
+    gridLayout->addWidget(QVRCurrentEffortWidget, row, 1);
     row++;
 
     //------------ Test --------------------

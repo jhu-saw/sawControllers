@@ -23,9 +23,9 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnXMLPath.h>
-// #include <cisstOSAbstraction/osaTimeServer.h>
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstVector/vctQtWidgetDynamicVector.h>
+#include <cisstParameterTypes/prmPositionJointGet.h>
 
 #include <QtCore>
 #include <QtGui>
@@ -78,6 +78,10 @@ protected:
         mtsFunctionWrite Enable;
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
+        mtsFunctionRead  GetEffortJoint;
+
+        prmPositionJointGet PositionJointGetParam;
+        vctDoubleVec EffortJoint;
 
         mtsFunctionRead  GetJointType;
         mtsFunctionRead  GetPGain;
@@ -103,6 +107,7 @@ private:
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWIGainWidget;
     vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffortWidget;
 
     // Control
     QPushButton* QPBQuitButton;
