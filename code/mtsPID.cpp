@@ -46,6 +46,7 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
 
 void mtsPID::SetupInterfaces(void)
 {
+
     // require RobotJointTorque interface
     mtsInterfaceRequired * req = AddInterfaceRequired("RobotJointTorqueInterface");
     if (req) {
@@ -73,7 +74,9 @@ void mtsPID::SetupInterfaces(void)
     if (prov) {
         prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
         prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
+        prov->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTrqMode", mtsBool());
         prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
+        prov->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
         prov->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
         prov->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
         prov->AddCommandReadState(StateTable, JointType, "GetJointType");
@@ -137,6 +140,8 @@ void mtsPID::Configure(const std::string & filename)
     // feedback
     FeedbackPosition.SetSize(numJoints);
     DesiredPosition.SetSize(numJoints);
+    DesiredTorque.SetSize(numJoints);
+    DesiredTorque.SetAll(0.0);
     FeedbackVelocity.SetSize(numJoints);
     DesiredVelocity.SetSize(numJoints);
     Torque.SetSize(numJoints);
@@ -256,6 +261,8 @@ void mtsPID::Run(void)
 
     // compute torque
     if (Enabled) {
+
+        if( !TrqMode ){
         // compute error
         Error.DifferenceOf(DesiredPosition, FeedbackPosition);
         size_t i;
@@ -328,7 +335,14 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
 
-    } else {
+        }
+
+        else {
+            TorqueParam.SetForceTorque(DesiredTorque);
+            Robot.SetTorque(TorqueParam);
+        }
+    }
+    else {
         // set torque to 0
 //        torque.SetAll(0.0);
 //        std::cerr << "disable " << StateTable.GetIndexReader().Index() << std::endl;
@@ -432,6 +446,12 @@ void mtsPID::ResetController(void)
     DesiredVelocity.SetAll(0.0);
 }
 
+void mtsPID::SetDesiredTorques(const prmForceTorqueJointSet& prmTrq)
+{
+    prmDesiredTrq = prmTrq;
+    prmDesiredTrq.GetForceTorque( DesiredTorque );
+}
+
 void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
 {
     DesiredPositionParam = positionParam;
@@ -451,6 +471,18 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
 void mtsPID::Enable(const mtsBool & enable)
 {
     Enabled = enable.Data;
+
+    // set torque to 0
+    Torque.SetAll(0.0);
+
+    // write torque to robot
+    TorqueParam.SetForceTorque(Torque);
+    Robot.SetTorque(TorqueParam);
+}
+
+void mtsPID::EnableTorqueMode(const mtsBool &ena)
+{
+    TrqMode = ena.Data;
 
     // set torque to 0
     Torque.SetAll(0.0);

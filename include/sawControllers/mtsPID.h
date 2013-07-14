@@ -79,6 +79,8 @@ private:
     vctDoubleVec FeedbackPosition;
     //! Desired joint positions
     vctDoubleVec DesiredPosition;
+    //! Desired joint positions
+    vctDoubleVec DesiredTorque;
     //! Feedback joint velocities
     vctDoubleVec FeedbackVelocity;
     //! Desired joint velocities
@@ -92,6 +94,8 @@ private:
     prmPositionJointGet FeedbackPositionParam;
     //! prm type desired position
     prmPositionJointSet DesiredPositionParam;
+    //! prm type desired torque
+    prmForceTorqueJointSet prmDesiredTrq;
     //! prm type feedback velocity
     prmVelocityJointGet FeedbackVelocityParam;
     //! prm type set torque
@@ -127,6 +131,8 @@ private:
 
     //! Enable mtsPID controller
     bool Enabled;
+    //! Enable mtsPID controller
+    bool TrqMode;
 
 
 protected:
@@ -146,10 +152,13 @@ protected:
      * @param prmPos   The desired position
      */
     void SetDesiredPositions(const prmPositionJointSet & prmPos);
+    void SetDesiredTorques(const prmForceTorqueJointSet& prmTrq);
 
     void SetupInterfaces(void);
 
     void Enable(const mtsBool & enable);
+
+    void EnableTorqueMode(const mtsBool & enable);
 
 public:
 

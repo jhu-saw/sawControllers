@@ -54,6 +54,7 @@ protected:
 private slots:
     //! slot enable/disable mtsPID controller
     void SlotEnablePID(bool toggle);
+    void SlotEnableTrqMode(bool toggle);
     //! slot send desired pos when input changed
     void SlotPositionChanged(void);
     void SlotPGainChanged(void);
@@ -80,6 +81,7 @@ protected:
     struct ControllerPIDStruct {
         mtsFunctionVoid  ResetController;
         mtsFunctionWrite Enable;
+        mtsFunctionWrite EnableTrqMode;
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
         mtsFunctionRead  GetEffortJoint;
@@ -107,6 +109,7 @@ private:
 
     // GUI: Commands
     QCheckBox * QCBEnablePID;
+    QCheckBox * QCBEnableTrqMode;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPositionWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGainWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;
