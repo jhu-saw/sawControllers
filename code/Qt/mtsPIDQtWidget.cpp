@@ -58,6 +58,7 @@ void mtsPIDQtWidget::Init(void)
     DesiredPosition.SetAll(0.0);
     UnitFactor.SetSize(NumberOfAxis);
     UnitFactor.SetAll(1.0);
+    DesiredPositionFromPID.SetAll(NumberOfAxis);
 
     PlotIndex = 0;
 
@@ -69,6 +70,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("EnableTrqMode", PID.EnableTrqMode);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
+        interfaceRequired->AddFunction("GetPositionJointDesired", PID.GetPositionJointDesired);
         interfaceRequired->AddFunction("GetEffortJoint", PID.GetEffortJoint);
         interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
@@ -224,18 +226,22 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
     PlotIndex = newAxis;
 }
 
-void mtsPIDQtWidget::timerEvent(QTimerEvent * event)
+void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
+    // get data from the PID
     PID.GetPositionJoint(PID.PositionJointGetParam);
     PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
-    QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
     PID.GetEffortJoint(PID.EffortJoint);
+    PID.GetPositionJointDesired(DesiredPositionFromPID);
+
+    // update GUI
+    QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
     QVRCurrentEffortWidget->SetValue(PID.EffortJoint);
     // plot
     CurrentPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
                                                   PID.PositionJointGetParam.Position().Element(PlotIndex)));
     DesiredPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
-                                                  DesiredPosition.Element(PlotIndex)));
+                                                  DesiredPositionFromPID.Element(PlotIndex)));
     QVPlot->updateGL();
 }
 

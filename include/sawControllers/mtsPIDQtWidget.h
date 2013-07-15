@@ -84,6 +84,7 @@ protected:
         mtsFunctionWrite EnableTrqMode;
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
+        mtsFunctionRead  GetPositionJointDesired;
         mtsFunctionRead  GetEffortJoint;
 
         prmPositionJointGet PositionJointGetParam;
@@ -102,10 +103,11 @@ protected:
 private:
     //! SetPosition
     vctDoubleVec DesiredPosition;
+    vctDoubleVec DesiredPositionFromPID;
     prmPositionJointSet DesiredPositionParam;
     vctDoubleVec UnitFactor;
 
-    int NumberOfAxis;
+    size_t NumberOfAxis;
 
     // GUI: Commands
     QCheckBox * QCBEnablePID;

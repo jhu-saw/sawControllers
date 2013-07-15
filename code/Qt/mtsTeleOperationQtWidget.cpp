@@ -126,9 +126,9 @@ void mtsTeleOperationQtWidget::setupUi(void)
     cmdTitleLayout->addWidget(cmdTitleRightLine, 1, 2);
 
     QGridLayout * frameLayout = new QGridLayout;
-    QFRPositionMasterWidget = new vctQtWidgetFrameDoubleRead;
+    QFRPositionMasterWidget = new vctQtWidgetFrameDoubleRead(vctQtWidgetRotationDoubleRead::OPENGL_WIDGET);
     frameLayout->addWidget(QFRPositionMasterWidget, 0, 0);
-    QFRPositionSlaveWidget = new vctQtWidgetFrameDoubleRead;
+    QFRPositionSlaveWidget = new vctQtWidgetFrameDoubleRead(vctQtWidgetRotationDoubleRead::OPENGL_WIDGET);
     frameLayout->addWidget(QFRPositionSlaveWidget, 1, 0);
     QVBoxLayout* mainLayout = new QVBoxLayout;
     mainLayout->addLayout(frameLayout);

@@ -134,6 +134,8 @@ private:
     //! Enable mtsPID controller
     bool TrqMode;
 
+    //! Configuration state table
+    mtsStateTable ConfigurationStateTable;
 
 protected:
 
@@ -183,6 +185,8 @@ public:
     void Run(void);
     void Cleanup(void);
 
+
+protected:
     /**
      * @brief Set controller P gains
      *

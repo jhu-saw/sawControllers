@@ -31,16 +31,22 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 mtsPID::mtsPID(const std::string &taskname, double period):
     mtsTaskPeriodic(taskname, period),
     CheckJointLimit(true),
-    Enabled(false)
+    Enabled(false),
+    ConfigurationStateTable(100, "Configuration")
 {
+    AddStateTable(&ConfigurationStateTable);
+    ConfigurationStateTable.SetAutomaticAdvance(false);
 }
 
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
     CheckJointLimit(true),
-    Enabled(false)
+    Enabled(false),
+    ConfigurationStateTable(100, "Configuration")
 {
+    AddStateTable(&ConfigurationStateTable);
+    ConfigurationStateTable.SetAutomaticAdvance(false);
 }
 
 
@@ -60,52 +66,57 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(Torque, "RequestedTorque");
     // this should go in a "read" state table
     StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
-    // this should go in a configuration state table with occasional start/advance
-    StateTable.AddData(JointType, "jointType");
-    StateTable.AddData(Kp, "Kp");
-    StateTable.AddData(Kd, "Kd");
-    StateTable.AddData(Ki, "Ki");
-    StateTable.AddData(JointLowerLimit, "JointLowerLimit");
-    StateTable.AddData(JointUpperLimit, "JointUpperLimit");
+    StateTable.AddData(DesiredPosition, "DesiredPosition");
     StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
 
+    // this should go in a configuration state table with occasional start/advance
+    ConfigurationStateTable.AddData(Kp, "Kp");
+    ConfigurationStateTable.AddData(Kd, "Kd");
+    ConfigurationStateTable.AddData(Ki, "Ki");
+    ConfigurationStateTable.AddData(JointLowerLimit, "JointLowerLimit");
+    ConfigurationStateTable.AddData(JointUpperLimit, "JointUpperLimit");
+    ConfigurationStateTable.AddData(JointType, "jointType");
+
     // provide SetDesiredPositions
-    mtsInterfaceProvided * prov = AddInterfaceProvided("Controller");
-    if (prov) {
-        prov->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
-        prov->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
-        prov->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTrqMode", mtsBool());
-        prov->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
-        prov->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
-        prov->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
-        prov->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
-        prov->AddCommandReadState(StateTable, JointType, "GetJointType");
+    mtsInterfaceProvided * interfaceProvided = AddInterfaceProvided("Controller");
+    if (interfaceProvided) {
+        interfaceProvided->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
+        interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
+        interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTrqMode", mtsBool());
+        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
+        interfaceProvided->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
+        interfaceProvided->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
+        interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
+        // Set check limits
+        interfaceProvided->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
 
         // Get PID gains
-        prov->AddCommandReadState(StateTable, Kp, "GetPGain");
-        prov->AddCommandReadState(StateTable, Kd, "GetDGain");
-        prov->AddCommandReadState(StateTable, Ki, "GetIGain");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, Kp, "GetPGain");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, Kd, "GetDGain");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, Ki, "GetIGain");
         // Get joint limits
-        prov->AddCommandReadState(StateTable, JointLowerLimit, "GetJointLowerLimit");
-        prov->AddCommandReadState(StateTable, JointUpperLimit, "GetJointUpperLimit");
-        // Set check limits
-        prov->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointLowerLimit, "GetJointLowerLimit");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointUpperLimit, "GetJointUpperLimit");
+        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointType, "GetJointType");
 
         // Set PID gains
-        prov->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
-        prov->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
-        prov->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", Ki);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", Ki);
         // Set joint limits
-        prov->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
-        prov->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
 
         // Events
-        prov->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
+        interfaceProvided->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
     }
 }
 
 void mtsPID::Configure(const std::string & filename)
 {
+    ConfigurationStateTable.Start();
+
     CMN_LOG_CLASS_INIT_VERBOSE << "Configure: using " << filename << std::endl;
     cmnXMLPath config;
     config.SetInputSource(filename);
@@ -118,12 +129,15 @@ void mtsPID::Configure(const std::string & filename)
     config.GetXMLValue("/controller", "@numofjoints", numJoints, -1);
     if (type != "PID") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong controller type" << std::endl;
+        ConfigurationStateTable.Advance();
         return;
     } else if (interface != "JointTorqueInterface") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong interface. Require JointTorqueInterface" << std::endl;
+        ConfigurationStateTable.Advance();
         return;
     } else if (numJoints < 0) {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: invalid number of joints" << std::endl;
+        ConfigurationStateTable.Advance();
         return;
     }
 
@@ -236,15 +250,19 @@ void mtsPID::Configure(const std::string & filename)
     CMN_LOG_CLASS_INIT_VERBOSE << "elimit: " << errorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "forget: " << forgetIError << std::endl;
 
+    ConfigurationStateTable.Advance();
+
     // now that we know the sizes of vectors, create interfaces
     this->SetupInterfaces();
 }
 
 void mtsPID::Startup(void)
 {
-    // startup
+    // get joint type and store in configuration state table
     mtsExecutionResult result;
+    ConfigurationStateTable.Start();
     result = Robot.GetJointType(JointType);
+    ConfigurationStateTable.Advance();
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
@@ -362,7 +380,9 @@ void mtsPID::SetPGain(const vctDoubleVec & pgain)
     if (pgain.size() != Kp.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         Kp.Assign(pgain);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -371,7 +391,9 @@ void mtsPID::SetDGain(const vctDoubleVec & dgain)
     if (dgain.size() != Kd.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         Kd.Assign(dgain);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -380,7 +402,9 @@ void mtsPID::SetIGain(const vctDoubleVec & igain)
     if (igain.size() != Ki.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         Ki.Assign(igain);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -389,7 +413,9 @@ void mtsPID::SetJointLowerLimit(const vctDoubleVec &lowerLimit)
     if (lowerLimit.size() != JointLowerLimit.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetJointLowerLimit: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         JointLowerLimit.Assign(lowerLimit);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -398,7 +424,9 @@ void mtsPID::SetJointUpperLimit(const vctDoubleVec &upperLimit)
     if (upperLimit.size() != JointUpperLimit.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetJointUpperLimit: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         JointUpperLimit.Assign(upperLimit);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -408,7 +436,9 @@ void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
     if (iminlim.size() != minIErrorLimit.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetMinIErrorLimit: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         minIErrorLimit.Assign(iminlim);
+        ConfigurationStateTable.Advance();
     }
 }
 
@@ -417,7 +447,9 @@ void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
     if (imaxlim.size() != maxIErrorLimit.size()) {
         CMN_LOG_CLASS_INIT_ERROR << "SetMaxIErrorLimit: size mismatch" << std::endl;
     } else {
+        ConfigurationStateTable.Start();
         maxIErrorLimit.Assign(imaxlim);
+        ConfigurationStateTable.Advance();
     }
 }
 
