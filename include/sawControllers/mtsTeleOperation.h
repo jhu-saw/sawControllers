@@ -95,6 +95,7 @@ private:
     vctFrm3 Offset;
     bool IsClutched;
     vctMatRot3 MasterClutchedOrientation;
+    int IsSetRobotState;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperation);

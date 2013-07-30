@@ -47,6 +47,7 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
 void mtsTeleOperation::Init(void)
 {
     this->IsClutched = true;
+    this->IsSetRobotState = 0;
 
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
@@ -58,6 +59,7 @@ void mtsTeleOperation::Init(void)
         req->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
         req->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
         req->AddFunction("GetGripperPosition", Master.GetGripperPosition);
+        req->AddFunction("SetRobotControlState", Master.SetRobotControlState);
     }
 
     req = AddInterfaceRequired("Slave");
@@ -158,6 +160,8 @@ void mtsTeleOperation::Run(void)
         // Translation
         slaveCartesianDesired.Translation() = Slave.CartesianPrevious.Translation() + slaveTranslation;
 
+        // Disable rotation
+        slaveCartesianDesired.Rotation().FromNormalized(Slave.CartesianPrevious.Rotation());
 
         // ZC: I think this is wrong
         // apply desired slave position
@@ -196,6 +200,8 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
+        Master.SetRobotControlState(std::string("Gravity"));
+
         Master.PositionCartesianDesired.Goal().Rotation().FromNormalized(
                     Slave.PositionCartesianCurrent.Position().Rotation());
         Master.PositionCartesianDesired.Goal().Translation().Assign(
@@ -204,6 +210,7 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
     }
     else {
         this->IsClutched = false;
+        Master.SetRobotControlState(std::string("Teleop"));
 
         Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
         Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());

@@ -68,6 +68,7 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
     StateTable.AddData(DesiredPosition, "DesiredPosition");
     StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
+    StateTable.AddData(Offset, "TorqueOffset");
 
     // this should go in a configuration state table with occasional start/advance
     ConfigurationStateTable.AddData(Kp, "Kp");
@@ -90,6 +91,7 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
         // Set check limits
         interfaceProvided->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
+        interfaceProvided->AddCommandWriteState(StateTable, Offset, "SetTorqueOffset");
 
         // Get PID gains
         interfaceProvided->AddCommandReadState(ConfigurationStateTable, Kp, "GetPGain");
@@ -281,77 +283,77 @@ void mtsPID::Run(void)
     if (Enabled) {
 
         if( !TrqMode ){
-        // compute error
-        Error.DifferenceOf(DesiredPosition, FeedbackPosition);
-        size_t i;
-        for (i = 0; i < Error.size(); i++) {
-            if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
-                Error[i] = 0.0;
-        }
+            // compute error
+            Error.DifferenceOf(DesiredPosition, FeedbackPosition);
+            size_t i;
+            for (i = 0; i < Error.size(); i++) {
+                if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
+                    Error[i] = 0.0;
+            }
 
-        // compute error derivative
-        if (Robot.GetFeedbackVelocity.IsValid()) {
-            Robot.GetFeedbackVelocity(FeedbackVelocityParam);
-            FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
-//            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
-            dError.Assign(FeedbackVelocity);
-            dError.Multiply(-1.0);
-        } else {
-            // ZC: TODO add dError filtering
             // compute error derivative
-            double dt = StateTable.Period;
-            if (dt > 0) {
-                dError.DifferenceOf(Error, oldError);
-                dError.Divide(dt);
+            if (Robot.GetFeedbackVelocity.IsValid()) {
+                Robot.GetFeedbackVelocity(FeedbackVelocityParam);
+                FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
+                //            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
+                dError.Assign(FeedbackVelocity);
+                dError.Multiply(-1.0);
+            } else {
+                // ZC: TODO add dError filtering
+                // compute error derivative
+                double dt = StateTable.Period;
+                if (dt > 0) {
+                    dError.DifferenceOf(Error, oldError);
+                    dError.Divide(dt);
+                }
+                else {
+                    dError.SetAll(0.0);
+                }
             }
-            else {
-                dError.SetAll(0.0);
+
+            // compute error integral
+            iError.ElementwiseMultiply(forgetIError);
+            iError.Add(Error);
+
+            // check error limit & clamp iError
+            bool isOutOfLimit = false;
+            for (i = 0; i < iError.size(); i++) {
+                // error limit
+                if (fabs(Error[i]) > errorLimit[i])
+                    isOutOfLimit = true;
+
+                // iError clamping
+                if (iError.at(i) > maxIErrorLimit.at(i))
+                    iError.at(i) = maxIErrorLimit.at(i);
+                else if (iError.at(i) < minIErrorLimit.at(i))
+                    iError.at(i) = minIErrorLimit[i];
             }
-        }
 
-        // compute error integral
-        iError.ElementwiseMultiply(forgetIError);
-        iError.Add(Error);
+            // send EventErrorLimit
+            if (isOutOfLimit) EventErrorLimit();
 
-        // check error limit & clamp iError
-        bool isOutOfLimit = false;
-        for (i = 0; i < iError.size(); i++) {
-            // error limit
-            if (fabs(Error[i]) > errorLimit[i])
-                isOutOfLimit = true;
+            // save Error to oldError
+            oldError.Assign(Error);
+            oldDesiredPos.Assign(DesiredPosition);
 
-            // iError clamping
-            if (iError.at(i) > maxIErrorLimit.at(i))
-                iError.at(i) = maxIErrorLimit.at(i);
-            else if (iError.at(i) < minIErrorLimit.at(i))
-                iError.at(i) = minIErrorLimit[i];
-        }
+            // compute torque
+            Torque.ElementwiseProductOf(Kp, Error);
+            Torque.AddElementwiseProductOf(Kd, dError);
+            Torque.AddElementwiseProductOf(Ki, iError);
 
-        // send EventErrorLimit
-        if (isOutOfLimit) EventErrorLimit();
-
-        // save Error to oldError
-        oldError.Assign(Error);
-        oldDesiredPos.Assign(DesiredPosition);
-
-        // compute torque
-        Torque.ElementwiseProductOf(Kp, Error);
-        Torque.AddElementwiseProductOf(Kd, dError);
-        Torque.AddElementwiseProductOf(Ki, iError);
-
-        // nonlinear control mode
-        for (size_t i = 0; i < Error.size(); i++) {
-            if (nonlinear[i] > 0 && fabs(Error[i] < nonlinear[i])) {
-                Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
+            // nonlinear control mode
+            for (size_t i = 0; i < Error.size(); i++) {
+                if (nonlinear[i] > 0 && fabs(Error[i] < nonlinear[i])) {
+                    Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
+                }
             }
-        }
 
-        // Add torque (e.g. gravity compensation)
-        Torque.Add(Offset);
+            // Add torque (e.g. gravity compensation)
+            Torque.Add(Offset);
 
-        // write torque to robot
-        TorqueParam.SetForceTorque(Torque);
-        Robot.SetTorque(TorqueParam);
+            // write torque to robot
+            TorqueParam.SetForceTorque(Torque);
+            Robot.SetTorque(TorqueParam);
 
         }
 
@@ -362,8 +364,8 @@ void mtsPID::Run(void)
     }
     else {
         // set torque to 0
-//        torque.SetAll(0.0);
-//        std::cerr << "disable " << StateTable.GetIndexReader().Index() << std::endl;
+        //        torque.SetAll(0.0);
+        //        std::cerr << "disable " << StateTable.GetIndexReader().Index() << std::endl;
     }
 
 }
