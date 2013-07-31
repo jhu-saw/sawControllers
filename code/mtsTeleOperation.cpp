@@ -126,45 +126,25 @@ void mtsTeleOperation::Run(void)
         vctFrm4x4 masterCartesianMotion;
         masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
 
-        // compute master translation
+        // translation
         vct3 masterTranslation;
-        masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
         vct3 slaveTranslation;
+        masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
         slaveTranslation = masterTranslation * this->Scale;
         vctMatRot3 master2slave;
         master2slave.Assign(-1.0, 0.0, 0.0,
                              0.0,-1.0, 0.0,
                              0.0, 0.0, 1.0);
-        slaveTranslation = slaveTranslation * master2slave;
+        slaveTranslation = master2slave * slaveTranslation + Slave.CartesianPrevious.Translation();
 
-        vctAxAnRot3 masterMotionOrientation;
-        masterMotionOrientation.FromNormalized(masterCartesianMotion.Rotation());
-        vctFrm4x4 masterWRTslave;
-        masterWRTslave = Slave.CartesianPrevious.Inverse() * Master.CartesianPrevious;
-
-        vct3 slaveRotationAxis;
-        slaveRotationAxis = masterWRTslave.Rotation() * masterMotionOrientation.Axis();
-        vctMatRot3 slaveRotation(vctAxAnRot3(slaveRotationAxis, masterMotionOrientation.Angle()));
-
+        // rotation
+        vctMatRot3 slaveRotation;
+        slaveRotation = master2slave * masterPosition.Rotation();
 
         // compute desired slave position
         vctFrm4x4 slaveCartesianDesired;
-
-        // slaveCartesianDesired = slaveCartesianPrevious * slaveCartesianMotion
-        // output = motion * input -> motion.ApplyTo(input, output)
-        slaveRotation = Slave.CartesianPrevious.Rotation() * slaveRotation;
-        slaveRotation = master2slave * slaveRotation;
-
+        slaveCartesianDesired.Translation().Assign(slaveTranslation);
         slaveCartesianDesired.Rotation().FromNormalized(slaveRotation);
-
-        // Translation
-        slaveCartesianDesired.Translation() = Slave.CartesianPrevious.Translation() + slaveTranslation;
-
-        // Disable rotation
-        slaveCartesianDesired.Rotation().FromNormalized(Slave.CartesianPrevious.Rotation());
-
-        // ZC: I think this is wrong
-        // apply desired slave position
         Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
 
         // Slave go this cartesian position
@@ -175,6 +155,8 @@ void mtsTeleOperation::Run(void)
             double gripperPosition;
             Master.GetGripperPosition(gripperPosition);
             Slave.SetGripperPosition(gripperPosition);
+        } else {
+            Slave.SetGripperPosition(5 * cmnPI_180);
         }
     }
 }
