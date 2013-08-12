@@ -132,7 +132,7 @@ private:
     //! Enable mtsPID controller
     bool Enabled;
     //! Enable mtsPID controller
-    bool TrqMode;
+    bool TorqueMode;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;

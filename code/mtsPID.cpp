@@ -83,7 +83,7 @@ void mtsPID::SetupInterfaces(void)
     if (interfaceProvided) {
         interfaceProvided->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
         interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
-        interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTrqMode", mtsBool());
+        interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", mtsBool());
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
         interfaceProvided->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
@@ -282,7 +282,7 @@ void mtsPID::Run(void)
     // compute torque
     if (Enabled) {
 
-        if( !TrqMode ){
+        if( !TorqueMode ){
             // compute error
             Error.DifferenceOf(DesiredPosition, FeedbackPosition);
             size_t i;
@@ -516,7 +516,7 @@ void mtsPID::Enable(const mtsBool & enable)
 
 void mtsPID::EnableTorqueMode(const mtsBool &ena)
 {
-    TrqMode = ena.Data;
+    TorqueMode = ena.Data;
 
     // set torque to 0
     Torque.SetAll(0.0);

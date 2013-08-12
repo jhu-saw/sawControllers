@@ -67,7 +67,7 @@ void mtsPIDQtWidget::Init(void)
     if (interfaceRequired) {
         interfaceRequired->AddFunction("ResetController", PID.ResetController);
         interfaceRequired->AddFunction("Enable", PID.Enable);
-        interfaceRequired->AddFunction("EnableTrqMode", PID.EnableTrqMode);
+        interfaceRequired->AddFunction("EnableTorqueMode", PID.EnableTorqueMode);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
         interfaceRequired->AddFunction("GetPositionJointDesired", PID.GetPositionJointDesired);
@@ -149,9 +149,9 @@ void mtsPIDQtWidget::SlotEnablePID(bool toggle)
     PID.Enable(toggle);
 }
 
-void mtsPIDQtWidget::SlotEnableTrqMode(bool toggle)
+void mtsPIDQtWidget::SlotEnableTorqueMode(bool toggle)
 {
-    PID.EnableTrqMode(toggle);
+    PID.EnableTorqueMode(toggle);
 }
 
 void mtsPIDQtWidget::SlotPositionChanged(void)
@@ -334,13 +334,13 @@ void mtsPIDQtWidget::setupUi(void)
 
     //------------ Test --------------------
     QCBEnablePID = new QCheckBox("Enable PID");
-    QCBEnableTrqMode = new QCheckBox("Enable Trq Mode");
+    QCBEnableTorqueMode = new QCheckBox("Enable Trq Mode");
     QPushButton * qpbMaintainPosition = new QPushButton("Maintain position");
     QPushButton * qpbZeroPosition = new QPushButton("Zero position");
     QPushButton * qpbResetPIDGain = new QPushButton("Reset PID gains");
     QHBoxLayout * testLayout = new QHBoxLayout;
     testLayout->addWidget(QCBEnablePID);
-    testLayout->addWidget(QCBEnableTrqMode);
+    testLayout->addWidget(QCBEnableTorqueMode);
     testLayout->addWidget(qpbMaintainPosition);
     testLayout->addWidget(qpbZeroPosition);
     testLayout->addWidget(qpbResetPIDGain);
@@ -349,7 +349,7 @@ void mtsPIDQtWidget::setupUi(void)
     testGroupBox->setLayout(testLayout);
 
     connect(QCBEnablePID, SIGNAL(toggled(bool)), this, SLOT(SlotEnablePID(bool)));
-    connect(QCBEnableTrqMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTrqMode(bool)));
+    connect(QCBEnableTorqueMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTorqueMode(bool)));
     connect(qpbMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(qpbZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
     connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
