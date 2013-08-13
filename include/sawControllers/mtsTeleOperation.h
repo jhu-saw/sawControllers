@@ -47,10 +47,6 @@ public:
     void Run(void);
     void Cleanup(void);
 
-    // Setter
-    void SetScale(const mtsDouble & scale);
-    void SetRegistrationRotation(const vctMatRot3 & rot);
-
     void ConfigureMaster(const std::string & filename);
     void ConfigureSlave(const std::string & filename);
 
@@ -58,9 +54,16 @@ private:
 
     void Init(void);
 
+    // Event Handler
     void EventHandlerClutched(const prmEventButton & button);
+    void EventHandlerCoag(const prmEventButton & button);
 
+    void Enable(const mtsBool & enable);
     void AllignMasterToSlave(void);
+
+    // Setter
+    void SetScale(const mtsDouble & scale);
+    void SetRegistrationRotation(const vctMatRot3 & rot);
 
     /**
      * @brief Compute Master Pos with reference to slave ref frame
@@ -93,9 +96,12 @@ private:
     double Scale;
     vctMatRot3 RegistrationRotation;
     vctFrm3 Offset;
+
     bool IsClutched;
+    bool IsCoag;
+    bool IsEnabled;
+
     vctMatRot3 MasterClutchedOrientation;
-    int IsSetRobotState;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperation);

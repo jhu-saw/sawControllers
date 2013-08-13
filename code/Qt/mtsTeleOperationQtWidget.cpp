@@ -43,6 +43,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
     // Setup CISST Interface
     mtsInterfaceRequired * rinterfaceRequired = AddInterfaceRequired("TeleOperation");
     if (rinterfaceRequired) {
+        rinterfaceRequired->AddFunction("Enable", TeleOperation.Enable);
         rinterfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
         rinterfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
     }
@@ -99,6 +100,13 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
     QFRPositionSlaveWidget->SetValue(PositionSlave.Position());
 }
 
+
+void mtsTeleOperationQtWidget::SlotEnableTeleop(bool state)
+{
+    TeleOperation.Enable(mtsBool(state));
+}
+
+
 void mtsTeleOperationQtWidget::setupUi(void)
 {
     QFont font;
@@ -130,11 +138,24 @@ void mtsTeleOperationQtWidget::setupUi(void)
     frameLayout->addWidget(QFRPositionMasterWidget, 0, 0);
     QFRPositionSlaveWidget = new vctQtWidgetFrameDoubleRead(vctQtWidgetRotationDoubleRead::OPENGL_WIDGET);
     frameLayout->addWidget(QFRPositionSlaveWidget, 1, 0);
-    QVBoxLayout* mainLayout = new QVBoxLayout;
+
+
+    QVBoxLayout *controlLayout = new QVBoxLayout;
+
+    QCheckBox *enableCheckbox = new QCheckBox("Enable Teleop");
+
+    controlLayout->addWidget(enableCheckbox);
+    controlLayout->addStretch();
+
+    QHBoxLayout* mainLayout = new QHBoxLayout;
     mainLayout->addLayout(frameLayout);
+    mainLayout->addLayout(controlLayout);
 
     setLayout(mainLayout);
 
     setWindowTitle("TeleOperation Controller");
     resize(sizeHint());
+
+    // setup Qt Connection
+    connect(enableCheckbox, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
 }

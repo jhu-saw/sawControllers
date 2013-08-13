@@ -47,7 +47,6 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
 void mtsTeleOperation::Init(void)
 {
     this->IsClutched = true;
-    this->IsSetRobotState = 0;
 
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
@@ -70,13 +69,19 @@ void mtsTeleOperation::Init(void)
         req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
     }
 
-    req = AddInterfaceRequired("Clutch");
+    req = AddInterfaceRequired("CLUTCH");
     if (req) {
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
     }
 
+    req = AddInterfaceRequired("COAG");
+    if (req) {
+        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
+    }
+
     mtsInterfaceProvided * prov = AddInterfaceProvided("Setting");
     if (prov) {
+        prov->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", mtsBool());
         prov->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
         prov->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                               "SetRegistrationRotation", vctMatRot3());
@@ -119,45 +124,63 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 slavePosition(Slave.PositionCartesianCurrent.Position());
 
+    // mtm w.r.t. psm
+    vctMatRot3 master2slave;
+    master2slave.Assign(-1.0, 0.0, 0.0,
+                         0.0,-1.0, 0.0,
+                         0.0, 0.0, 1.0);
 
-    // follow mode
-    if (!IsClutched) {
-        // compute master Cartesian motion
-        vctFrm4x4 masterCartesianMotion;
-        masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
+    if (IsEnabled) {
+        // follow mode
+        if (!IsClutched && IsCoag) {
+            // compute master Cartesian motion
+            vctFrm4x4 masterCartesianMotion;
+            masterCartesianMotion = Master.CartesianPrevious.Inverse() * masterPosition;
 
-        // translation
-        vct3 masterTranslation;
-        vct3 slaveTranslation;
-        masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
-        slaveTranslation = masterTranslation * this->Scale;
-        vctMatRot3 master2slave;
-        master2slave.Assign(-1.0, 0.0, 0.0,
-                             0.0,-1.0, 0.0,
-                             0.0, 0.0, 1.0);
-        slaveTranslation = master2slave * slaveTranslation + Slave.CartesianPrevious.Translation();
+            // translation
+            vct3 masterTranslation;
+            vct3 slaveTranslation;
+            masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
+            slaveTranslation = masterTranslation * this->Scale;
+            slaveTranslation = master2slave * slaveTranslation + Slave.CartesianPrevious.Translation();
 
-        // rotation
-        vctMatRot3 slaveRotation;
-        slaveRotation = master2slave * masterPosition.Rotation();
+            // rotation
+            vctMatRot3 slaveRotation;
+            slaveRotation = master2slave * masterPosition.Rotation();
 
-        // compute desired slave position
-        vctFrm4x4 slaveCartesianDesired;
-        slaveCartesianDesired.Translation().Assign(slaveTranslation);
-        slaveCartesianDesired.Rotation().FromNormalized(slaveRotation);
-        Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
+            // compute desired slave position
+            vctFrm4x4 slaveCartesianDesired;
+            slaveCartesianDesired.Translation().Assign(slaveTranslation);
+            slaveCartesianDesired.Rotation().FromNormalized(slaveRotation);
+            Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
 
-        // Slave go this cartesian position
-        Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
+            // Slave go this cartesian position
+            Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
 
-        // Gripper
-        if (Master.GetGripperPosition.IsValid()) {
-            double gripperPosition;
-            Master.GetGripperPosition(gripperPosition);
-            Slave.SetGripperPosition(gripperPosition);
-        } else {
-            Slave.SetGripperPosition(5 * cmnPI_180);
+            // Gripper
+            if (Master.GetGripperPosition.IsValid()) {
+                double gripperPosition;
+                Master.GetGripperPosition(gripperPosition);
+                Slave.SetGripperPosition(gripperPosition);
+            } else {
+                Slave.SetGripperPosition(5 * cmnPI_180);
+            }
+        } else if (!IsClutched && !IsCoag) {
+            // MTM follows PSM Orientation
+            std::cerr << "MTM follows PSM Orientation" << std::endl;
+
+            vctFrm4x4 masterCartesianDesired;
+            masterCartesianDesired.Translation().Assign(masterPosition.Translation());
+            vctMatRot3 masterRotation;
+            masterRotation = master2slave.Inverse() * slavePosition.Rotation();
+            masterCartesianDesired.Rotation().FromNormalized(masterRotation);
+
+            // Send Master command postion
+            Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
+            Master.SetPositionCartesian(Master.PositionCartesianDesired);
         }
+    } else {
+        CMN_LOG_CLASS_RUN_DEBUG << "mtsTeleOperation disabled" << std::endl;
     }
 }
 
@@ -182,7 +205,7 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
-        Master.SetRobotControlState(std::string("Gravity"));
+        Master.SetRobotControlState(std::string("Clutch"));
 
         Master.PositionCartesianDesired.Goal().Rotation().FromNormalized(
                     Slave.PositionCartesianCurrent.Position().Rotation());
@@ -198,6 +221,28 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
         Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
     }
 }
+
+void mtsTeleOperation::EventHandlerCoag(const prmEventButton &button)
+{
+    if (button.Type() == prmEventButton::PRESSED) {
+        this->IsCoag = true;
+        CMN_LOG_CLASS_RUN_DEBUG << "COAG: PRESSED" << std::endl;
+    } else {
+        this->IsCoag = false;
+        CMN_LOG_CLASS_RUN_DEBUG << "COAG: RELEASED" << std::endl;
+    }
+}
+
+
+void mtsTeleOperation::Enable(const mtsBool &enable)
+{
+    IsEnabled = enable.Data;
+
+    // Set Master/Slave to Teleop (Cartesian Position Mode)
+    Master.SetRobotControlState(mtsStdString("Teleop"));
+    Slave.SetRobotControlState(mtsStdString("Teleop"));
+}
+
 
 void mtsTeleOperation::AllignMasterToSlave(void)
 {

@@ -51,6 +51,7 @@ protected:
 
 private slots:
     void timerEvent(QTimerEvent * event);
+    void SlotEnableTeleop(bool state);
 
 private:
     //! setup TeleOperation controller GUI
@@ -58,6 +59,7 @@ private:
 
 protected:
     struct TeleOperationStruct {
+        mtsFunctionWrite Enable;
         mtsFunctionRead GetPositionCartesianMaster;
         mtsFunctionRead GetPositionCartesianSlave;
     } TeleOperation;
