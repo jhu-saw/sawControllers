@@ -67,6 +67,9 @@ void mtsTeleOperation::Init(void)
         req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
         req->AddFunction("SetGripperPosition", Slave.SetGripperPosition);
         req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
+
+        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutchBtn");
+        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerSUJClutch, this, "SUJClutchBtn");
     }
 
     // Footpedal events
@@ -75,6 +78,12 @@ void mtsTeleOperation::Init(void)
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
     }
 
+    req = AddInterfaceRequired("COAG");
+    if (req) {
+        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
+    }
+
+    // PSM button events
     req = AddInterfaceRequired("COAG");
     if (req) {
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
@@ -189,6 +198,36 @@ void mtsTeleOperation::Cleanup(void)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "Cleanup" << std::endl;
 }
+
+
+void mtsTeleOperation::EventHandlerManipClutch(const prmEventButton &button)
+{
+    if (button.Type() == prmEventButton::PRESSED) {
+        Slave.IsManipClutched = true;
+        CMN_LOG_CLASS_RUN_ERROR << "ManipClutch pressed" << std::endl;
+    } else {
+        Slave.IsManipClutched = false;
+        CMN_LOG_CLASS_RUN_ERROR << "ManipClutch released" << std::endl;
+    }
+
+    if (IsEnabled && !IsCoag && Slave.IsManipClutched) {
+        Slave.SetRobotControlState(mtsStdString("Manual"));
+    } else if (IsEnabled) {
+        Slave.SetRobotControlState(mtsStdString("Teleop"));
+    }
+}
+
+void mtsTeleOperation::EventHandlerSUJClutch(const prmEventButton &button)
+{
+    if (button.Type() == prmEventButton::PRESSED) {
+        Slave.IsSUJClutched = true;
+        CMN_LOG_CLASS_RUN_ERROR << "SUJClutch pressed" << std::endl;
+    } else {
+        Slave.IsSUJClutched = false;
+        CMN_LOG_CLASS_RUN_ERROR << "SUJClutch released" << std::endl;
+    }
+}
+
 
 void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 {

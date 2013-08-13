@@ -55,6 +55,8 @@ private:
     void Init(void);
 
     // Event Handler
+    void EventHandlerManipClutch(const prmEventButton &button);
+    void EventHandlerSUJClutch(const prmEventButton &button);
     void EventHandlerClutched(const prmEventButton & button);
     void EventHandlerCoag(const prmEventButton & button);
 
@@ -75,21 +77,35 @@ private:
 
 protected:
 
-    class Robot {
+    class RobotMaster {
     public:
         mtsFunctionRead GetPositionCartesian;
         mtsFunctionWrite SetPositionCartesian;
         mtsFunctionWrite SetRobotControlState;
 
         mtsFunctionRead GetGripperPosition;
-        mtsFunctionWrite SetGripperPosition;
 
         prmPositionCartesianGet PositionCartesianCurrent;
         prmPositionCartesianSet PositionCartesianDesired;
         vctFrm4x4 CartesianPrevious;
     };
+    RobotMaster Master;
 
-    Robot Master, Slave;
+    class RobotSlave {
+    public:
+        mtsFunctionRead GetPositionCartesian;
+        mtsFunctionWrite SetPositionCartesian;
+        mtsFunctionWrite SetRobotControlState;
+
+        mtsFunctionWrite SetGripperPosition;
+
+        prmPositionCartesianGet PositionCartesianCurrent;
+        prmPositionCartesianSet PositionCartesianDesired;
+        vctFrm4x4 CartesianPrevious;
+        bool IsManipClutched;
+        bool IsSUJClutched;
+    };
+    RobotSlave Slave;
 
 private:
 
