@@ -151,7 +151,8 @@ void mtsPIDQtWidget::SlotEnablePID(bool toggle)
 
 void mtsPIDQtWidget::SlotEnableTorqueMode(bool toggle)
 {
-    PID.EnableTorqueMode(toggle);
+    vctDoubleVec torqueMode(NumberOfAxis, toggle);
+    PID.EnableTorqueMode(torqueMode);
 }
 
 void mtsPIDQtWidget::SlotPositionChanged(void)

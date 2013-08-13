@@ -132,7 +132,7 @@ private:
     //! Enable mtsPID controller
     bool Enabled;
     //! Enable mtsPID controller
-    bool TorqueMode;
+    vctBoolVec TorqueMode;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
@@ -160,7 +160,7 @@ protected:
 
     void Enable(const mtsBool & enable);
 
-    void EnableTorqueMode(const mtsBool & enable);
+    void EnableTorqueMode(const vctBoolVec & enable);
 
 public:
 
