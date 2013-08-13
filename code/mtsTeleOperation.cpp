@@ -69,6 +69,7 @@ void mtsTeleOperation::Init(void)
         req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
     }
 
+    // Footpedal events
     req = AddInterfaceRequired("CLUTCH");
     if (req) {
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
