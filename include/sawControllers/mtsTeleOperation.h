@@ -30,6 +30,10 @@ http://www.cisst.org/cisst/license.txt.
 /**
  * @brief  teleoperation component
  *
+ *    position: translation + rotation (vctFrm4x4)
+ *    translation: 3D x,y,z (vct3)
+ *    rotation: 3x3 rotation (vctMatRot3)
+ *
  * \todo
  *
  */
@@ -66,6 +70,15 @@ private:
     // Setter
     void SetScale(const mtsDouble & scale);
     void SetRegistrationRotation(const vctMatRot3 & rot);
+
+
+    /**
+     * @brief Set MTM control states based on teleop component state
+     *        and control input device (cluch & coag).
+     *
+     *  WARNING: should only be called by event handlers
+     */
+    void SetMasterControlState(void);
 
     /**
      * @brief Compute Master Pos with reference to slave ref frame
@@ -109,9 +122,11 @@ protected:
 
 private:
 
+    int counter;
     double Scale;
     vctMatRot3 RegistrationRotation;
     vctFrm3 Offset;
+    vct3 MasterLockTranslation;
 
     bool IsClutched;
     bool IsCoag;

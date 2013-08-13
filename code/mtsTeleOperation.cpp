@@ -32,6 +32,7 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperation, mtsTaskPeriodic, mtsTask
 
 mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const double periodInSeconds):
     mtsTaskPeriodic(componentName, periodInSeconds),
+    counter(0),
     Scale(0.2)
 {
     Init();
@@ -39,6 +40,7 @@ mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const doub
 
 mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
     mtsTaskPeriodic(arg),
+    counter(0),
     Scale(0.2)
 {
     Init();
@@ -46,7 +48,14 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
 
 void mtsTeleOperation::Init(void)
 {
-    this->IsClutched = true;
+    counter = 0;
+
+    // Initialize states
+    this->IsClutched = false;
+    this->IsCoag = false;
+    this->IsEnabled = false;
+    Slave.IsManipClutched = false;
+    Slave.IsSUJClutched = false;
 
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
@@ -83,12 +92,6 @@ void mtsTeleOperation::Init(void)
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
     }
 
-    // PSM button events
-    req = AddInterfaceRequired("COAG");
-    if (req) {
-        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
-    }
-
     mtsInterfaceProvided * prov = AddInterfaceProvided("Setting");
     if (prov) {
         prov->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", mtsBool());
@@ -117,6 +120,9 @@ void mtsTeleOperation::Run(void)
     ProcessQueuedCommands();
     ProcessQueuedEvents();
 
+    // increment counter
+    counter++;
+
     // get master Cartesian position
     mtsExecutionResult executionResult;
     executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
@@ -140,6 +146,24 @@ void mtsTeleOperation::Run(void)
                          0.0,-1.0, 0.0,
                          0.0, 0.0, 1.0);
 
+
+    /*!
+      mtsTeleOperation can run in 4 control modes, which is controlled by
+      footpedal CLUTCH & COAG. Note the COAG pedal is used only because the
+      head sensor is not installed in the da Vinci Research Kit.
+
+      Mode 1: COAG = False, CLUTCH = False
+              MTM and PSM stop at their current position. If PSM ManipClutch is
+              pressed, then the user can manually move PSM.
+              NOTE: MTM always tries to allign its orientation with PSM's orientation
+
+      Mode 2/3: COAG = False/True, CLUTCH = True
+              MTM can move freely in workspace, however its orientation is locked
+              PSM can not move
+
+      Mode 4: COAG = True, CLUT = False
+              PSM follows MTM motion
+    */
     if (IsEnabled) {
         // follow mode
         if (!IsClutched && IsCoag) {
@@ -177,10 +201,12 @@ void mtsTeleOperation::Run(void)
             }
         } else if (!IsClutched && !IsCoag) {
             // MTM follows PSM Orientation
-            std::cerr << "MTM follows PSM Orientation" << std::endl;
+            if (counter%20) {
+//                CMN_LOG_CLASS_RUN_ERROR << "MTM follows PSM Orientation" << std::endl;
+            }
 
             vctFrm4x4 masterCartesianDesired;
-            masterCartesianDesired.Translation().Assign(masterPosition.Translation());
+            masterCartesianDesired.Translation().Assign(MasterLockTranslation);
             vctMatRot3 masterRotation;
             masterRotation = master2slave.Inverse() * slavePosition.Rotation();
             masterCartesianDesired.Rotation().FromNormalized(masterRotation);
@@ -245,7 +271,7 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
 
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
-        Master.SetRobotControlState(std::string("Clutch"));
+//        Master.SetMasterControlState(std::string("Clutch"));
 
         Master.PositionCartesianDesired.Goal().Rotation().FromNormalized(
                     Slave.PositionCartesianCurrent.Position().Rotation());
@@ -255,11 +281,10 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
     }
     else {
         this->IsClutched = false;
-        Master.SetRobotControlState(std::string("Teleop"));
 
-        Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
-        Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
     }
+
+    SetMasterControlState();
 }
 
 void mtsTeleOperation::EventHandlerCoag(const prmEventButton &button)
@@ -271,6 +296,8 @@ void mtsTeleOperation::EventHandlerCoag(const prmEventButton &button)
         this->IsCoag = false;
         CMN_LOG_CLASS_RUN_DEBUG << "COAG: RELEASED" << std::endl;
     }
+
+    SetMasterControlState();
 }
 
 
@@ -279,7 +306,7 @@ void mtsTeleOperation::Enable(const mtsBool &enable)
     IsEnabled = enable.Data;
 
     // Set Master/Slave to Teleop (Cartesian Position Mode)
-    Master.SetRobotControlState(mtsStdString("Teleop"));
+    SetMasterControlState();
     Slave.SetRobotControlState(mtsStdString("Teleop"));
 }
 
@@ -313,4 +340,27 @@ void mtsTeleOperation::SetScale(const mtsDouble & scale)
 void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rot)
 {
     this->RegistrationRotation = rot;
+}
+
+
+void mtsTeleOperation::SetMasterControlState(void)
+{
+    if (IsEnabled == false) {
+        CMN_LOG_CLASS_RUN_WARNING << "TeleOperation is NOT enabled" << std::endl;
+        return;
+    }
+
+    if (IsCoag && !IsClutched) {
+        Master.SetRobotControlState(mtsStdString("Gravity"));
+    } else if (IsCoag && IsClutched) {
+        Master.SetRobotControlState(mtsStdString("Clutch"));
+    } else if (!IsCoag && IsClutched) {
+        Master.SetRobotControlState(mtsStdString("Clutch"));
+    } else if (!IsCoag && !IsClutched) {
+        MasterLockTranslation.Assign(Master.PositionCartesianCurrent.Position().Translation());
+        Master.SetRobotControlState(mtsStdString("Teleop"));
+    }
+
+    Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
+    Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
 }
