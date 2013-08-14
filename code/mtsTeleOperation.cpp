@@ -74,7 +74,7 @@ void mtsTeleOperation::Init(void)
     if (req) {
         req->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
         req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
-        req->AddFunction("SetGripperPosition", Slave.SetGripperPosition);
+        req->AddFunction("SetOpenAngle", Slave.SetOpenAngle);
         req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
 
         req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutchBtn");
@@ -195,9 +195,9 @@ void mtsTeleOperation::Run(void)
             if (Master.GetGripperPosition.IsValid()) {
                 double gripperPosition;
                 Master.GetGripperPosition(gripperPosition);
-                Slave.SetGripperPosition(gripperPosition);
+                Slave.SetOpenAngle(gripperPosition);
             } else {
-                Slave.SetGripperPosition(5 * cmnPI_180);
+                Slave.SetOpenAngle(5 * cmnPI_180);
             }
         } else if (!IsClutched && !IsCoag) {
             // MTM follows PSM Orientation
@@ -361,6 +361,7 @@ void mtsTeleOperation::SetMasterControlState(void)
         Master.SetRobotControlState(mtsStdString("Teleop"));
     }
 
+    // Update MTM/PSM previous position
     Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
     Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
 }

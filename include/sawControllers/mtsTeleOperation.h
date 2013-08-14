@@ -110,7 +110,7 @@ protected:
         mtsFunctionWrite SetPositionCartesian;
         mtsFunctionWrite SetRobotControlState;
 
-        mtsFunctionWrite SetGripperPosition;
+        mtsFunctionWrite SetOpenAngle;
 
         prmPositionCartesianGet PositionCartesianCurrent;
         prmPositionCartesianSet PositionCartesianDesired;
