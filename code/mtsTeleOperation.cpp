@@ -329,7 +329,7 @@ void mtsTeleOperation::AllignMasterToSlave(void)
 void mtsTeleOperation::ComputeMasterToSlaveFrame(const vctFrm3 & mPos,
                                                  vctFrm3 & sPos)
 {
-//    sPos.Translation().Multiply(this->Scale);
+    CMN_LOG_CLASS_RUN_DEBUG << mPos << sPos << std::endl;
 }
 
 void mtsTeleOperation::SetScale(const mtsDouble & scale)
