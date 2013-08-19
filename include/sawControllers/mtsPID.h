@@ -58,6 +58,9 @@ private:
         mtsFunctionWrite SetTorque;
     } Robot;
 
+    //! Counter for internal use
+    int counter;
+
     //! Proportional gains
     vctDoubleVec Kp;
     //! Derivative gains

@@ -30,6 +30,7 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 
 mtsPID::mtsPID(const std::string &taskname, double period):
     mtsTaskPeriodic(taskname, period),
+    counter(0),
     CheckJointLimit(true),
     Enabled(false),
     ConfigurationStateTable(100, "Configuration")
@@ -41,6 +42,7 @@ mtsPID::mtsPID(const std::string &taskname, double period):
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
+    counter(0),
     CheckJointLimit(true),
     Enabled(false),
     ConfigurationStateTable(100, "Configuration")
@@ -148,6 +150,7 @@ void mtsPID::Configure(const std::string & filename)
     Kd.SetSize(numJoints);
     Ki.SetSize(numJoints);
     Offset.SetSize(numJoints);
+    Offset.SetAll(0.0);
     JointLowerLimit.SetSize(numJoints);
     JointLowerLimit.SetAll(0.0);
     JointUpperLimit.SetSize(numJoints);
@@ -248,8 +251,8 @@ void mtsPID::Configure(const std::string & filename)
     CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "JointLowerLimit" << JointLowerLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "JointUpperLimit" << JointUpperLimit << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "JntLowerLimit" << JointLowerLimit << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "JntUpperLimit" << JointUpperLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << DeadBand << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
     CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
@@ -280,6 +283,10 @@ void mtsPID::Run(void)
     ProcessQueuedEvents();
     ProcessQueuedCommands();
 
+    // increment counter
+    counter++;
+
+    // update position
     Robot.GetFeedbackPosition(FeedbackPositionParam);
     FeedbackPositionParam.GetPosition(FeedbackPosition);
 
@@ -365,9 +372,19 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
 
+        if (counter%100 == 0) {
+            CMN_LOG_CLASS_RUN_DEBUG  << GetName() << std::setprecision(5) << Torque << std::endl;
+        }
     }
     else {
-        CMN_LOG_CLASS_RUN_VERBOSE << "mtsPID disabled" << std::endl;
+        if (counter%100 == 0) {
+            CMN_LOG_CLASS_RUN_DEBUG << GetName() << " disabled  "
+                                    << Torque << std::endl;
+        }
+
+        Torque.SetAll(0.0);
+        TorqueParam.SetForceTorque(Torque);
+        Robot.SetTorque(TorqueParam);
     }
 }
 
