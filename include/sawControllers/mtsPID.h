@@ -144,6 +144,8 @@ protected:
 
     //! Error limit event trigger
     mtsFunctionVoid EventErrorLimit;
+    //! Enable event
+    mtsFunctionWrite EventPIDEnable;
 
     /**
      * @brief Reset encoder, clear e/ed/ei value

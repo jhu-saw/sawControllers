@@ -51,6 +51,9 @@ protected:
     void Init(void);
     virtual void closeEvent(QCloseEvent * event);
 
+signals:
+    void SignalEnablePID(bool enable);
+
 private slots:
     //! slot enable/disable mtsPID controller
     void SlotEnablePID(bool toggle);
@@ -68,13 +71,17 @@ private slots:
     void SlotResetPIDGain(void);
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
+    //! slot to change Enable Checkbox
+    void SlotEventPIDEnableHandler(const bool & enable);
 
+    //! timer event to update GUI
     void timerEvent(QTimerEvent * event);
 
 private:
     //! setup PID controller GUI
     void setupUi(void);
     void EventErrorLimitHandler(void);
+    void EventPIDEnableHandler(const bool & enable);
 
 protected:
 

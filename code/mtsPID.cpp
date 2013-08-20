@@ -60,7 +60,7 @@ void mtsPID::SetupInterfaces(void)
     if (req) {
         req->AddFunction("GetJointType", Robot.GetJointType);
         req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
-        req->AddFunction("GetVelocityJointSTOP", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
+//        req->AddFunction("GetVelocityJointSTOP", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
 
@@ -114,6 +114,7 @@ void mtsPID::SetupInterfaces(void)
 
         // Events
         interfaceProvided->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
+        interfaceProvided->AddEventWrite(this->EventPIDEnable, "EventPIDEnable", false);
     }
 }
 
@@ -530,6 +531,9 @@ void mtsPID::Enable(const mtsBool & enable)
     // write torque to robot
     TorqueParam.SetForceTorque(Torque);
     Robot.SetTorque(TorqueParam);
+
+    // trigger EventPIDEnable
+    EventPIDEnable(Enabled);
 }
 
 void mtsPID::EnableTorqueMode(const vctBoolVec &ena)

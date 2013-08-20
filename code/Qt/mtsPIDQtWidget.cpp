@@ -81,6 +81,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("SetIGain", PID.SetIGain);
         // Events
         interfaceRequired->AddEventHandlerVoid(&mtsPIDQtWidget::EventErrorLimitHandler, this, "EventErrorLimit");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EventPIDEnableHandler, this, "EventPIDEnable");
     }
     setupUi();
     startTimer(50); // ms
@@ -227,6 +228,11 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
     PlotIndex = newAxis;
 }
 
+void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool &enable)
+{
+    QCBEnablePID->setChecked(enable);
+}
+
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
     // get data from the PID
@@ -349,7 +355,8 @@ void mtsPIDQtWidget::setupUi(void)
     QGroupBox * testGroupBox = new QGroupBox("Control");
     testGroupBox->setLayout(testLayout);
 
-    connect(QCBEnablePID, SIGNAL(toggled(bool)), this, SLOT(SlotEnablePID(bool)));
+    connect(QCBEnablePID, SIGNAL(clicked(bool)), this, SLOT(SlotEnablePID(bool)));
+    connect(this, SIGNAL(SignalEnablePID(bool)), this, SLOT(SlotEventPIDEnableHandler(bool)));
     connect(QCBEnableTorqueMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTorqueMode(bool)));
     connect(qpbMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(qpbZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
@@ -378,4 +385,9 @@ void mtsPIDQtWidget::setupUi(void)
 void mtsPIDQtWidget::EventErrorLimitHandler(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << "EventErrorLimitHandler" << std::endl;
+}
+
+void mtsPIDQtWidget::EventPIDEnableHandler(const bool &enable)
+{
+    emit SignalEnablePID(enable);
 }
