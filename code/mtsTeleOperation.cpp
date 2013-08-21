@@ -32,7 +32,7 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperation, mtsTaskPeriodic, mtsTask
 
 mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const double periodInSeconds):
     mtsTaskPeriodic(componentName, periodInSeconds),
-    counter(0),
+    Counter(0),
     Scale(0.2)
 {
     Init();
@@ -40,7 +40,7 @@ mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const doub
 
 mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
     mtsTaskPeriodic(arg),
-    counter(0),
+    Counter(0),
     Scale(0.2)
 {
     Init();
@@ -48,7 +48,7 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
 
 void mtsTeleOperation::Init(void)
 {
-    counter = 0;
+    Counter = 0;
 
     // Initialize states
     this->IsClutched = false;
@@ -61,47 +61,49 @@ void mtsTeleOperation::Init(void)
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
 
     // Setup CISST Interface
-    mtsInterfaceRequired * req;
-    req = AddInterfaceRequired("Master");
-    if (req) {
-        req->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
-        req->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
-        req->AddFunction("GetGripperPosition", Master.GetGripperPosition);
-        req->AddFunction("SetRobotControlState", Master.SetRobotControlState);
+    mtsInterfaceRequired * masterRequired = AddInterfaceRequired("Master");
+    if (masterRequired) {
+        masterRequired->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
+        masterRequired->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
+        masterRequired->AddFunction("GetGripperPosition", Master.GetGripperPosition);
+        masterRequired->AddFunction("SetRobotControlState", Master.SetRobotControlState);
     }
 
-    req = AddInterfaceRequired("Slave");
-    if (req) {
-        req->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
-        req->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
-        req->AddFunction("SetOpenAngle", Slave.SetOpenAngle);
-        req->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
+    mtsInterfaceRequired * slaveRequired = AddInterfaceRequired("Slave");
+    if (slaveRequired) {
+        slaveRequired->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
+        slaveRequired->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
+        slaveRequired->AddFunction("SetOpenAngle", Slave.SetOpenAngle);
+        slaveRequired->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
 
-        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutchBtn");
-        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerSUJClutch, this, "SUJClutchBtn");
+        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutchBtn");
+        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerSUJClutch, this, "SUJClutchBtn");
     }
 
     // Footpedal events
-    req = AddInterfaceRequired("CLUTCH");
-    if (req) {
-        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
+    mtsInterfaceRequired * clutchRequired = AddInterfaceRequired("CLUTCH");
+    if (clutchRequired) {
+        clutchRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerClutched, this, "Button");
     }
 
-    req = AddInterfaceRequired("COAG");
-    if (req) {
-        req->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
+    mtsInterfaceRequired * headRequired = AddInterfaceRequired("COAG");
+    if (headRequired) {
+        headRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerCoag, this, "Button");
     }
 
-    mtsInterfaceProvided * prov = AddInterfaceProvided("Setting");
-    if (prov) {
-        prov->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", mtsBool());
-        prov->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
-        prov->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
+    mtsInterfaceProvided * providedSettings = AddInterfaceProvided("Setting");
+    if (providedSettings) {
+        providedSettings->AddCommandReadState(StateTable, StateTable.PeriodStats,
+                                  "GetPeriodStatistics"); // mtsIntervalStatistics
+
+        providedSettings->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", mtsBool());
+        providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
+        providedSettings->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                               "SetRegistrationRotation", vctMatRot3());
 
-        prov->AddCommandVoid(&mtsTeleOperation::AllignMasterToSlave, this, "AllignMasterToSlave");
-        prov->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
-        prov->AddCommandReadState(this->StateTable, Slave.PositionCartesianCurrent, "GetPositionCartesianSlave");
+        providedSettings->AddCommandVoid(&mtsTeleOperation::AllignMasterToSlave, this, "AllignMasterToSlave");
+        providedSettings->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
+        providedSettings->AddCommandReadState(this->StateTable, Slave.PositionCartesianCurrent, "GetPositionCartesianSlave");
     }
 }
 
@@ -121,7 +123,7 @@ void mtsTeleOperation::Run(void)
     ProcessQueuedEvents();
 
     // increment counter
-    counter++;
+    Counter++;
 
     // get master Cartesian position
     mtsExecutionResult executionResult;
@@ -201,7 +203,7 @@ void mtsTeleOperation::Run(void)
             }
         } else if (!IsClutched && !IsCoag) {
             // MTM follows PSM Orientation
-            if (counter%20) {
+            if (Counter%20) {
 //                CMN_LOG_CLASS_RUN_ERROR << "MTM follows PSM Orientation" << std::endl;
             }
 

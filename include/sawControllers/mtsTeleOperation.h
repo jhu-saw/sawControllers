@@ -37,7 +37,7 @@ http://www.cisst.org/cisst/license.txt.
  * \todo
  *
  */
-class mtsTeleOperation : public mtsTaskPeriodic
+class mtsTeleOperation: public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
@@ -122,7 +122,7 @@ protected:
 
 private:
 
-    int counter;
+    int Counter;
     double Scale;
     vctMatRot3 RegistrationRotation;
     vctFrm3 Offset;

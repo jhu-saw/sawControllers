@@ -22,12 +22,10 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _mtsTeleOperationQtWidget_h
 #define _mtsTeleOperationQtWidget_h
 
-#include <cisstCommon/cmnXMLPath.h>
-#include <cisstOSAbstraction/osaTimeServer.h>
-#include <cisstMultiTask/mtsComponent.h>
-#include <cisstParameterTypes/prmPositionCartesianGet.h>
-
 #include <cisstVector/vctQtWidgetFrame.h>
+#include <cisstMultiTask/mtsComponent.h>
+#include <cisstMultiTask/mtsQtWidgetIntervalStatistics.h>
+#include <cisstParameterTypes/prmPositionCartesianGet.h>
 
 #include <QtCore>
 #include <QtGui>
@@ -52,6 +50,7 @@ protected:
 private slots:
     void timerEvent(QTimerEvent * event);
     void SlotEnableTeleop(bool state);
+    void SlotSetScale(double scale);
 
 private:
     //! setup TeleOperation controller GUI
@@ -60,8 +59,10 @@ private:
 protected:
     struct TeleOperationStruct {
         mtsFunctionWrite Enable;
+        mtsFunctionWrite SetScale;
         mtsFunctionRead GetPositionCartesianMaster;
         mtsFunctionRead GetPositionCartesianSlave;
+        mtsFunctionRead GetPeriodStatistics;
     } TeleOperation;
 
 private:
@@ -69,6 +70,9 @@ private:
     vctQtWidgetFrameDoubleRead * QFRPositionMasterWidget;
     prmPositionCartesianGet PositionSlave;
     vctQtWidgetFrameDoubleRead * QFRPositionSlaveWidget;
+    // GUI: timing
+    mtsIntervalStatistics IntervalStatistics;
+    mtsQtWidgetIntervalStatistics * QMIntervalStatistics;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperationQtWidget);

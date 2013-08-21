@@ -41,11 +41,13 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
     :mtsComponent(componentName)
 {
     // Setup CISST Interface
-    mtsInterfaceRequired * rinterfaceRequired = AddInterfaceRequired("TeleOperation");
-    if (rinterfaceRequired) {
-        rinterfaceRequired->AddFunction("Enable", TeleOperation.Enable);
-        rinterfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
-        rinterfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
+    mtsInterfaceRequired * interfaceRequired = AddInterfaceRequired("TeleOperation");
+    if (interfaceRequired) {
+        interfaceRequired->AddFunction("Enable", TeleOperation.Enable);
+        interfaceRequired->AddFunction("SetScale", TeleOperation.SetScale);
+        interfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
+        interfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
+        interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
     }
     setupUi();
     startTimer(50); // ms
@@ -98,6 +100,9 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
     }
     QFRPositionMasterWidget->SetValue(PositionMaster.Position());
     QFRPositionSlaveWidget->SetValue(PositionSlave.Position());
+
+    TeleOperation.GetPeriodStatistics(IntervalStatistics);
+    QMIntervalStatistics->SetValue(IntervalStatistics);
 }
 
 
@@ -106,6 +111,10 @@ void mtsTeleOperationQtWidget::SlotEnableTeleop(bool state)
     TeleOperation.Enable(mtsBool(state));
 }
 
+void mtsTeleOperationQtWidget::SlotSetScale(double scale)
+{
+    TeleOperation.SetScale(scale);
+}
 
 void mtsTeleOperationQtWidget::setupUi(void)
 {
@@ -140,14 +149,27 @@ void mtsTeleOperationQtWidget::setupUi(void)
     frameLayout->addWidget(QFRPositionSlaveWidget, 1, 0);
 
 
-    QVBoxLayout *controlLayout = new QVBoxLayout;
+    QVBoxLayout * controlLayout = new QVBoxLayout;
 
-    QCheckBox *enableCheckbox = new QCheckBox("Enable Teleop");
-
+    // enable/disable teleoperation
+    QCheckBox * enableCheckbox = new QCheckBox("Enable");
     controlLayout->addWidget(enableCheckbox);
+
+    // scale
+    QDoubleSpinBox * scaleSpinbox = new QDoubleSpinBox();
+    scaleSpinbox->setRange(0.1, 0.5);
+    scaleSpinbox->setSingleStep(0.1);
+    scaleSpinbox->setPrefix("scale ");
+    scaleSpinbox->setValue(0.2);
+    controlLayout->addWidget(scaleSpinbox);
+
+    // Timing
+    QMIntervalStatistics = new mtsQtWidgetIntervalStatistics();
+    controlLayout->addWidget(QMIntervalStatistics);
+
     controlLayout->addStretch();
 
-    QHBoxLayout* mainLayout = new QHBoxLayout;
+    QHBoxLayout * mainLayout = new QHBoxLayout;
     mainLayout->addLayout(frameLayout);
     mainLayout->addLayout(controlLayout);
 
@@ -158,4 +180,5 @@ void mtsTeleOperationQtWidget::setupUi(void)
 
     // setup Qt Connection
     connect(enableCheckbox, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
+    connect(scaleSpinbox, SIGNAL(valueChanged(double)), this, SLOT(SlotSetScale(double)));
 }
