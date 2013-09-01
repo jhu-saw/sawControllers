@@ -20,6 +20,7 @@ set (REQUIRED_CISST_LIBRARIES
      cisstNumerical
      cisstOSAbstraction
      cisstMultiTask
+     cisstMultiTaskQt
      cisstParameterTypes
      cisstQt)
 
