@@ -151,6 +151,9 @@ void mtsTeleOperationQtWidget::setupUi(void)
 
     QVBoxLayout * controlLayout = new QVBoxLayout;
 
+    QLabel * instructionsLabel = new QLabel("To start tele-operation you must first insert the tool past the cannula tip (push tool clutch button and manually insert tool).\nYou must keep your right foot on the COAG/MONO pedal to operate.\nYou can use the clutch pedal to re-position your masters.");
+    controlLayout->addWidget(instructionsLabel);
+
     // enable/disable teleoperation
     QCheckBox * enableCheckbox = new QCheckBox("Enable");
     controlLayout->addWidget(enableCheckbox);
