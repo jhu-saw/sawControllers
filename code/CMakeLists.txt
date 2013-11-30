@@ -42,6 +42,7 @@ if( cisst_FOUND )
     HEADER_FILES
     ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
     ${sawControllers_HEADER_DIR}/osaPDGC.h
+    ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
 
     ${sawControllers_HEADER_DIR}/mtsController.h
     ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
@@ -53,6 +54,7 @@ if( cisst_FOUND )
     SOURCE_FILES
     osaGravityCompensation.cpp
     osaPDGC.cpp
+    osaPIDAntiWindup.cpp
 
     mtsController.cpp
     mtsGravityCompensation.cpp
