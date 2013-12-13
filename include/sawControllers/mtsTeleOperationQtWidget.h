@@ -18,7 +18,6 @@ http://www.cisst.org/cisst/license.txt.
 --- end cisst license ---
 */
 
-
 #ifndef _mtsTeleOperationQtWidget_h
 #define _mtsTeleOperationQtWidget_h
 
@@ -37,7 +36,7 @@ class mtsTeleOperationQtWidget: public QWidget, public mtsComponent
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsTeleOperationQtWidget(const std::string & componentName);
+    mtsTeleOperationQtWidget(const std::string & componentName, double periodInSeconds = 50.0 * cmn_ms);
     ~mtsTeleOperationQtWidget(){}
 
     void Configure(const std::string & filename = "");
@@ -55,6 +54,7 @@ private slots:
 private:
     //! setup TeleOperation controller GUI
     void setupUi(void);
+    int TimerPeriodInMilliseconds;
 
 protected:
     struct TeleOperationStruct {

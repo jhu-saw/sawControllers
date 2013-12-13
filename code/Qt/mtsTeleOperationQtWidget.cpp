@@ -37,8 +37,9 @@ http://www.cisst.org/cisst/license.txt.
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperationQtWidget, mtsComponent, std::string);
 
-mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & componentName)
-    :mtsComponent(componentName)
+mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & componentName, double periodInSeconds):
+    mtsComponent(componentName),
+    TimerPeriodInMilliseconds(periodInSeconds * 1000) // Qt timers are in milliseconds
 {
     // Setup CISST Interface
     mtsInterfaceRequired * interfaceRequired = AddInterfaceRequired("TeleOperation");
@@ -50,7 +51,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
         interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
     }
     setupUi();
-    startTimer(50); // ms
+    startTimer(TimerPeriodInMilliseconds);
 }
 
 void mtsTeleOperationQtWidget::Configure(const std::string &filename)
@@ -87,6 +88,11 @@ void mtsTeleOperationQtWidget::closeEvent(QCloseEvent * event)
 
 void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
 {
+    // make sure we should update the display
+    if (this->isHidden()) {
+        return;
+    }
+
     mtsExecutionResult executionResult;
     executionResult = TeleOperation.GetPositionCartesianMaster(PositionMaster);
     if (!executionResult) {

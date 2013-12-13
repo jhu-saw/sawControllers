@@ -23,6 +23,7 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnXMLPath.h>
+#include <cisstCommon/cmnUnits.h>
 #include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstVector/vctQtWidgetDynamicVector.h>
@@ -39,13 +40,14 @@ class mtsPIDQtWidget: public QWidget, public mtsComponent
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 public:
-    mtsPIDQtWidget(const std::string & componentName, unsigned int numberOfAxis);
+    mtsPIDQtWidget(const std::string & componentName, unsigned int numberOfAxis,
+                   double periodInSeconds = 50.0 * cmn_ms);
     mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg);
     ~mtsPIDQtWidget(){}
 
     void Configure(const std::string & filename = "");
-    void Startup();
-    void Cleanup();
+    void Startup(void);
+    void Cleanup(void);
 
 protected:
     void Init(void);
@@ -80,6 +82,8 @@ private slots:
 private:
     //! setup PID controller GUI
     void setupUi(void);
+    int TimerPeriodInMilliseconds;
+
     void EventErrorLimitHandler(void);
     void EventPIDEnableHandler(const bool & enable);
 

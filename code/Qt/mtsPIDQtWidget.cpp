@@ -37,14 +37,19 @@ http://www.cisst.org/cisst/license.txt.
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPIDQtWidget, mtsComponent, mtsComponentConstructorNameAndUInt)
 
 mtsPIDQtWidget::mtsPIDQtWidget(const std::string & componentName,
-                               unsigned int numberOfAxis):
-    mtsComponent(componentName), NumberOfAxis(numberOfAxis)
+                               unsigned int numberOfAxis,
+                               double periodInSeconds):
+    mtsComponent(componentName),
+    TimerPeriodInMilliseconds(periodInSeconds * 1000), // Qt timer are in milliseconds
+    NumberOfAxis(numberOfAxis)
 {
     Init();
 }
 
 mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
-    mtsComponent(arg.Name), NumberOfAxis(arg.Arg)
+    mtsComponent(arg.Name),
+    TimerPeriodInMilliseconds(50),
+    NumberOfAxis(arg.Arg)
 {
     Init();
 }
@@ -84,7 +89,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EventPIDEnableHandler, this, "EventPIDEnable");
     }
     setupUi();
-    startTimer(50); // ms
+    startTimer(TimerPeriodInMilliseconds); // ms
 }
 
 void mtsPIDQtWidget::Configure(const std::string & filename)
@@ -235,6 +240,11 @@ void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool &enable)
 
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
+    // make sure we should update the display
+    if (this->isHidden()) {
+        return;
+    }
+
     // get data from the PID
     PID.GetPositionJoint(PID.PositionJointGetParam);
     PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
