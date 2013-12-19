@@ -29,6 +29,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstVector/vctQtWidgetDynamicVector.h>
 #include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <cisstParameterTypes/prmVelocityJointGet.h>
 
 #include <QtCore>
 #include <QtGui>
@@ -95,10 +96,12 @@ protected:
         mtsFunctionWrite EnableTorqueMode;
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetPositionJoint;
+        mtsFunctionRead  GetVelocityJoint;
         mtsFunctionRead  GetPositionJointDesired;
         mtsFunctionRead  GetEffortJoint;
 
         prmPositionJointGet PositionJointGetParam;
+        prmVelocityJointGet VelocityJointGetParam;
         vctDoubleVec EffortJoint;
 
         mtsFunctionRead  GetJointType;
@@ -134,6 +137,8 @@ private:
     vctPlot2DOpenGLQtWidget * QVPlot;
     vctPlot2DBase::Signal * CurrentPositionSignal;
     vctPlot2DBase::Signal * DesiredPositionSignal;
+    vctPlot2DBase::Signal * CurrentVelocitySignal;
+    vctPlot2DBase::Signal * DesiredEffortSignal;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };

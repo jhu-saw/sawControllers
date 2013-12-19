@@ -68,11 +68,12 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(Torque, "RequestedTorque");
     // this should go in a "read" state table
     StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
+    StateTable.AddData(FeedbackVelocityParam, "prmFeedbackVel");
     StateTable.AddData(DesiredPosition, "DesiredPosition");
     StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
     StateTable.AddData(Offset, "TorqueOffset");
 
-    // this should go in a configuration state table with occasional start/advance
+    // configuration state table with occasional start/advance
     ConfigurationStateTable.AddData(Kp, "Kp");
     ConfigurationStateTable.AddData(Kd, "Kd");
     ConfigurationStateTable.AddData(Ki, "Ki");
@@ -89,6 +90,7 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
         interfaceProvided->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
+        interfaceProvided->AddCommandReadState(StateTable, FeedbackVelocityParam, "GetVelocityJoint");
         interfaceProvided->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
         interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
         // Set check limits
@@ -168,6 +170,7 @@ void mtsPID::Configure(const std::string & filename)
     Torque.SetAll(0.0);
 
     FeedbackPositionParam.SetSize(numJoints);
+    FeedbackPositionPreviousParam.SetSize(numJoints);
     DesiredPositionParam.SetSize(numJoints);
     FeedbackVelocityParam.SetSize(numJoints);
     TorqueParam.SetSize(numJoints);
@@ -291,36 +294,49 @@ void mtsPID::Run(void)
     Robot.GetFeedbackPosition(FeedbackPositionParam);
     FeedbackPositionParam.GetPosition(FeedbackPosition);
 
+    // compute error
+    Error.DifferenceOf(DesiredPosition, FeedbackPosition);
+    for (size_t i = 0; i < Error.size(); i++) {
+        if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
+            Error[i] = 0.0;
+    }
+
+    // update velocities
+    if (Robot.GetFeedbackVelocity.IsValid()) {
+        Robot.GetFeedbackVelocity(FeedbackVelocityParam);
+        FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
+    } else {
+#if 0
+        double dt = StateTable.Period;
+        if (dt > 0) {
+            FeedbackVelocity.DifferenceOf(oldError, Error);
+            FeedbackVelocity.Divide(dt);
+        } else {
+            FeedbackVelocity.SetAll(0.0);
+        }
+        // set param so data in state table is accurate
+        FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
+#endif
+#if 1
+        double dt = FeedbackPositionParam.Timestamp() - FeedbackPositionPreviousParam.Timestamp();
+        if (dt > 0) {
+            FeedbackVelocity.DifferenceOf(FeedbackPositionParam.Position(),
+                                          FeedbackPositionPreviousParam.Position());
+            FeedbackVelocity.Divide(dt);
+        } else {
+            FeedbackVelocity.SetAll(0.0);
+        }
+        // set param so data in state table is accurate
+        FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
+#endif
+    }
+
     // compute torque
     if (Enabled) {
 
-        // compute error
-        Error.DifferenceOf(DesiredPosition, FeedbackPosition);
-        size_t i;
-        for (i = 0; i < Error.size(); i++) {
-            if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
-                Error[i] = 0.0;
-        }
-
         // compute error derivative
-        if (Robot.GetFeedbackVelocity.IsValid()) {
-            Robot.GetFeedbackVelocity(FeedbackVelocityParam);
-            FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
-            //            dError.DifferenceOf(DesiredVelocity, FeedbackVelocity);
-            dError.Assign(FeedbackVelocity);
-            dError.Multiply(-1.0);
-        } else {
-            // ZC: TODO add dError filtering
-            // compute error derivative
-            double dt = StateTable.Period;
-            if (dt > 0) {
-                dError.DifferenceOf(Error, oldError);
-                dError.Divide(dt);
-            }
-            else {
-                dError.SetAll(0.0);
-            }
-        }
+        dError.Assign(FeedbackVelocity);
+        dError.Multiply(-1.0);
 
         // compute error integral
         iError.ElementwiseMultiply(forgetIError);
@@ -328,7 +344,7 @@ void mtsPID::Run(void)
 
         // check error limit & clamp iError
         bool isOutOfLimit = false;
-        for (i = 0; i < iError.size(); i++) {
+        for (size_t i = 0; i < iError.size(); i++) {
             // error limit
             if (fabs(Error[i]) > errorLimit[i])
                 isOutOfLimit = true;
@@ -354,7 +370,8 @@ void mtsPID::Run(void)
 
         // nonlinear control mode
         for (size_t i = 0; i < Error.size(); i++) {
-            if (nonlinear[i] > 0 && fabs(Error[i] < nonlinear[i])) {
+            if ((nonlinear[i] > 0)
+                && (fabs(Error[i]) < nonlinear[i])) {
                 Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
             }
         }
@@ -373,12 +390,12 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
 
-        if (counter%100 == 0) {
+        if (counter % 100 == 0) {
             CMN_LOG_CLASS_RUN_DEBUG  << GetName() << std::setprecision(5) << Torque << std::endl;
         }
     }
     else {
-        if (counter%100 == 0) {
+        if (counter % 100 == 0) {
             CMN_LOG_CLASS_RUN_DEBUG << GetName() << " disabled  "
                                     << Torque << std::endl;
         }
@@ -387,6 +404,9 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
     }
+
+    // save previous position
+    FeedbackPositionPreviousParam = FeedbackPositionParam;
 }
 
 

@@ -57,6 +57,7 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
 void mtsPIDQtWidget::Init(void)
 {
     PID.PositionJointGetParam.Position().SetSize(NumberOfAxis);
+    PID.VelocityJointGetParam.Velocity().SetSize(NumberOfAxis);
     PID.EffortJoint.SetSize(NumberOfAxis);
 
     DesiredPosition.SetSize(NumberOfAxis);
@@ -75,6 +76,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("EnableTorqueMode", PID.EnableTorqueMode);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
+        interfaceRequired->AddFunction("GetVelocityJoint", PID.GetVelocityJoint);
         interfaceRequired->AddFunction("GetPositionJointDesired", PID.GetPositionJointDesired);
         interfaceRequired->AddFunction("GetEffortJoint", PID.GetEffortJoint);
         interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
@@ -231,6 +233,7 @@ void mtsPIDQtWidget::SlotResetPIDGain(void)
 void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
 {
     PlotIndex = newAxis;
+    QVPlot->SetContinuousExpandYResetSlot();
 }
 
 void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool &enable)
@@ -248,6 +251,8 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     // get data from the PID
     PID.GetPositionJoint(PID.PositionJointGetParam);
     PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
+    PID.GetVelocityJoint(PID.VelocityJointGetParam);
+    PID.VelocityJointGetParam.Velocity().ElementwiseMultiply(UnitFactor);
     PID.GetEffortJoint(PID.EffortJoint);
     PID.GetPositionJointDesired(DesiredPositionFromPID);
 
@@ -259,6 +264,10 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
                                                   PID.PositionJointGetParam.Position().Element(PlotIndex)));
     DesiredPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
                                                   DesiredPositionFromPID.Element(PlotIndex)));
+    CurrentVelocitySignal->AppendPoint(vctDouble2(PID.VelocityJointGetParam.Timestamp(),
+                                                  PID.VelocityJointGetParam.Velocity().Element(PlotIndex)));
+    DesiredEffortSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
+                                                -PID.EffortJoint.Element(PlotIndex))); // negate current to plot the same direction
     QVPlot->updateGL();
 }
 
@@ -342,10 +351,17 @@ void mtsPIDQtWidget::setupUi(void)
     plotLayout->addLayout(plotButtonsLayout);
     // plotting area
     QVPlot = new vctPlot2DOpenGLQtWidget();
-    CurrentPositionSignal = QVPlot->AddSignal("position-current");
+    vctPlot2DBase::Scale * scalePosition = QVPlot->AddScale("positions");
+    CurrentPositionSignal = scalePosition->AddSignal("current");
     CurrentPositionSignal->SetColor(vctDouble3(1.0, 0.0, 0.0));
-    DesiredPositionSignal = QVPlot->AddSignal("position-desired");
+    DesiredPositionSignal = scalePosition->AddSignal("desired");
     DesiredPositionSignal->SetColor(vctDouble3(0.0, 1.0, 0.0));
+    vctPlot2DBase::Scale * scaleVelocity = QVPlot->AddScale("velocities");
+    CurrentVelocitySignal = scaleVelocity->AddSignal("current");
+    CurrentVelocitySignal->SetColor(vctDouble3(0.5, 0.5, 0.5));
+    vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
+    DesiredEffortSignal = scaleEffort->AddSignal("-desired");
+    DesiredEffortSignal->SetColor(vctDouble3(1.0, 1.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 

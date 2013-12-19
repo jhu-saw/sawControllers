@@ -95,6 +95,7 @@ private:
     prmJointTypeVec JointType;
     //! prm type feedback positoin
     prmPositionJointGet FeedbackPositionParam;
+    prmPositionJointGet FeedbackPositionPreviousParam;
     //! prm type desired position
     prmPositionJointSet DesiredPositionParam;
     //! prm type desired torque
