@@ -31,17 +31,13 @@ http://www.cisst.org/cisst/license.txt.
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsTeleOperation, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 mtsTeleOperation::mtsTeleOperation(const std::string & componentName, const double periodInSeconds):
-    mtsTaskPeriodic(componentName, periodInSeconds),
-    Counter(0),
-    Scale(0.2)
+    mtsTaskPeriodic(componentName, periodInSeconds)
 {
     Init();
 }
 
 mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
-    mtsTaskPeriodic(arg),
-    Counter(0),
-    Scale(0.2)
+    mtsTaskPeriodic(arg)
 {
     Init();
 }
@@ -49,6 +45,7 @@ mtsTeleOperation::mtsTeleOperation(const mtsTaskPeriodicConstructorArg & arg):
 void mtsTeleOperation::Init(void)
 {
     Counter = 0;
+    Scale = 0.2;
 
     // Initialize states
     this->IsClutched = false;
@@ -283,7 +280,6 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton &button)
     }
     else {
         this->IsClutched = false;
-
     }
 
     SetMasterControlState();
