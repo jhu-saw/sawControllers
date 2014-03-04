@@ -139,13 +139,6 @@ void mtsTeleOperation::Run(void)
     }
     vctFrm4x4 slavePosition(Slave.PositionCartesianCurrent.Position());
 
-    // mtm w.r.t. psm
-    vctMatRot3 master2slave;
-    master2slave.Assign(-1.0, 0.0, 0.0,
-                         0.0,-1.0, 0.0,
-                         0.0, 0.0, 1.0);
-
-
     /*!
       mtsTeleOperation can run in 4 control modes, which is controlled by
       footpedal CLUTCH & COAG. Note the COAG pedal is used only because the
@@ -175,11 +168,11 @@ void mtsTeleOperation::Run(void)
             vct3 slaveTranslation;
             masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
             slaveTranslation = masterTranslation * this->Scale;
-            slaveTranslation = master2slave * slaveTranslation + Slave.CartesianPrevious.Translation();
+            slaveTranslation = RegistrationRotation * slaveTranslation + Slave.CartesianPrevious.Translation();
 
             // rotation
             vctMatRot3 slaveRotation;
-            slaveRotation = master2slave * masterPosition.Rotation();
+            slaveRotation = RegistrationRotation * masterPosition.Rotation();
 
             // compute desired slave position
             vctFrm4x4 slaveCartesianDesired;
@@ -196,18 +189,13 @@ void mtsTeleOperation::Run(void)
                 Master.GetGripperPosition(gripperPosition);
                 Slave.SetOpenAngle(gripperPosition);
             } else {
-                Slave.SetOpenAngle(5 * cmnPI_180);
+                Slave.SetOpenAngle(5.0 * cmnPI_180);
             }
         } else if (!IsClutched && !IsCoag) {
-            // MTM follows PSM Orientation
-            if (Counter%20) {
-//                CMN_LOG_CLASS_RUN_ERROR << "MTM follows PSM Orientation" << std::endl;
-            }
-
             vctFrm4x4 masterCartesianDesired;
             masterCartesianDesired.Translation().Assign(MasterLockTranslation);
             vctMatRot3 masterRotation;
-            masterRotation = master2slave.Inverse() * slavePosition.Rotation();
+            masterRotation = RegistrationRotation.Inverse() * slavePosition.Rotation();
             masterCartesianDesired.Rotation().FromNormalized(masterRotation);
 
             // Send Master command postion

@@ -54,6 +54,9 @@ public:
     void ConfigureMaster(const std::string & filename);
     void ConfigureSlave(const std::string & filename);
 
+    void SetScale(const mtsDouble & scale);
+    void SetRegistrationRotation(const vctMatRot3 & rot);
+
 private:
 
     void Init(void);
@@ -66,11 +69,6 @@ private:
 
     void Enable(const mtsBool & enable);
     void AllignMasterToSlave(void);
-
-    // Setter
-    void SetScale(const mtsDouble & scale);
-    void SetRegistrationRotation(const vctMatRot3 & rot);
-
 
     /**
      * @brief Set MTM control states based on teleop component state
