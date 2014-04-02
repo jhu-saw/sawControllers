@@ -153,7 +153,7 @@ void mtsTeleOperation::Run(void)
               MTM can move freely in workspace, however its orientation is locked
               PSM can not move
 
-      Mode 4: COAG = True, CLUT = False
+      Mode 4: COAG = True, CLUTCH = False
               PSM follows MTM motion
     */
     if (IsEnabled) {
