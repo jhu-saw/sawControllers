@@ -66,6 +66,7 @@ private:
     void EventHandlerSUJClutch(const prmEventButton &button);
     void EventHandlerClutched(const prmEventButton & button);
     void EventHandlerCoag(const prmEventButton & button);
+    void EventHandlerHead(const prmEventButton & button);
 
     void Enable(const mtsBool & enable);
     void AllignMasterToSlave(void);
@@ -128,6 +129,7 @@ private:
 
     bool IsClutched;
     bool IsCoag;
+    bool IsHead;
     bool IsEnabled;
 
     vctMatRot3 MasterClutchedOrientation;

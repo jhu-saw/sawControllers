@@ -192,15 +192,7 @@ void mtsTeleOperation::Run(void)
                 Slave.SetOpenAngle(5.0 * cmnPI_180);
             }
         } else if (!IsClutched && !IsCoag) {
-            vctFrm4x4 masterCartesianDesired;
-            masterCartesianDesired.Translation().Assign(MasterLockTranslation);
-            vctMatRot3 masterRotation;
-            masterRotation = RegistrationRotation.Inverse() * slavePosition.Rotation();
-            masterCartesianDesired.Rotation().FromNormalized(masterRotation);
-
-            // Send Master command postion
-            Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
-            Master.SetPositionCartesian(Master.PositionCartesianDesired);
+            // Do nothing
         }
     } else {
         CMN_LOG_CLASS_RUN_DEBUG << "mtsTeleOperation disabled" << std::endl;
@@ -223,10 +215,24 @@ void mtsTeleOperation::EventHandlerManipClutch(const prmEventButton &button)
         CMN_LOG_CLASS_RUN_ERROR << "ManipClutch released" << std::endl;
     }
 
+    // Slave State
     if (IsEnabled && !IsCoag && Slave.IsManipClutched) {
         Slave.SetRobotControlState(mtsStdString("Manual"));
     } else if (IsEnabled) {
         Slave.SetRobotControlState(mtsStdString("Teleop"));
+    }
+
+    // Master
+    if (IsEnabled && !Slave.IsManipClutched) {
+        vctFrm4x4 masterCartesianDesired;
+        masterCartesianDesired.Translation().Assign(MasterLockTranslation);
+        vctMatRot3 masterRotation;
+        masterRotation = RegistrationRotation.Inverse() * Slave.PositionCartesianCurrent.Position().Rotation();
+        masterCartesianDesired.Rotation().FromNormalized(masterRotation);
+
+        // Send Master command postion
+        Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
+        Master.SetPositionCartesian(Master.PositionCartesianDesired);
     }
 }
 
@@ -286,6 +292,16 @@ void mtsTeleOperation::EventHandlerCoag(const prmEventButton &button)
     SetMasterControlState();
 }
 
+void mtsTeleOperation::EventHandlerHead(const prmEventButton &button)
+{
+    if (button.Type() == prmEventButton::PRESSED) {
+        this->IsHead = true;
+        CMN_LOG_CLASS_RUN_DEBUG << "HEAD: PRESSED" << std::endl;
+    } else {
+        this->IsHead = false;
+        CMN_LOG_CLASS_RUN_DEBUG << "HEAD: RELEASED" << std::endl;
+    }
+}
 
 void mtsTeleOperation::Enable(const mtsBool &enable)
 {
@@ -294,6 +310,19 @@ void mtsTeleOperation::Enable(const mtsBool &enable)
     // Set Master/Slave to Teleop (Cartesian Position Mode)
     SetMasterControlState();
     Slave.SetRobotControlState(mtsStdString("Teleop"));
+
+    if (IsEnabled) {
+        // Orientate Master with Slave
+        vctFrm4x4 masterCartesianDesired;
+        masterCartesianDesired.Translation().Assign(MasterLockTranslation);
+        vctMatRot3 masterRotation;
+        masterRotation = RegistrationRotation.Inverse() * Slave.PositionCartesianCurrent.Position().Rotation();
+        masterCartesianDesired.Rotation().FromNormalized(masterRotation);
+
+        // Send Master command postion
+        Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
+        Master.SetPositionCartesian(Master.PositionCartesianDesired);
+    }
 }
 
 
