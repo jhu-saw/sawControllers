@@ -64,15 +64,14 @@ private:
     void EventHandlerManipClutch(const prmEventButton &button);
     void EventHandlerSUJClutch(const prmEventButton &button);
     void EventHandlerClutched(const prmEventButton & button);
-    void EventHandlerCoag(const prmEventButton & button);
-    void EventHandlerHead(const prmEventButton & button);
+    void EventHandlerOperatorPresent(const prmEventButton & button);
 
     void Enable(const mtsBool & enable);
     void AllignMasterToSlave(void);
 
     /**
      * @brief Set MTM control states based on teleop component state
-     *        and control input device (cluch & coag).
+     *        and control input device (cluch & operatorPresent).
      *
      *  WARNING: should only be called by event handlers
      */
@@ -127,8 +126,7 @@ private:
     vct3 MasterLockTranslation;
 
     bool IsClutched;
-    bool IsCoag;
-    bool IsHead;
+    bool IsOperatorPresent;
     bool IsEnabled;
 
     vctMatRot3 MasterClutchedOrientation;
