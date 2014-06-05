@@ -6,7 +6,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -30,9 +30,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmVelocityJointGet.h>
 
-#include <QtCore>
-#include <QtGui>
-
+#include <QCheckBox>
+#include <QSpinBox>
 
 class mtsPIDQtWidget: public QWidget, public mtsComponent
 {

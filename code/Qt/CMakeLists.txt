@@ -1,6 +1,6 @@
 #
 #
-# (C) Copyright 2013 Johns Hopkins University (JHU), All Rights
+# (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights
 # Reserved.
 #
 # --- begin cisst license - do not edit ---
@@ -33,9 +33,14 @@ if (cisst_FOUND_AS_REQUIRED)
 
   # for Qt generated header files
   include_directories (${CMAKE_CURRENT_BINARY_DIR})
-  qt4_wrap_cpp (SAW_CONTROLLERS_QT_WRAP_CPP
-                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
-                ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h)
+  if (CISST_HAS_QT4)
+    qt4_wrap_cpp (SAW_CONTROLLERS_QT_WRAP_CPP
+                  ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
+                  ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h)
+  else (CISST_HAS_QT4)
+    set (CMAKE_AUTOMOC ON)
+  endif (CISST_HAS_QT4)
+
   add_library (sawControllersQt
                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
                ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h
@@ -44,6 +49,9 @@ if (cisst_FOUND_AS_REQUIRED)
                ${SAW_CONTROLLERS_QT_WRAP_CPP})
   set_property (TARGET sawControllersQt PROPERTY FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})
+  if (CISST_HAS_QT5)
+    qt5_use_modules (sawControllersQt Core Widgets)
+  endif (CISST_HAS_QT5)
 
   # make sure the new library is known by the parent folder to add to the config file
   set (sawControllersQt_LIBRARIES sawControllersQt PARENT_SCOPE)
