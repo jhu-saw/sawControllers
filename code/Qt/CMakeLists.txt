@@ -49,9 +49,6 @@ if (cisst_FOUND_AS_REQUIRED)
                ${SAW_CONTROLLERS_QT_WRAP_CPP})
   set_property (TARGET sawControllersQt PROPERTY FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})
-  if (CISST_HAS_QT5)
-    qt5_use_modules (sawControllersQt Core Widgets)
-  endif (CISST_HAS_QT5)
 
   # make sure the new library is known by the parent folder to add to the config file
   set (sawControllersQt_LIBRARIES sawControllersQt PARENT_SCOPE)
