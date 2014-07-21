@@ -1,3 +1,7 @@
+#if (CISST_OS == CISST_WINDOWS)
+#include <windows.h>   // for WaitMessage
+#endif
+
 #include <sawKeyboard/mtsKeyboard.h>
 #include <sawControllers/mtsGravityCompensation.h>
 
@@ -121,7 +125,11 @@ int main(){
   taskManager->CreateAll();
   taskManager->StartAll();
 
+#if (CISST_OS == CISST_WINDOWS)
+  WaitMessage();
+#else
   pause();
+#endif
 
   taskManager->KillAll();
   taskManager->Cleanup();
