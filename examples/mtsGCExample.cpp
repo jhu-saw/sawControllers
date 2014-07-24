@@ -1,3 +1,5 @@
+
+#include <cisstCommon/cmnPortability.h>
 #if (CISST_OS == CISST_WINDOWS)
 #include <windows.h>   // for WaitMessage
 #endif
