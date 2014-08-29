@@ -32,8 +32,9 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <QCheckBox>
 #include <QSpinBox>
+#include <sawControllers/sawControllersQtExport.h>
 
-class mtsPIDQtWidget: public QWidget, public mtsComponent
+class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
 {
     Q_OBJECT;
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
