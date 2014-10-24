@@ -58,6 +58,7 @@ void mtsPID::SetupInterfaces(void)
     if (req) {
         req->AddFunction("GetJointType", Robot.GetJointType);
         req->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
+        req->AddFunction("GetTorqueJoint", Robot.GetFeedbackTorque);
 //        req->AddFunction("GetVelocityJointSTOP", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         req->AddFunction("SetTorqueJoint", Robot.SetTorque);
     }
@@ -67,6 +68,7 @@ void mtsPID::SetupInterfaces(void)
     // this should go in a "read" state table
     StateTable.AddData(FeedbackPositionParam, "prmFeedbackPos");
     StateTable.AddData(FeedbackVelocityParam, "prmFeedbackVel");
+    StateTable.AddData(FeedbackTorque, "FeedbackTorque");
     StateTable.AddData(DesiredPosition, "DesiredPosition");
     StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
     StateTable.AddData(Offset, "TorqueOffset");
@@ -89,8 +91,9 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
         interfaceProvided->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
         interfaceProvided->AddCommandReadState(StateTable, FeedbackVelocityParam, "GetVelocityJoint");
+        interfaceProvided->AddCommandReadState(StateTable, FeedbackTorque, "GetTorqueJoint");
         interfaceProvided->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
-        interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJoint");
+        interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJointDesired");
         // Set check limits
         interfaceProvided->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
         interfaceProvided->AddCommandWriteState(StateTable, Offset, "SetTorqueOffset");
@@ -160,6 +163,7 @@ void mtsPID::Configure(const std::string & filename)
     // feedback
     FeedbackPosition.SetSize(numJoints);
     DesiredPosition.SetSize(numJoints);
+    FeedbackTorque.SetSize(numJoints);
     DesiredTorque.SetSize(numJoints);
     DesiredTorque.SetAll(0.0);
     FeedbackVelocity.SetSize(numJoints);
@@ -288,10 +292,10 @@ void mtsPID::Run(void)
     // increment counter
     counter++;
 
-    // update position
+    // update states
     Robot.GetFeedbackPosition(FeedbackPositionParam);
     FeedbackPositionParam.GetPosition(FeedbackPosition);
-
+    Robot.GetFeedbackTorque(FeedbackTorque);
     // compute error
     Error.DifferenceOf(DesiredPosition, FeedbackPosition);
     for (size_t i = 0; i < Error.size(); i++) {
