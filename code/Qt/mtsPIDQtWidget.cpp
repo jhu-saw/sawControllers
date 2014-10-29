@@ -84,7 +84,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
         interfaceRequired->AddFunction("GetVelocityJoint", PID.GetVelocityJoint);
         interfaceRequired->AddFunction("GetPositionJointDesired", PID.GetPositionJointDesired);
-        interfaceRequired->AddFunction("GetEffortJoint", PID.GetEffortJoint);
+        interfaceRequired->AddFunction("GetEffortJointDesired", PID.GetEffortJointDesired);
         interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
@@ -259,7 +259,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
     PID.GetVelocityJoint(PID.VelocityJointGetParam);
     PID.VelocityJointGetParam.Velocity().ElementwiseMultiply(UnitFactor);
-    PID.GetEffortJoint(PID.EffortJoint);
+    PID.GetEffortJointDesired(PID.EffortJoint);
     PID.GetPositionJointDesired(DesiredPositionFromPID);
 
     // update GUI

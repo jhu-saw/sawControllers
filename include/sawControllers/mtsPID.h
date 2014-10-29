@@ -51,6 +51,8 @@ protected:
         mtsFunctionRead GetFeedbackPosition;
         //! Read joint velocity from robot
         mtsFunctionRead GetFeedbackVelocity;
+        //! Read joint torque from robot
+        mtsFunctionRead GetFeedbackTorque;
         //! Write the joint torques
         mtsFunctionWrite SetTorque;
     } Robot;
@@ -79,6 +81,8 @@ protected:
     vctDoubleVec FeedbackPosition;
     //! Desired joint positions
     vctDoubleVec DesiredPosition;
+    //! Feedback joint positions
+    vctDoubleVec FeedbackTorque;
     //! Desired joint positions
     vctDoubleVec DesiredTorque;
     //! Feedback joint velocities

@@ -97,7 +97,7 @@ protected:
         mtsFunctionRead  GetPositionJoint;
         mtsFunctionRead  GetVelocityJoint;
         mtsFunctionRead  GetPositionJointDesired;
-        mtsFunctionRead  GetEffortJoint;
+        mtsFunctionRead  GetEffortJointDesired;
 
         prmPositionJointGet PositionJointGetParam;
         prmVelocityJointGet VelocityJointGetParam;
