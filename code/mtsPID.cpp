@@ -26,9 +26,9 @@ http://www.cisst.org/cisst/license.txt.
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 
-mtsPID::mtsPID(const std::string &taskname, double period):
-    mtsTaskPeriodic(taskname, period),
-    counter(0),
+mtsPID::mtsPID(const std::string &componentName, double periodInSeconds):
+    mtsTaskPeriodic(componentName, periodInSeconds),
+    Counter(0),
     CheckJointLimit(true),
     Enabled(false),
     ConfigurationStateTable(100, "Configuration")
@@ -40,7 +40,7 @@ mtsPID::mtsPID(const std::string &taskname, double period):
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
     mtsTaskPeriodic(arg),
-    counter(0),
+    Counter(0),
     CheckJointLimit(true),
     Enabled(false),
     ConfigurationStateTable(100, "Configuration")
@@ -77,13 +77,15 @@ void mtsPID::SetupInterfaces(void)
     ConfigurationStateTable.AddData(Ki, "Ki");
     ConfigurationStateTable.AddData(JointLowerLimit, "JointLowerLimit");
     ConfigurationStateTable.AddData(JointUpperLimit, "JointUpperLimit");
-    ConfigurationStateTable.AddData(JointType, "jointType");
+    ConfigurationStateTable.AddData(JointType, "JointType");
+    ConfigurationStateTable.AddData(mEnableTrackingError, "EnableTrackingError");
+    ConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
     // provide SetDesiredPositions
     mtsInterfaceProvided * interfaceProvided = AddInterfaceProvided("Controller");
     if (interfaceProvided) {
         interfaceProvided->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
-        interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", mtsBool());
+        interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
@@ -104,6 +106,10 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointUpperLimit, "GetJointUpperLimit");
         interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointType, "GetJointType");
 
+        // Error tracking
+        interfaceProvided->AddCommandWriteState(ConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
+        interfaceProvided->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
+
         // Set PID gains
         interfaceProvided->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", Kp);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", Kd);
@@ -113,8 +119,8 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
 
         // Events
-        interfaceProvided->AddEventVoid(this->EventErrorLimit, "EventErrorLimit");
         interfaceProvided->AddEventWrite(this->EventPIDEnable, "EventPIDEnable", false);
+        interfaceProvided->AddEventVoid(this->EventTrackingError, "TrackingError");
     }
 }
 
@@ -175,6 +181,7 @@ void mtsPID::Configure(const std::string & filename)
 
     // errors
     Error.SetSize(numJoints);
+    ErrorAbsolute.SetSize(numJoints);
     dError.SetSize(numJoints);
     iError.SetSize(numJoints);
     oldError.SetSize(numJoints);
@@ -185,8 +192,6 @@ void mtsPID::Configure(const std::string & filename)
     minIErrorLimit.SetAll(-100.0);
     maxIErrorLimit.SetSize(numJoints);
     maxIErrorLimit.SetAll(100.0);
-    errorLimit.SetSize(numJoints);
-    errorLimit.SetAll(100.0);
 
     // default 1.0: no effect
     forgetIError.SetSize(numJoints);
@@ -202,6 +207,11 @@ void mtsPID::Configure(const std::string & filename)
     // torque mode
     TorqueMode.SetSize(numJoints);
     TorqueMode.SetAll(false);
+
+    // tracking error
+    mEnableTrackingError = false;
+    mTrackingErrorTolerances.SetSize(numJoints);
+    mTrackingErrorTolerances.SetAll(0.0);
 
     // read data from xml file
     char context[64];
@@ -219,7 +229,7 @@ void mtsPID::Configure(const std::string & filename)
         // limit
         config.GetXMLValue(context, "limit/@MinILimit", minIErrorLimit[i]);
         config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
-        config.GetXMLValue(context, "limit/@ErrorLimit", errorLimit[i]);
+        config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances[i]);
         config.GetXMLValue(context, "limit/@Deadband", DeadBand[i]);
 
         // joint limit
@@ -227,17 +237,17 @@ void mtsPID::Configure(const std::string & filename)
         std::string tmpUnits;
         bool ret = false;
         ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
-        if (ret){
+        if (ret) {
             config.GetXMLValue(context, "pos/@LowerLimit", JointLowerLimit[i]);
             config.GetXMLValue(context, "pos/@UpperLimit", JointUpperLimit[i]);
-            if(tmpUnits == "deg"){
+            if (tmpUnits == "deg") {
                 JointLowerLimit[i] *= cmnPI_180;
                 JointUpperLimit[i] *= cmnPI_180;
-            }else if (tmpUnits == "mm"){
+            } else if (tmpUnits == "mm") {
                 JointLowerLimit[i] *= cmn_mm;
                 JointUpperLimit[i] *= cmn_mm;
             }
-        }else{
+        } else {
             CheckJointLimit = false;
         }
     }
@@ -249,17 +259,17 @@ void mtsPID::Configure(const std::string & filename)
     // TODO: Only do this for revolute joints
     DeadBand.Multiply(cmnPI_180);
 
-    CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "Kd: " << Kd << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "Ki: " << Ki << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "Offset: " << Offset << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "JntLowerLimit" << JointLowerLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "JntUpperLimit" << JointUpperLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "Deadband: " << DeadBand << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "minLimit: " << minIErrorLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "maxLimit: " << maxIErrorLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "elimit: " << errorLimit << std::endl;
-    CMN_LOG_CLASS_INIT_VERBOSE << "forget: " << forgetIError << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << Kp << std::endl
+                               << "Kd: " << Kd << std::endl
+                               << "Ki: " << Ki << std::endl
+                               << "Offset: " << Offset << std::endl
+                               << "JntLowerLimit" << JointLowerLimit << std::endl
+                               << "JntUpperLimit" << JointUpperLimit << std::endl
+                               << "Deadband: " << DeadBand << std::endl
+                               << "minLimit: " << minIErrorLimit << std::endl
+                               << "maxLimit: " << maxIErrorLimit << std::endl
+                               << "elimit: " << mTrackingErrorTolerances << std::endl
+                               << "forget: " << forgetIError << std::endl;
 
     ConfigurationStateTable.Advance();
 
@@ -286,7 +296,7 @@ void mtsPID::Run(void)
     ProcessQueuedCommands();
 
     // increment counter
-    counter++;
+    Counter++;
 
     // update position
     Robot.GetFeedbackPosition(FeedbackPositionParam);
@@ -331,6 +341,21 @@ void mtsPID::Run(void)
 
     // compute torque
     if (Enabled) {
+        // check for tracking error
+        if (mEnableTrackingError) {
+            ErrorAbsolute.AbsOf(Error);
+            if (!ErrorAbsolute.LesserOrEqual(mTrackingErrorTolerances)) {
+                EventTrackingError();
+                Enable(false);
+                std::string errorMessage = this->Name + ": tracking error, errors: ";
+                errorMessage.append(Error.ToString());
+                errorMessage.append(", tolerances: ");
+                errorMessage.append(mTrackingErrorTolerances.ToString());
+                errorMessage.append(", mask: ");
+                errorMessage.append(ErrorAbsolute.ElementwiseLesserOrEqual(mTrackingErrorTolerances).ToString());
+                cmnThrow(errorMessage);
+            }
+        }
 
         // compute error derivative
         dError.Assign(FeedbackVelocity);
@@ -341,21 +366,15 @@ void mtsPID::Run(void)
         iError.Add(Error);
 
         // check error limit & clamp iError
-        bool isOutOfLimit = false;
         for (size_t i = 0; i < iError.size(); i++) {
-            // error limit
-            if (fabs(Error[i]) > errorLimit[i])
-                isOutOfLimit = true;
-
             // iError clamping
-            if (iError.at(i) > maxIErrorLimit.at(i))
+            if (iError.at(i) > maxIErrorLimit.at(i)) {
                 iError.at(i) = maxIErrorLimit.at(i);
-            else if (iError.at(i) < minIErrorLimit.at(i))
+            }
+            else if (iError.at(i) < minIErrorLimit.at(i)) {
                 iError.at(i) = minIErrorLimit[i];
+            }
         }
-
-        // send EventErrorLimit
-        if (isOutOfLimit) EventErrorLimit();
 
         // save Error to oldError
         oldError.Assign(Error);
@@ -388,16 +407,15 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
 
-        if (counter % 100 == 0) {
-            CMN_LOG_CLASS_RUN_DEBUG  << GetName() << std::setprecision(5) << Torque << std::endl;
+        if (Counter % 100 == 0) {
+            CMN_LOG_CLASS_RUN_DEBUG  << "Run: " << GetName() << std::setprecision(5) << Torque << std::endl;
         }
     }
     else {
-        if (counter % 100 == 0) {
-            CMN_LOG_CLASS_RUN_DEBUG << GetName() << " disabled  "
+        if (Counter % 100 == 0) {
+            CMN_LOG_CLASS_RUN_DEBUG << "Run: " << GetName() << " disabled  "
                                     << Torque << std::endl;
         }
-
         Torque.SetAll(0.0);
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
@@ -411,6 +429,9 @@ void mtsPID::Run(void)
 void mtsPID::Cleanup(void)
 {
     // cleanup
+    Torque.SetAll(0.0);
+    TorqueParam.SetForceTorque(Torque);
+    Robot.SetTorque(TorqueParam);
 }
 
 
@@ -517,7 +538,7 @@ void mtsPID::ResetController(void)
     DesiredVelocity.SetAll(0.0);
 }
 
-void mtsPID::SetDesiredTorques(const prmForceTorqueJointSet& prmTrq)
+void mtsPID::SetDesiredTorques(const prmForceTorqueJointSet & prmTrq)
 {
     prmDesiredTrq = prmTrq;
     prmDesiredTrq.GetForceTorque( DesiredTorque );
@@ -539,9 +560,9 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
 }
 
 
-void mtsPID::Enable(const mtsBool & enable)
+void mtsPID::Enable(const bool & enable)
 {
-    Enabled = enable.Data;
+    Enabled = enable;
 
     // set torque to 0
     Torque.SetAll(0.0);
@@ -569,4 +590,14 @@ void mtsPID::EnableTorqueMode(const vctBoolVec &ena)
     // write torque to robot
     TorqueParam.SetForceTorque(Torque);
     Robot.SetTorque(TorqueParam);
+}
+
+void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
+{
+    if (tolerances.size() == mTrackingErrorTolerances.size()) {
+        mTrackingErrorTolerances.Assign(tolerances);
+    } else {
+        std::string errorMessage = this->Name + ": incorrect vector size for SetTrackingErrorTolerances";
+        cmnThrow(errorMessage);
+    }
 }

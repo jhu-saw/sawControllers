@@ -42,7 +42,7 @@ class CISST_EXPORT mtsPID : public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
-private:
+protected:
     // Required interface
     struct InterfaceRobotTorque {
         //! Read joint type form robot
@@ -56,7 +56,7 @@ private:
     } Robot;
 
     //! Counter for internal use
-    int counter;
+    int Counter;
 
     //! Proportional gains
     vctDoubleVec Kp;
@@ -104,6 +104,8 @@ private:
 
     //! Error
     vctDoubleVec Error;
+    vctDoubleVec ErrorAbsolute;
+
     //! Error derivative
     vctDoubleVec dError;
     //! Error integral
@@ -118,8 +120,6 @@ private:
     vctDoubleVec minIErrorLimit;
     //! Max iError
     vctDoubleVec maxIErrorLimit;
-    //! Error limit
-    vctDoubleVec errorLimit;
 
     //! iError forgetting factor
     vctDoubleVec forgetIError;
@@ -132,24 +132,27 @@ private:
 
     //! Enable mtsPID controller
     bool Enabled;
+
     //! Enable mtsPID controller
     vctBoolVec TorqueMode;
+
+    bool mEnableTrackingError;
+    vctDoubleVec mTrackingErrorTolerances;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
 
-protected:
-
-    //! Error limit event trigger
-    mtsFunctionVoid EventErrorLimit;
     //! Enable event
     mtsFunctionWrite EventPIDEnable;
+
+    // !Tracking error event
+    mtsFunctionVoid EventTrackingError;
 
     /**
      * @brief Reset encoder, clear e/ed/ei value
      *
      */
-    void ResetController();
+    void ResetController(void);
 
     /**
      * @brief Set desired joint position
@@ -161,9 +164,11 @@ protected:
 
     void SetupInterfaces(void);
 
-    void Enable(const mtsBool & enable);
+    void Enable(const bool & enable);
 
     void EnableTorqueMode(const vctBoolVec & enable);
+
+    void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
 public:
 
