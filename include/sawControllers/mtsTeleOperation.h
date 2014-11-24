@@ -67,7 +67,6 @@ private:
     void EventHandlerOperatorPresent(const prmEventButton & button);
 
     void Enable(const mtsBool & enable);
-    void AllignMasterToSlave(void);
 
     /**
      * @brief Set MTM control states based on teleop component state
@@ -76,14 +75,6 @@ private:
      *  WARNING: should only be called by event handlers
      */
     void SetMasterControlState(void);
-
-    /**
-     * @brief Compute Master Pos with reference to slave ref frame
-     *
-     * @param mPos
-     * @return vctFrm3
-     */
-    void ComputeMasterToSlaveFrame(const vctFrm3 & mPos, vctFrm3 & sPos);
 
 protected:
 
@@ -130,6 +121,8 @@ private:
     bool IsEnabled;
 
     vctMatRot3 MasterClutchedOrientation;
+
+    mtsStateTable * ConfigurationStateTable;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperation);

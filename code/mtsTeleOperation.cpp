@@ -56,6 +56,11 @@ void mtsTeleOperation::Init(void)
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
 
+    this->ConfigurationStateTable = new mtsStateTable(50, "Configuration");
+    this->ConfigurationStateTable->SetAutomaticAdvance(false);
+    this->AddStateTable(this->ConfigurationStateTable);
+    this->ConfigurationStateTable->AddData(this->RegistrationRotation, "RegistrationRotation");
+
     // Setup CISST Interface
     mtsInterfaceRequired * masterRequired = AddInterfaceRequired("Master");
     if (masterRequired) {
@@ -96,8 +101,8 @@ void mtsTeleOperation::Init(void)
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                                           "SetRegistrationRotation", vctMatRot3());
+        providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), RegistrationRotation, "GetRegistrationRotation");
 
-        providedSettings->AddCommandVoid(&mtsTeleOperation::AllignMasterToSlave, this, "AllignMasterToSlave");
         providedSettings->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
         providedSettings->AddCommandReadState(this->StateTable, Slave.PositionCartesianCurrent, "GetPositionCartesianSlave");
     }
@@ -136,7 +141,6 @@ void mtsTeleOperation::Run(void)
         CMN_LOG_CLASS_RUN_ERROR << "Run: call to Slave.GetPositionCartesian failed \""
                                 << executionResult << "\"" << std::endl;
     }
-    vctFrm4x4 slavePosition(Slave.PositionCartesianCurrent.Position());
 
     /*!
       mtsTeleOperation can run in 4 control modes, which is controlled by
@@ -262,13 +266,10 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton & button)
 
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsClutched = true;
-//        Master.SetMasterControlState(std::string("Clutch"));
-
         Master.PositionCartesianDesired.Goal().Rotation().FromNormalized(
                     Slave.PositionCartesianCurrent.Position().Rotation());
         Master.PositionCartesianDesired.Goal().Translation().Assign(
                     Master.PositionCartesianCurrent.Position().Translation());
-//        Master.SetPositionCartesian(Master.PositionCartesianDesired);
     }
     else {
         this->IsClutched = false;
@@ -312,28 +313,6 @@ void mtsTeleOperation::Enable(const mtsBool &enable)
     }
 }
 
-
-void mtsTeleOperation::AllignMasterToSlave(void)
-{
-    //! \todo Reverse this procedure
-
-//    vctFrm3 Rt_ms;
-//    Rt_ms = ComputeMasterToSlaveFrame(masterPos.GetPosition());
-
-//    // update Offset
-//    Offset = Rt_ms * slavePos.Position().Inverse();
-
-//    //! \todo add a flag
-//    // set rot to identity()
-//    Offset.Rotation().Assign(vctMatRot3::Identity());
-}
-
-void mtsTeleOperation::ComputeMasterToSlaveFrame(const vctFrm3 & mPos,
-                                                 vctFrm3 & sPos)
-{
-    CMN_LOG_CLASS_RUN_DEBUG << "ComputeMasterToSlaveFrame: " << mPos << " " << sPos << std::endl;
-}
-
 void mtsTeleOperation::SetScale(const mtsDouble & scale)
 {
     this->Scale = scale;
@@ -341,7 +320,9 @@ void mtsTeleOperation::SetScale(const mtsDouble & scale)
 
 void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rotation)
 {
+    this->ConfigurationStateTable->Start();
     this->RegistrationRotation = rotation;
+    this->ConfigurationStateTable->Advance();
 }
 
 

@@ -57,11 +57,12 @@ private:
     int TimerPeriodInMilliseconds;
 
 protected:
-    struct TeleOperationStruct {
+    struct {
         mtsFunctionWrite Enable;
         mtsFunctionWrite SetScale;
         mtsFunctionRead GetPositionCartesianMaster;
         mtsFunctionRead GetPositionCartesianSlave;
+        mtsFunctionRead GetRegistrationRotation;
         mtsFunctionRead GetPeriodStatistics;
     } TeleOperation;
 
@@ -70,6 +71,8 @@ private:
     vctQtWidgetFrameDoubleRead * QFRPositionMasterWidget;
     prmPositionCartesianGet PositionSlave;
     vctQtWidgetFrameDoubleRead * QFRPositionSlaveWidget;
+    vctMatRot3 RegistrationRotation;
+
     // GUI: timing
     mtsIntervalStatistics IntervalStatistics;
     mtsQtWidgetIntervalStatistics * QMIntervalStatistics;

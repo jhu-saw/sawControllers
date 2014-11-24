@@ -47,6 +47,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
         interfaceRequired->AddFunction("SetScale", TeleOperation.SetScale);
         interfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
         interfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
+        interfaceRequired->AddFunction("GetRegistrationRotation", TeleOperation.GetRegistrationRotation);
         interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
     }
     setupUi();
@@ -103,8 +104,18 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
         CMN_LOG_CLASS_RUN_ERROR << "TeleOperation.GetPositionCartesianSlave failed, \""
                                 << executionResult << "\"" << std::endl;
     }
+    executionResult = TeleOperation.GetRegistrationRotation(RegistrationRotation);
+    if (!executionResult) {
+        CMN_LOG_CLASS_RUN_ERROR << "TeleOperation.GetRegistrationRotation failed, \""
+                                << executionResult << "\"" << std::endl;
+    }
+    // apply registration orientation
+    vctFrm3 registeredSlave;
+    RegistrationRotation.ApplyInverseTo(PositionSlave.Position().Rotation(), registeredSlave.Rotation());
+    RegistrationRotation.ApplyInverseTo(PositionSlave.Position().Translation(), registeredSlave.Translation());
+
     QFRPositionMasterWidget->SetValue(PositionMaster.Position());
-    QFRPositionSlaveWidget->SetValue(PositionSlave.Position());
+    QFRPositionSlaveWidget->SetValue(registeredSlave);
 
     TeleOperation.GetPeriodStatistics(IntervalStatistics);
     QMIntervalStatistics->SetValue(IntervalStatistics);
