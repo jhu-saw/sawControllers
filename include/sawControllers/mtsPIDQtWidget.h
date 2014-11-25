@@ -2,7 +2,6 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
@@ -32,6 +31,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QPushButton>
 #include <sawControllers/sawControllersQtExport.h>
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
@@ -75,6 +75,7 @@ private slots:
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
     void SlotEventPIDEnableHandler(const bool & enable);
+    void SlotEnableDirectControl(bool toggle);
 
     //! timer event to update GUI
     void timerEvent(QTimerEvent * event);
@@ -100,6 +101,7 @@ protected:
         mtsFunctionRead  GetEffortJointDesired;
 
         prmPositionJointGet PositionJointGetParam;
+        vctDoubleVec        PositionJointGetDesired;
         prmVelocityJointGet VelocityJointGetParam;
         vctDoubleVec EffortJoint;
 
@@ -114,17 +116,22 @@ protected:
     } PID;
 
 private:
+    bool DirectControl;
+
     //! SetPosition
     vctDoubleVec DesiredPosition;
-    vctDoubleVec DesiredPositionFromPID;
     prmPositionJointSet DesiredPositionParam;
     vctDoubleVec UnitFactor;
 
     size_t NumberOfAxis;
 
     // GUI: Commands
+    QCheckBox * QCBEnableDirectControl;
     QCheckBox * QCBEnablePID;
     QCheckBox * QCBEnableTorqueMode;
+    QPushButton * QPBMaintainPosition;
+    QPushButton * QPBZeroPosition;
+    QPushButton * QPBResetPIDGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPositionWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGainWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;

@@ -2,11 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -27,7 +26,6 @@ http://www.cisst.org/cisst/license.txt.
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QPushButton>
 #include <QGroupBox>
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -63,6 +61,7 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
 void mtsPIDQtWidget::Init(void)
 {
     PID.PositionJointGetParam.Position().SetSize(NumberOfAxis);
+    PID.PositionJointGetDesired.SetSize(NumberOfAxis);
     PID.VelocityJointGetParam.Velocity().SetSize(NumberOfAxis);
     PID.EffortJoint.SetSize(NumberOfAxis);
 
@@ -70,8 +69,8 @@ void mtsPIDQtWidget::Init(void)
     DesiredPosition.SetAll(0.0);
     UnitFactor.SetSize(NumberOfAxis);
     UnitFactor.SetAll(1.0);
-    DesiredPositionFromPID.SetAll(NumberOfAxis);
 
+    DirectControl = false;
     PlotIndex = 0;
 
     // Setup cisst interface
@@ -247,6 +246,21 @@ void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool &enable)
     QCBEnablePID->setChecked(enable);
 }
 
+void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
+{
+    DirectControl = toggle;
+    // if checked in DIRECT_CONTROL mode
+    QVWDesiredPositionWidget->setEnabled(toggle);
+    QVWPGainWidget->setEnabled(toggle);
+    QVWIGainWidget->setEnabled(toggle);
+    QVWDGainWidget->setEnabled(toggle);
+    QCBEnablePID->setEnabled(toggle);
+    QCBEnableTorqueMode->setEnabled(toggle);
+    QPBMaintainPosition->setEnabled(toggle);
+    QPBZeroPosition->setEnabled(toggle);
+    QPBResetPIDGain->setEnabled(toggle);
+}
+
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
     // make sure we should update the display
@@ -257,19 +271,26 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     // get data from the PID
     PID.GetPositionJoint(PID.PositionJointGetParam);
     PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
+    PID.GetPositionJointDesired(PID.PositionJointGetDesired);
+    PID.PositionJointGetDesired.ElementwiseMultiply(UnitFactor);
     PID.GetVelocityJoint(PID.VelocityJointGetParam);
     PID.VelocityJointGetParam.Velocity().ElementwiseMultiply(UnitFactor);
     PID.GetEffortJointDesired(PID.EffortJoint);
-    PID.GetPositionJointDesired(DesiredPositionFromPID);
 
     // update GUI
     QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
     QVRCurrentEffortWidget->SetValue(PID.EffortJoint);
+
+    // display requested joint positions when we are not trying to set it using GUI
+    if (!DirectControl) {
+        QVWDesiredPositionWidget->SetValue(PID.PositionJointGetDesired);
+    }
+
     // plot
     CurrentPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
                                                   PID.PositionJointGetParam.Position().Element(PlotIndex)));
     DesiredPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
-                                                  DesiredPositionFromPID.Element(PlotIndex)));
+                                                  PID.PositionJointGetDesired.Element(PlotIndex)));
     CurrentVelocitySignal->AppendPoint(vctDouble2(PID.VelocityJointGetParam.Timestamp(),
                                                   PID.VelocityJointGetParam.Velocity().Element(PlotIndex)));
     DesiredEffortSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
@@ -371,35 +392,38 @@ void mtsPIDQtWidget::setupUi(void)
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 
-    //------------ Test --------------------
+    // control
+    QCBEnableDirectControl = new QCheckBox("Direct control");
     QCBEnablePID = new QCheckBox("Enable PID");
-    QCBEnableTorqueMode = new QCheckBox("Enable Trq Mode");
-    QPushButton * qpbMaintainPosition = new QPushButton("Maintain position");
-    QPushButton * qpbZeroPosition = new QPushButton("Zero position");
-    QPushButton * qpbResetPIDGain = new QPushButton("Reset PID gains");
-    QHBoxLayout * testLayout = new QHBoxLayout;
-    testLayout->addWidget(QCBEnablePID);
-    testLayout->addWidget(QCBEnableTorqueMode);
-    testLayout->addWidget(qpbMaintainPosition);
-    testLayout->addWidget(qpbZeroPosition);
-    testLayout->addWidget(qpbResetPIDGain);
-    testLayout->addStretch();
-    QGroupBox * testGroupBox = new QGroupBox("Control");
-    testGroupBox->setLayout(testLayout);
+    QCBEnableTorqueMode = new QCheckBox("Enable torque mode");
+    QPBMaintainPosition = new QPushButton("Maintain position");
+    QPBZeroPosition = new QPushButton("Zero position");
+    QPBResetPIDGain = new QPushButton("Reset PID gains");
+    QHBoxLayout * controlLayout = new QHBoxLayout;
+    controlLayout->addWidget(QCBEnableDirectControl);
+    controlLayout->addWidget(QCBEnablePID);
+    controlLayout->addWidget(QCBEnableTorqueMode);
+    controlLayout->addWidget(QPBMaintainPosition);
+    controlLayout->addWidget(QPBZeroPosition);
+    controlLayout->addWidget(QPBResetPIDGain);
+    controlLayout->addStretch();
+    QGroupBox * controlGroupBox = new QGroupBox("Control");
+    controlGroupBox->setLayout(controlLayout);
 
+    connect(QCBEnableDirectControl, SIGNAL(toggled(bool)), this, SLOT(SlotEnableDirectControl(bool)));
     connect(QCBEnablePID, SIGNAL(clicked(bool)), this, SLOT(SlotEnablePID(bool)));
     connect(this, SIGNAL(SignalEnablePID(bool)), this, SLOT(SlotEventPIDEnableHandler(bool)));
     connect(QCBEnableTorqueMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTorqueMode(bool)));
-    connect(qpbMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
-    connect(qpbZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
-    connect(qpbResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
+    connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
+    connect(QPBZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
+    connect(QPBResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
     connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
 
-    //------------ main layout -------------
+    // main layout
     QVBoxLayout * mainLayout = new QVBoxLayout;
     mainLayout->addLayout(gridLayout);
     mainLayout->addLayout(plotLayout);
-    mainLayout->addWidget(testGroupBox);
+    mainLayout->addWidget(controlGroupBox);
 
     setLayout(mainLayout);
 
@@ -412,6 +436,10 @@ void mtsPIDQtWidget::setupUi(void)
     connect(QVWPGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotPGainChanged()));
     connect(QVWDGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotDGainChanged()));
     connect(QVWIGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotIGainChanged()));
+
+    // set initial values
+    QCBEnableDirectControl->setChecked(DirectControl);
+    SlotEnableDirectControl(DirectControl);
 }
 
 void mtsPIDQtWidget::EventErrorLimitHandler(void)
