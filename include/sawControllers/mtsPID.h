@@ -36,6 +36,9 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmVelocityJointGet.h>
 #include <cisstParameterTypes/prmJointType.h>
 
+#include <sawControllers/sawControllersRevision.h>
+
+//! Always include last
 #include <sawControllers/sawControllersExport.h>
 
 class CISST_EXPORT mtsPID : public mtsTaskPeriodic
