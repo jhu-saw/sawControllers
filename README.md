@@ -1,7 +1,7 @@
 sawControllers
 ==============
 
-miscellaneous robot controllers 
+Miscellaneous robot controllers 
 
 Links
 =====
