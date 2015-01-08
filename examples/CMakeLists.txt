@@ -1,7 +1,5 @@
 #
-#
-# (C) Copyright 2011-2012 Johns Hopkins University (JHU), All Rights
-# Reserved.
+# (C) Copyright 2011-2015 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -35,6 +33,8 @@ if (cisst_FOUND_AS_REQUIRED)
 
     include_directories (${sawControllers_INCLUDE_DIR}
                          ${sawKeyboard_INCLUDE_DIR})
+
+    link_directories (${sawKeyboard_LIBRARY_DIR})
 
     set (sawControllers_EXAMPLES
          osaGCExample

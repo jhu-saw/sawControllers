@@ -29,7 +29,11 @@ if (cisst_FOUND)
   # create/configure file for find_package (sawControllers)
   set (sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include"
                                   "${sawControllers_BINARY_DIR}/include")
-  set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
+  if (DEFINED LIBRARY_OUTPUT_PATH)
+    set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
+  else ()
+    set (sawControllers_LIBRARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+  endif ()
   set (sawControllers_LIBRARIES sawControllers)
 
   # Set the version number
@@ -77,11 +81,18 @@ if (cisst_FOUND)
   add_subdirectory (Qt)
   set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} ${sawControllersQt_LIBRARIES})
 
+  cisst_is_catkin_build (sawControllers_IS_CATKIN_BUILT)
+  if (sawControllers_IS_CATKIN_BUILT)
+    set (sawControllers_CONFIG_FILE_DIR "${CATKIN_DEVEL_PREFIX}/cmake")
+  else ()
+    set (sawControllers_CONFIG_FILE_DIR "${sawControllers_BINARY_DIR}")
+  endif ()
+
   configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/sawControllersConfig.cmake.in"
-                  "${sawControllers_BINARY_DIR}/sawControllersConfig.cmake"
+                  "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake"
                   @ONLY@)
 
-  cisst_add_config_version ("${sawControllers_BINARY_DIR}/sawControllersConfigVersion.cmake"
+  cisst_add_config_version ("${sawControllers_CONFIG_FILE_DIR}/sawControllersConfigVersion.cmake"
                             VERSION ${sawControllers_VERSION}
                             DESTINATION ${CISST_CMAKE_INSTALL_SUFFIX}/saw
                             COMPONENT sawControllers)
