@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2014 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2015 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -26,14 +26,15 @@ if (cisst_FOUND)
   # load cisst configuration
   include (${CISST_USE_FILE})
 
+  # where to save the libraries
+  if (NOT DEFINED LIBRARY_OUTPUT_PATH)
+    set (LIBRARY_OUTPUT_PATH "${sawControllers_BINARY_DIR}/lib")
+  endif ()
+
   # create/configure file for find_package (sawControllers)
   set (sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include"
                                   "${sawControllers_BINARY_DIR}/include")
-  if (DEFINED LIBRARY_OUTPUT_PATH)
-    set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
-  else ()
-    set (sawControllers_LIBRARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-  endif ()
+  set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
   set (sawControllers_LIBRARIES sawControllers)
 
   # Set the version number
