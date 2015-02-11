@@ -26,9 +26,13 @@ if (cisst_FOUND)
   # load cisst configuration
   include (${CISST_USE_FILE})
 
-  # where to save the libraries
-  if (NOT DEFINED LIBRARY_OUTPUT_PATH)
+  # catkin/ROS paths
+  cisst_is_catkin_build (sawControllers_IS_CATKIN_BUILT)
+  if (sawControllers_IS_CATKIN_BUILT)
+    set (sawControllers_CONFIG_FILE_DIR "${CATKIN_DEVEL_PREFIX}/cmake")
     set (LIBRARY_OUTPUT_PATH "${sawControllers_BINARY_DIR}/lib")
+  else ()
+    set (sawControllers_CONFIG_FILE_DIR "${sawControllers_BINARY_DIR}")
   endif ()
 
   # create/configure file for find_package (sawControllers)
@@ -81,13 +85,6 @@ if (cisst_FOUND)
   # add Qt code
   add_subdirectory (Qt)
   set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} ${sawControllersQt_LIBRARIES})
-
-  cisst_is_catkin_build (sawControllers_IS_CATKIN_BUILT)
-  if (sawControllers_IS_CATKIN_BUILT)
-    set (sawControllers_CONFIG_FILE_DIR "${CATKIN_DEVEL_PREFIX}/cmake")
-  else ()
-    set (sawControllers_CONFIG_FILE_DIR "${sawControllers_BINARY_DIR}")
-  endif ()
 
   configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/sawControllersConfig.cmake.in"
                   "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake"
