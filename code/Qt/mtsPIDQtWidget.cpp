@@ -305,6 +305,8 @@ void mtsPIDQtWidget::setupUi(void)
     font.setBold(true);
     font.setPointSize(12);
 
+    const double maximum = 30000;
+
     QGridLayout * gridLayout = new QGridLayout();
 
     int row = 0;
@@ -332,7 +334,7 @@ void mtsPIDQtWidget::setupUi(void)
     QVWPGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
     QVWPGainWidget->SetStep(0.01);
     QVWPGainWidget->SetPrecision(3);
-    QVWPGainWidget->SetRange(-1000.0, 1000.0);
+    QVWPGainWidget->SetRange(-maximum, maximum);
     gridLayout->addWidget(QVWPGainWidget, row, 1);
     row++;
 
@@ -342,7 +344,7 @@ void mtsPIDQtWidget::setupUi(void)
     QVWDGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
     QVWDGainWidget->SetStep(0.01);
     QVWDGainWidget->SetPrecision(3);
-    QVWDGainWidget->SetRange(-1000.0, 1000.0);
+    QVWDGainWidget->SetRange(-maximum, maximum);
     gridLayout->addWidget(QVWDGainWidget, row, 1);
     row++;
 
@@ -352,7 +354,7 @@ void mtsPIDQtWidget::setupUi(void)
     QVWIGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
     QVWIGainWidget->SetStep(0.001);
     QVWIGainWidget->SetPrecision(5);
-    QVWIGainWidget->SetRange(-1000.0, 1000.0);
+    QVWIGainWidget->SetRange(-maximum, maximum);
     gridLayout->addWidget(QVWIGainWidget, row, 1);
     row++;
 
