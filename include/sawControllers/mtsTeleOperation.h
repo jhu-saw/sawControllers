@@ -53,8 +53,8 @@ public:
     void ConfigureMaster(const std::string & filename);
     void ConfigureSlave(const std::string & filename);
 
-    void SetScale(const mtsDouble & scale);
-    void SetRegistrationRotation(const vctMatRot3 & rot);
+    void SetScale(const double & scale);
+    void SetRegistrationRotation(const vctMatRot3 & rotation);
 
 private:
 
@@ -66,7 +66,7 @@ private:
     void EventHandlerClutched(const prmEventButton & button);
     void EventHandlerOperatorPresent(const prmEventButton & button);
 
-    void Enable(const mtsBool & enable);
+    void Enable(const bool & enable);
 
     /**
      * @brief Set MTM control states based on teleop component state
@@ -82,6 +82,7 @@ protected:
     public:
         mtsFunctionRead GetPositionCartesian;
         mtsFunctionWrite SetPositionCartesian;
+        mtsFunctionWrite SetPositionGoalCartesian;
         mtsFunctionWrite SetRobotControlState;
 
         mtsFunctionRead GetGripperPosition;
@@ -98,7 +99,7 @@ protected:
         mtsFunctionWrite SetPositionCartesian;
         mtsFunctionWrite SetRobotControlState;
 
-        mtsFunctionWrite SetOpenAngle;
+        mtsFunctionWrite SetJawPosition;
 
         prmPositionCartesianGet PositionCartesianCurrent;
         prmPositionCartesianSet PositionCartesianDesired;
