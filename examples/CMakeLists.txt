@@ -52,10 +52,12 @@ if (cisst_FOUND_AS_REQUIRED)
     target_link_libraries (mtsGCExample ${sawKeyboard_LIBRARIES})
 
     # copy configuration XML to the executable directory
-     execute_process(COMMAND ${CMAKE_COMMAND} -E copy
-       ${CMAKE_CURRENT_SOURCE_DIR}/configPID.xml
-       ${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/configPID.xml
-       )
+    add_custom_target (sawControllers_configPID ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_SOURCE_DIR}/configPID.xml
+                ${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/configPID.xml
+        SOURCES configPID.xml
+        COMMENT "Copying configPID.xml to the binary directory")
 
   endif (sawControllers_FOUND AND sawKeyboard_FOUND)
 
