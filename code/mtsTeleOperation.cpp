@@ -2,11 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -56,7 +55,7 @@ void mtsTeleOperation::Init(void)
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
 
-    this->ConfigurationStateTable = new mtsStateTable(50, "Configuration");
+    this->ConfigurationStateTable = new mtsStateTable(100, "Configuration");
     this->ConfigurationStateTable->SetAutomaticAdvance(false);
     this->AddStateTable(this->ConfigurationStateTable);
     this->ConfigurationStateTable->AddData(this->RegistrationRotation, "RegistrationRotation");
@@ -66,6 +65,7 @@ void mtsTeleOperation::Init(void)
     if (masterRequired) {
         masterRequired->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
         masterRequired->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
+        masterRequired->AddFunction("SetPositionGoalCartesian", Master.SetPositionGoalCartesian);
         masterRequired->AddFunction("GetGripperPosition", Master.GetGripperPosition);
         masterRequired->AddFunction("SetRobotControlState", Master.SetRobotControlState);
     }
@@ -74,11 +74,11 @@ void mtsTeleOperation::Init(void)
     if (slaveRequired) {
         slaveRequired->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
         slaveRequired->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
-        slaveRequired->AddFunction("SetOpenAngle", Slave.SetOpenAngle);
+        slaveRequired->AddFunction("SetJawPosition", Slave.SetJawPosition);
         slaveRequired->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
 
-        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutchBtn");
-        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerSUJClutch, this, "SUJClutchBtn");
+        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerManipClutch, this, "ManipClutch");
+        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::EventHandlerSUJClutch, this, "SUJClutch");
     }
 
     // Footpedal events
@@ -97,8 +97,8 @@ void mtsTeleOperation::Init(void)
         providedSettings->AddCommandReadState(StateTable, StateTable.PeriodStats,
                                               "GetPeriodStatistics"); // mtsIntervalStatistics
 
-        providedSettings->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", mtsBool());
-        providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", mtsDouble());
+        providedSettings->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", false);
+        providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", 0.5);
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                                           "SetRegistrationRotation", vctMatRot3());
         providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), RegistrationRotation, "GetRegistrationRotation");
@@ -115,7 +115,7 @@ void mtsTeleOperation::Configure(const std::string & filename)
 
 void mtsTeleOperation::Startup(void)
 {
-    CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQt::Startup" << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << "Startup" << std::endl;
 }
 
 void mtsTeleOperation::Run(void)
@@ -189,9 +189,9 @@ void mtsTeleOperation::Run(void)
             if (Master.GetGripperPosition.IsValid()) {
                 double gripperPosition;
                 Master.GetGripperPosition(gripperPosition);
-                Slave.SetOpenAngle(gripperPosition);
+                Slave.SetJawPosition(gripperPosition);
             } else {
-                Slave.SetOpenAngle(5.0 * cmnPI_180);
+                Slave.SetJawPosition(5.0 * cmnPI_180);
             }
         } else if (!IsClutched && !IsOperatorPresent) {
             // Do nothing
@@ -206,15 +206,14 @@ void mtsTeleOperation::Cleanup(void)
     CMN_LOG_CLASS_INIT_VERBOSE << "Cleanup" << std::endl;
 }
 
-
 void mtsTeleOperation::EventHandlerManipClutch(const prmEventButton & button)
 {
     if (button.Type() == prmEventButton::PRESSED) {
         Slave.IsManipClutched = true;
-        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerManipClutch: ManipClutch pressed" << std::endl;
+        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch pressed" << std::endl;
     } else {
         Slave.IsManipClutched = false;
-        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerManipClutch: ManipClutch released" << std::endl;
+        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch released" << std::endl;
     }
 
     // Slave State
@@ -233,8 +232,9 @@ void mtsTeleOperation::EventHandlerManipClutch(const prmEventButton & button)
         masterCartesianDesired.Rotation().FromNormalized(masterRotation);
 
         // Send Master command postion
+        Master.SetRobotControlState(mtsStdString("Teleop"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
-        Master.SetPositionCartesian(Master.PositionCartesianDesired);
+        Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
     }
 }
 
@@ -248,7 +248,6 @@ void mtsTeleOperation::EventHandlerSUJClutch(const prmEventButton & button)
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerSUJClutch: SUJClutch released" << std::endl;
     }
 }
-
 
 void mtsTeleOperation::EventHandlerClutched(const prmEventButton & button)
 {
@@ -274,7 +273,6 @@ void mtsTeleOperation::EventHandlerClutched(const prmEventButton & button)
     else {
         this->IsClutched = false;
     }
-
     SetMasterControlState();
 }
 
@@ -287,13 +285,12 @@ void mtsTeleOperation::EventHandlerOperatorPresent(const prmEventButton & button
         this->IsOperatorPresent = false;
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerOperatorPresent: OperatorPresent released" << std::endl;
     }
-
     SetMasterControlState();
 }
 
-void mtsTeleOperation::Enable(const mtsBool &enable)
+void mtsTeleOperation::Enable(const bool & enable)
 {
-    IsEnabled = enable.Data;
+    IsEnabled = enable;
 
     // Set Master/Slave to Teleop (Cartesian Position Mode)
     SetMasterControlState();
@@ -313,7 +310,7 @@ void mtsTeleOperation::Enable(const mtsBool &enable)
     }
 }
 
-void mtsTeleOperation::SetScale(const mtsDouble & scale)
+void mtsTeleOperation::SetScale(const double & scale)
 {
     this->Scale = scale;
 }
@@ -325,7 +322,6 @@ void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rotation)
     this->ConfigurationStateTable->Advance();
 }
 
-
 void mtsTeleOperation::SetMasterControlState(void)
 {
     if (IsEnabled == false) {
@@ -333,15 +329,17 @@ void mtsTeleOperation::SetMasterControlState(void)
         return;
     }
 
-    if (IsOperatorPresent && !IsClutched) {
-        Master.SetRobotControlState(mtsStdString("Gravity"));
-    } else if (IsOperatorPresent && IsClutched) {
+    if (IsClutched) {
         Master.SetRobotControlState(mtsStdString("Clutch"));
-    } else if (!IsOperatorPresent && IsClutched) {
-        Master.SetRobotControlState(mtsStdString("Clutch"));
-    } else if (!IsOperatorPresent && !IsClutched) {
-        MasterLockTranslation.Assign(Master.PositionCartesianCurrent.Position().Translation());
-        Master.SetRobotControlState(mtsStdString("Teleop"));
+    } else {
+        if (IsOperatorPresent) {
+            Master.SetRobotControlState(mtsStdString("Gravity"));
+        } else {
+            MasterLockTranslation.Assign(Master.PositionCartesianCurrent.Position().Translation());
+            Master.SetRobotControlState(mtsStdString("Cartesian position"));
+            Master.PositionCartesianDesired.SetGoal(Master.PositionCartesianCurrent.Position());
+            Master.SetPositionCartesian(Master.PositionCartesianDesired);
+        }
     }
 
     // Update MTM/PSM previous position

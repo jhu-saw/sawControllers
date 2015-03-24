@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -123,6 +123,7 @@ void mtsPID::SetupInterfaces(void)
 
         // Events
         interfaceProvided->AddEventWrite(this->EventPIDEnable, "EventPIDEnable", false);
+        interfaceProvided->AddEventVoid(this->EventJointLimit, "JointLimit");
         interfaceProvided->AddEventVoid(this->EventTrackingError, "TrackingError");
     }
 }
@@ -554,9 +555,23 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
     DesiredPositionParam.GetGoal(DesiredPosition);
 
     if (CheckJointLimit) {
-        // limit check: clip the desired position
-        DesiredPosition.ElementwiseMin(JointUpperLimit);
-        DesiredPosition.ElementwiseMax(JointLowerLimit);
+        bool limitReached = false;
+        vctDoubleVec::const_iterator upper = JointUpperLimit.begin();
+        vctDoubleVec::const_iterator lower = JointLowerLimit.begin();
+        vctDoubleVec::iterator desired = DesiredPosition.begin();
+        const vctDoubleVec::iterator end = DesiredPosition.end();
+        for (; desired != end; ++desired, ++upper, ++lower) {
+            if (*desired > *upper) {
+                limitReached = true;
+                *desired = *upper;
+            } else if (*desired < *lower) {
+                limitReached = true;
+                *desired = *lower;
+            }
+        }
+        if (limitReached) {
+            this->EventJointLimit();
+        }
     }
 
     double dt = StateTable.Period;
