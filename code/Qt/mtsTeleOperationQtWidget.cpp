@@ -176,7 +176,7 @@ void mtsTeleOperationQtWidget::setupUi(void)
 
     // scale
     QDoubleSpinBox * scaleSpinbox = new QDoubleSpinBox();
-    scaleSpinbox->setRange(0.1, 0.5);
+    scaleSpinbox->setRange(0.1, 1.0);
     scaleSpinbox->setSingleStep(0.1);
     scaleSpinbox->setPrefix("scale ");
     scaleSpinbox->setValue(0.2);
