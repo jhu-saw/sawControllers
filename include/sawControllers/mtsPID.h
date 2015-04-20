@@ -77,6 +77,7 @@ protected:
     vctDoubleVec JointUpperLimit;
     //! Flag whether check joint limit
     bool CheckJointLimit;
+    vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
 
 
     // TODO: change to prmPositionJointGet
@@ -145,18 +146,23 @@ protected:
 
     bool mEnableTrackingError;
     vctDoubleVec mTrackingErrorTolerances;
+    vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
 
-    //! Enable event
-    mtsFunctionWrite EventPIDEnable;
+    struct {
+        //! Enable event
+        mtsFunctionWrite Enabled;
+        // !Joint limit event
+        mtsFunctionWrite JointLimit;
+    } Events;
 
-    // !Joint limit event
-    mtsFunctionVoid EventJointLimit;
-
-    // !Tracking error event
-    mtsFunctionVoid EventTrackingError;
+    struct {
+        mtsFunctionWrite Status;
+        mtsFunctionWrite Warning;
+        mtsFunctionWrite Error;
+    } MessageEvents;
 
     /**
      * @brief Reset encoder, clear e/ed/ei value
@@ -179,6 +185,8 @@ protected:
     void EnableTorqueMode(const vctBoolVec & enable);
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
+
+    void ErrorEventHandler(const std::string & message);
 
 public:
 

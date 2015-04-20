@@ -85,8 +85,9 @@ private:
     void setupUi(void);
     int TimerPeriodInMilliseconds;
 
-    void EventErrorLimitHandler(void);
-    void EventPIDEnableHandler(const bool & enable);
+    void JointLimitEventHandler(const vctBoolVec & flags);
+    void ErrorEventHandler(const std::string & message);
+    void EnableEventHandler(const bool & enable);
 
 protected:
 

@@ -92,8 +92,9 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("SetDGain", PID.SetDGain);
         interfaceRequired->AddFunction("SetIGain", PID.SetIGain);
         // Events
-        interfaceRequired->AddEventHandlerVoid(&mtsPIDQtWidget::EventErrorLimitHandler, this, "TrackingError");
-        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EventPIDEnableHandler, this, "EventPIDEnable");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::JointLimitEventHandler, this, "JointLimit");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "Error");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
     }
     setupUi();
     startTimer(TimerPeriodInMilliseconds); // ms
@@ -241,7 +242,7 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
     QVPlot->SetContinuousExpandYResetSlot();
 }
 
-void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool &enable)
+void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool & enable)
 {
     QCBEnablePID->setChecked(enable);
 }
@@ -444,12 +445,17 @@ void mtsPIDQtWidget::setupUi(void)
     SlotEnableDirectControl(DirectControl);
 }
 
-void mtsPIDQtWidget::EventErrorLimitHandler(void)
+void mtsPIDQtWidget::JointLimitEventHandler(const vctBoolVec & flags)
 {
-    CMN_LOG_CLASS_RUN_VERBOSE << "EventErrorLimitHandler" << std::endl;
+    CMN_LOG_CLASS_RUN_VERBOSE << "JointLimitEventHandler: " << flags << std::endl;
 }
 
-void mtsPIDQtWidget::EventPIDEnableHandler(const bool &enable)
+void mtsPIDQtWidget::ErrorEventHandler(const std::string & message)
+{
+    CMN_LOG_CLASS_RUN_VERBOSE << "ErrorEventHandler: " << message << std::endl;
+}
+
+void mtsPIDQtWidget::EnableEventHandler(const bool & enable)
 {
     emit SignalEnablePID(enable);
 }
