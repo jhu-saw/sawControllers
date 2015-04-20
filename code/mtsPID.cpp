@@ -188,6 +188,7 @@ void mtsPID::Configure(const std::string & filename)
     FeedbackPositionParam.SetSize(numJoints);
     FeedbackPositionPreviousParam.SetSize(numJoints);
     DesiredPositionParam.SetSize(numJoints);
+    DesiredPositionParam.Goal().SetAll(0.0);
     FeedbackVelocityParam.SetSize(numJoints);
     TorqueParam.SetSize(numJoints);
 
@@ -539,24 +540,14 @@ void mtsPID::SetForgetIError(const double & forget)
     forgetIError = forget;
 }
 
-
-//------------- Protected Method ---------------
-
 void mtsPID::ResetController(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << "Reset Controller" << std::endl;
-
     Error.SetAll(0.0);
     oldError.SetAll(0.0);
     dError.SetAll(0.0);
     iError.SetAll(0.0);
-
-    prmPositionJointSet setPrmPos;
-    setPrmPos.SetSize(Error.size());
-    setPrmPos.SetGoal(FeedbackPosition);
-    SetDesiredPositions(setPrmPos);
-
-    DesiredVelocity.SetAll(0.0);
+    Enable(false);
 }
 
 void mtsPID::SetDesiredTorques(const prmForceTorqueJointSet & prmTrq)
@@ -661,5 +652,5 @@ void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
 
 void mtsPID::ErrorEventHandler(const std::string & message) {
     this->Enable(false);
-    MessageEvents.Error(this->GetName() + " received: " + message);
+    MessageEvents.Error(this->GetName() + ": received [" + message + "]");
 }

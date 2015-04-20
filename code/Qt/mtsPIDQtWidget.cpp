@@ -242,7 +242,7 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
     QVPlot->SetContinuousExpandYResetSlot();
 }
 
-void mtsPIDQtWidget::SlotEventPIDEnableHandler(const bool & enable)
+void mtsPIDQtWidget::SlotEnableEventHandler(bool enable)
 {
     QCBEnablePID->setChecked(enable);
 }
@@ -415,7 +415,7 @@ void mtsPIDQtWidget::setupUi(void)
 
     connect(QCBEnableDirectControl, SIGNAL(toggled(bool)), this, SLOT(SlotEnableDirectControl(bool)));
     connect(QCBEnablePID, SIGNAL(clicked(bool)), this, SLOT(SlotEnablePID(bool)));
-    connect(this, SIGNAL(SignalEnablePID(bool)), this, SLOT(SlotEventPIDEnableHandler(bool)));
+    connect(this, SIGNAL(SignalEnablePID(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(QCBEnableTorqueMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTorqueMode(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(QPBZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
