@@ -236,9 +236,11 @@ void mtsTeleOperation::ManipClutchEventHandler(const prmEventButton & button)
 {
     if (button.Type() == prmEventButton::PRESSED) {
         Slave.IsManipClutched = true;
+        MessageEvents.Status(this->GetName() + ": slave clutch pressed");
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch pressed" << std::endl;
     } else {
         Slave.IsManipClutched = false;
+        MessageEvents.Status(this->GetName() + ": slave clutch released");
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch released" << std::endl;
     }
 
@@ -295,9 +297,11 @@ void mtsTeleOperation::ClutchedEventHandler(const prmEventButton & button)
                     Slave.PositionCartesianCurrent.Position().Rotation());
         Master.PositionCartesianDesired.Goal().Translation().Assign(
                     Master.PositionCartesianCurrent.Position().Translation());
+        MessageEvents.Status(this->GetName() + ": master clutch pressed");
     }
     else {
         this->IsClutched = false;
+        MessageEvents.Status(this->GetName() + ": master clutch released");
     }
     SetMasterControlState();
 }
@@ -306,9 +310,11 @@ void mtsTeleOperation::OperatorPresentEventHandler(const prmEventButton & button
 {
     if (button.Type() == prmEventButton::PRESSED) {
         this->IsOperatorPresent = true;
+        MessageEvents.Status(this->GetName() + ": operator present");
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerOperatorPresent: OperatorPresent pressed" << std::endl;
     } else {
         this->IsOperatorPresent = false;
+        MessageEvents.Status(this->GetName() + ": operator not present");
         CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerOperatorPresent: OperatorPresent released" << std::endl;
     }
     SetMasterControlState();

@@ -51,6 +51,12 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
         interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
         // Events
         interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::EnableEventHandler, this, "Enabled");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::ErrorEventHandler,
+                                                this, "Error");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::WarningEventHandler,
+                                                this, "Warning");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::StatusEventHandler,
+                                                this, "Status");
     }
     setupUi();
     startTimer(TimerPeriodInMilliseconds);
@@ -199,7 +205,11 @@ void mtsTeleOperationQtWidget::setupUi(void)
     QMIntervalStatistics = new mtsQtWidgetIntervalStatistics();
     controlLayout->addWidget(QMIntervalStatistics);
 
-    controlLayout->addStretch();
+    // messages
+    QTEMessages = new QTextEdit();
+    QTEMessages->setReadOnly(true);
+    QTEMessages->ensureCursorVisible();
+    controlLayout->addWidget(QTEMessages);
 
     QHBoxLayout * mainLayout = new QHBoxLayout;
     mainLayout->addLayout(frameLayout);
@@ -214,9 +224,40 @@ void mtsTeleOperationQtWidget::setupUi(void)
     connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
     connect(this, SIGNAL(SignalEnableTeleop(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(scaleSpinbox, SIGNAL(valueChanged(double)), this, SLOT(SlotSetScale(double)));
+
+    // messages
+    connect(this, SIGNAL(SignalAppendMessage(QString)),
+            QTEMessages, SLOT(append(QString)));
+    connect(this, SIGNAL(SignalSetColor(QColor)),
+            QTEMessages, SLOT(setTextColor(QColor)));
+    connect(QTEMessages, SIGNAL(textChanged()),
+            this, SLOT(SlotTextChanged()));
 }
 
 void mtsTeleOperationQtWidget::EnableEventHandler(const bool & enable)
 {
     emit SignalEnableTeleop(enable);
+}
+
+void mtsTeleOperationQtWidget::SlotTextChanged(void)
+{
+    QTEMessages->verticalScrollBar()->setSliderPosition(QTEMessages->verticalScrollBar()->maximum());
+}
+
+void mtsTeleOperationQtWidget::ErrorEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("red"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Error: ") + QString(message.c_str()));
+}
+
+void mtsTeleOperationQtWidget::WarningEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("darkRed"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Warning: ") + QString(message.c_str()));
+}
+
+void mtsTeleOperationQtWidget::StatusEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("black"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Status: ") + QString(message.c_str()));
 }
