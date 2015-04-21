@@ -46,15 +46,24 @@ public:
 protected:
     virtual void closeEvent(QCloseEvent * event);
 
+signals:
+    void SignalEnableTeleop(bool enable);
+    void SignalAppendMessage(QString);
+    void SignalSetColor(QColor);
+
 private slots:
     void timerEvent(QTimerEvent * event);
+    void SlotTextChanged(void);
     void SlotEnableTeleop(bool state);
     void SlotSetScale(double scale);
+    void SlotEnableEventHandler(bool state);
 
 private:
     //! setup TeleOperation controller GUI
     void setupUi(void);
     int TimerPeriodInMilliseconds;
+
+    void EnableEventHandler(const bool & enable);
 
 protected:
     struct {
@@ -67,15 +76,22 @@ protected:
     } TeleOperation;
 
 private:
+    QCheckBox * QCBEnable;
     prmPositionCartesianGet PositionMaster;
     vctQtWidgetFrameDoubleRead * QFRPositionMasterWidget;
     prmPositionCartesianGet PositionSlave;
     vctQtWidgetFrameDoubleRead * QFRPositionSlaveWidget;
     vctMatRot3 RegistrationRotation;
 
-    // GUI: timing
+    // timing
     mtsIntervalStatistics IntervalStatistics;
     mtsQtWidgetIntervalStatistics * QMIntervalStatistics;
+
+    // messages
+    void ErrorEventHandler(const std::string & message);
+    void WarningEventHandler(const std::string & message);
+    void StatusEventHandler(const std::string & message);
+    QTextEdit * QTEMessages;
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsTeleOperationQtWidget);

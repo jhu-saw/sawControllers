@@ -40,7 +40,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
     mtsComponent(componentName),
     TimerPeriodInMilliseconds(periodInSeconds * 1000) // Qt timers are in milliseconds
 {
-    // Setup CISST Interface
+    // Setup cisst interface
     mtsInterfaceRequired * interfaceRequired = AddInterfaceRequired("TeleOperation");
     if (interfaceRequired) {
         interfaceRequired->AddFunction("Enable", TeleOperation.Enable);
@@ -49,6 +49,14 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
         interfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
         interfaceRequired->AddFunction("GetRegistrationRotation", TeleOperation.GetRegistrationRotation);
         interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
+        // Events
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::EnableEventHandler, this, "Enabled");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::ErrorEventHandler,
+                                                this, "Error");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::WarningEventHandler,
+                                                this, "Warning");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::StatusEventHandler,
+                                                this, "Status");
     }
     setupUi();
     startTimer(TimerPeriodInMilliseconds);
@@ -86,7 +94,7 @@ void mtsTeleOperationQtWidget::closeEvent(QCloseEvent * event)
     }
 }
 
-void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * event)
+void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
     // make sure we should update the display
     if (this->isHidden()) {
@@ -132,6 +140,11 @@ void mtsTeleOperationQtWidget::SlotSetScale(double scale)
     TeleOperation.SetScale(scale);
 }
 
+void mtsTeleOperationQtWidget::SlotEnableEventHandler(bool state)
+{
+    QCBEnable->setChecked(state);
+}
+
 void mtsTeleOperationQtWidget::setupUi(void)
 {
     QFont font;
@@ -159,10 +172,16 @@ void mtsTeleOperationQtWidget::setupUi(void)
     cmdTitleLayout->addWidget(cmdTitleRightLine, 1, 2);
 
     QGridLayout * frameLayout = new QGridLayout;
+    QLabel * masterLabel = new QLabel("<b>Master</b>");
+    masterLabel->setAlignment(Qt::AlignCenter);
+    frameLayout->addWidget(masterLabel, 0, 0);
     QFRPositionMasterWidget = new vctQtWidgetFrameDoubleRead(vctQtWidgetRotationDoubleRead::OPENGL_WIDGET);
-    frameLayout->addWidget(QFRPositionMasterWidget, 0, 0);
+    frameLayout->addWidget(QFRPositionMasterWidget, 1, 0);
+    QLabel * slaveLabel = new QLabel("<b>Slave</b>");
+    slaveLabel->setAlignment(Qt::AlignCenter);
+    frameLayout->addWidget(slaveLabel, 2, 0);
     QFRPositionSlaveWidget = new vctQtWidgetFrameDoubleRead(vctQtWidgetRotationDoubleRead::OPENGL_WIDGET);
-    frameLayout->addWidget(QFRPositionSlaveWidget, 1, 0);
+    frameLayout->addWidget(QFRPositionSlaveWidget, 3, 0);
 
 
     QVBoxLayout * controlLayout = new QVBoxLayout;
@@ -171,8 +190,8 @@ void mtsTeleOperationQtWidget::setupUi(void)
     controlLayout->addWidget(instructionsLabel);
 
     // enable/disable teleoperation
-    QCheckBox * enableCheckbox = new QCheckBox("Enable");
-    controlLayout->addWidget(enableCheckbox);
+    QCBEnable = new QCheckBox("Enable");
+    controlLayout->addWidget(QCBEnable);
 
     // scale
     QDoubleSpinBox * scaleSpinbox = new QDoubleSpinBox();
@@ -186,7 +205,11 @@ void mtsTeleOperationQtWidget::setupUi(void)
     QMIntervalStatistics = new mtsQtWidgetIntervalStatistics();
     controlLayout->addWidget(QMIntervalStatistics);
 
-    controlLayout->addStretch();
+    // messages
+    QTEMessages = new QTextEdit();
+    QTEMessages->setReadOnly(true);
+    QTEMessages->ensureCursorVisible();
+    controlLayout->addWidget(QTEMessages);
 
     QHBoxLayout * mainLayout = new QHBoxLayout;
     mainLayout->addLayout(frameLayout);
@@ -198,6 +221,43 @@ void mtsTeleOperationQtWidget::setupUi(void)
     resize(sizeHint());
 
     // setup Qt Connection
-    connect(enableCheckbox, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
+    connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
+    connect(this, SIGNAL(SignalEnableTeleop(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(scaleSpinbox, SIGNAL(valueChanged(double)), this, SLOT(SlotSetScale(double)));
+
+    // messages
+    connect(this, SIGNAL(SignalAppendMessage(QString)),
+            QTEMessages, SLOT(append(QString)));
+    connect(this, SIGNAL(SignalSetColor(QColor)),
+            QTEMessages, SLOT(setTextColor(QColor)));
+    connect(QTEMessages, SIGNAL(textChanged()),
+            this, SLOT(SlotTextChanged()));
+}
+
+void mtsTeleOperationQtWidget::EnableEventHandler(const bool & enable)
+{
+    emit SignalEnableTeleop(enable);
+}
+
+void mtsTeleOperationQtWidget::SlotTextChanged(void)
+{
+    QTEMessages->verticalScrollBar()->setSliderPosition(QTEMessages->verticalScrollBar()->maximum());
+}
+
+void mtsTeleOperationQtWidget::ErrorEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("red"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Error: ") + QString(message.c_str()));
+}
+
+void mtsTeleOperationQtWidget::WarningEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("darkRed"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Warning: ") + QString(message.c_str()));
+}
+
+void mtsTeleOperationQtWidget::StatusEventHandler(const std::string & message)
+{
+    emit SignalSetColor(QColor("black"));
+    emit SignalAppendMessage(QTime::currentTime().toString("hh:mm:ss") + QString(" Status: ") + QString(message.c_str()));
 }

@@ -74,7 +74,7 @@ private slots:
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
-    void SlotEventPIDEnableHandler(const bool & enable);
+    void SlotEnableEventHandler(bool enable);
     void SlotEnableDirectControl(bool toggle);
 
     //! timer event to update GUI
@@ -85,8 +85,9 @@ private:
     void setupUi(void);
     int TimerPeriodInMilliseconds;
 
-    void EventErrorLimitHandler(void);
-    void EventPIDEnableHandler(const bool & enable);
+    void JointLimitEventHandler(const vctBoolVec & flags);
+    void ErrorEventHandler(const std::string & message);
+    void EnableEventHandler(const bool & enable);
 
 protected:
 

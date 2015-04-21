@@ -61,10 +61,21 @@ private:
     void Init(void);
 
     // Event Handler
-    void EventHandlerManipClutch(const prmEventButton &button);
-    void EventHandlerSUJClutch(const prmEventButton &button);
-    void EventHandlerClutched(const prmEventButton & button);
-    void EventHandlerOperatorPresent(const prmEventButton & button);
+    void MasterErrorEventHandler(const std::string & message);
+    void SlaveErrorEventHandler(const std::string & message);
+    void ManipClutchEventHandler(const prmEventButton &button);
+    void SUJClutchEventHandler(const prmEventButton &button);
+    void ClutchedEventHandler(const prmEventButton & button);
+    void OperatorPresentEventHandler(const prmEventButton & button);
+
+    // Functions for events
+    struct {
+        mtsFunctionWrite Status;
+        mtsFunctionWrite Warning;
+        mtsFunctionWrite Error;
+        mtsFunctionWrite Enabled;
+    } MessageEvents;
+
 
     void Enable(const bool & enable);
 
