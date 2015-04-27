@@ -428,16 +428,8 @@ void mtsPID::Run(void)
         // write torque to robot
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
-
-        if (Counter % 100 == 0) {
-            CMN_LOG_CLASS_RUN_DEBUG  << "Run: " << GetName() << std::setprecision(5) << Torque << std::endl;
-        }
     }
     else {
-        if (Counter % 100 == 0) {
-            CMN_LOG_CLASS_RUN_DEBUG << "Run: " << GetName() << " disabled  "
-                                    << Torque << std::endl;
-        }
         Torque.SetAll(0.0);
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);

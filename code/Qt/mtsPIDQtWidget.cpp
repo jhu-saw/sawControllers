@@ -377,6 +377,30 @@ void mtsPIDQtWidget::setupUi(void)
     QSBPlotIndex = new QSpinBox();
     QSBPlotIndex->setRange(0, NumberOfAxis);
     plotButtonsLayout->addWidget(QSBPlotIndex);
+    // legend
+    QLabel * label;
+    QPalette palette;
+    palette.setColor(QPalette::Window, Qt::black);
+    label = new QLabel("Current");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::red);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    label = new QLabel("Desired");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::green);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    label = new QLabel("Velocity");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::gray);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    label = new QLabel("Effort");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::white);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
     plotButtonsLayout->addStretch();
     plotLayout->addLayout(plotButtonsLayout);
     // plotting area
