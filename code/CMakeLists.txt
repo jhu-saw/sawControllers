@@ -43,8 +43,8 @@ if (cisst_FOUND)
 
   # Set the version number
   set (sawControllers_VERSION_MAJOR "1")
-  set (sawControllers_VERSION_MINOR "0")
-  set (sawControllers_VERSION_PATCH "1")
+  set (sawControllers_VERSION_MINOR "1")
+  set (sawControllers_VERSION_PATCH "0")
   set (sawControllers_VERSION "${sawControllers_VERSION_MAJOR}.${sawControllers_VERSION_MINOR}.${sawControllers_VERSION_PATCH}")
 
   # Generate sawControllersRevision.h
