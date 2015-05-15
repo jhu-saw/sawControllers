@@ -86,7 +86,7 @@ void mtsTeleOperation::Init(void)
     // Footpedal events
     mtsInterfaceRequired * clutchRequired = AddInterfaceRequired("Clutch");
     if (clutchRequired) {
-        clutchRequired->AddEventHandlerWrite(&mtsTeleOperation::ClutchedEventHandler, this, "Button");
+        clutchRequired->AddEventHandlerWrite(&mtsTeleOperation::ClutchEventHandler, this, "Button");
     }
 
     mtsInterfaceRequired * headRequired = AddInterfaceRequired("OperatorPresent");
@@ -277,7 +277,7 @@ void mtsTeleOperation::SUJClutchEventHandler(const prmEventButton & button)
     }
 }
 
-void mtsTeleOperation::ClutchedEventHandler(const prmEventButton & button)
+void mtsTeleOperation::ClutchEventHandler(const prmEventButton & button)
 {
     mtsExecutionResult executionResult;
     executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
@@ -298,8 +298,7 @@ void mtsTeleOperation::ClutchedEventHandler(const prmEventButton & button)
         Master.PositionCartesianDesired.Goal().Translation().Assign(
                     Master.PositionCartesianCurrent.Position().Translation());
         MessageEvents.Status(this->GetName() + ": master clutch pressed");
-    }
-    else {
+    } else {
         this->IsClutched = false;
         MessageEvents.Status(this->GetName() + ": master clutch released");
     }

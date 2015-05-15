@@ -65,7 +65,7 @@ private:
     void SlaveErrorEventHandler(const std::string & message);
     void ManipClutchEventHandler(const prmEventButton &button);
     void SUJClutchEventHandler(const prmEventButton &button);
-    void ClutchedEventHandler(const prmEventButton & button);
+    void ClutchEventHandler(const prmEventButton & button);
     void OperatorPresentEventHandler(const prmEventButton & button);
 
     // Functions for events
