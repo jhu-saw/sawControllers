@@ -125,7 +125,7 @@ void mtsPIDQtWidget::Startup(void)
             if (jointType[i] == PRM_REVOLUTE) {
                 UnitFactor[i] = cmn180_PI;
             } else if (jointType[i] == PRM_PRISMATIC) {
-                UnitFactor[i] = cmn_mm;
+                UnitFactor[i] = 1.0 / cmn_mm;
             } else {
                 cmnThrow("mtsRobotIO1394QtWidget: Unknown joint type");
             }
