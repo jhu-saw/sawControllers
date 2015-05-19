@@ -581,9 +581,9 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
                 message.append(mJointLimitFlag.ToString());
                 MessageEvents.Warning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
-                                          << ", requested: " << DesiredPositionParam.Goal()
-                                          << ", lower limits: " << JointLowerLimit
-                                          << ", upper limits: " << JointUpperLimit
+                                          << ", \n requested: " << DesiredPositionParam.Goal()
+                                          << ", \n lower limits: " << JointLowerLimit
+                                          << ", \n upper limits: " << JointUpperLimit
                                           << std::endl;
             }
         }
