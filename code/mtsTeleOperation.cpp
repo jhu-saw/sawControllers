@@ -259,8 +259,8 @@ void mtsTeleOperation::ManipClutchEventHandler(const prmEventButton & button)
         masterRotation = RegistrationRotation.Inverse() * Slave.PositionCartesianCurrent.Position().Rotation();
         masterCartesianDesired.Rotation().FromNormalized(masterRotation);
 
-        // Send Master command postion
-        Master.SetRobotControlState(mtsStdString("Teleop"));
+        // Send Master command position
+        Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
         Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
     }
@@ -336,8 +336,9 @@ void mtsTeleOperation::Enable(const bool & enable)
         masterCartesianDesired.Rotation().FromNormalized(masterRotation);
 
         // Send Master command postion
+        Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
-        Master.SetPositionCartesian(Master.PositionCartesianDesired);
+        Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
     }
 
     // Send event for GUI
