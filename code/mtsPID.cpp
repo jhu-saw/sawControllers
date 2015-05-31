@@ -52,14 +52,13 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
 
 void mtsPID::SetupInterfaces(void)
 {
-
     // require RobotJointTorque interface
     mtsInterfaceRequired * requiredInterface = AddInterfaceRequired("RobotJointTorqueInterface");
     if (requiredInterface) {
         requiredInterface->AddFunction("GetJointType", Robot.GetJointType);
         requiredInterface->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
         requiredInterface->AddFunction("GetTorqueJoint", Robot.GetFeedbackTorque);
-//        req->AddFunction("GetVelocityJointSTOP", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
+        requiredInterface->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
         requiredInterface->AddFunction("SetTorqueJoint", Robot.SetTorque);
         // event handlers
         requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "Error");
@@ -325,23 +324,12 @@ void mtsPID::Run(void)
             Error[i] = 0.0;
     }
 
-    // update velocities
+    // update velocities from robot
     if (Robot.GetFeedbackVelocity.IsValid()) {
         Robot.GetFeedbackVelocity(FeedbackVelocityParam);
         FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
     } else {
-#if 0
-        double dt = StateTable.Period;
-        if (dt > 0) {
-            FeedbackVelocity.DifferenceOf(oldError, Error);
-            FeedbackVelocity.Divide(dt);
-        } else {
-            FeedbackVelocity.SetAll(0.0);
-        }
-        // set param so data in state table is accurate
-        FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
-#endif
-#if 1
+        // or compute an estimate from position
         double dt = FeedbackPositionParam.Timestamp() - FeedbackPositionPreviousParam.Timestamp();
         if (dt > 0) {
             FeedbackVelocity.DifferenceOf(FeedbackPositionParam.Position(),
@@ -352,7 +340,6 @@ void mtsPID::Run(void)
         }
         // set param so data in state table is accurate
         FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
-#endif
     }
 
     // compute torque
