@@ -34,6 +34,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointGet.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmVelocityJointGet.h>
+#include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmJointType.h>
 
 #include <sawControllers/sawControllersRevision.h>
@@ -41,7 +42,7 @@ http://www.cisst.org/cisst/license.txt.
 //! Always include last
 #include <sawControllers/sawControllersExport.h>
 
-class CISST_EXPORT mtsPID : public mtsTaskPeriodic
+class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
@@ -109,6 +110,8 @@ protected:
     prmVelocityJointGet FeedbackVelocityParam;
     //! prm type set torque
     prmForceTorqueJointSet TorqueParam;
+    //! prm type joint state
+    prmStateJoint mStateJoint, mStateJointDesired;
 
     //! Error
     vctDoubleVec Error;

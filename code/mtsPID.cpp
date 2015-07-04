@@ -73,6 +73,8 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(DesiredPosition, "DesiredPosition");
     StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
     StateTable.AddData(Offset, "TorqueOffset");
+    StateTable.AddData(mStateJoint, "StateJoint");
+    StateTable.AddData(mStateJointDesired, "DesiredStateJoint");
 
     // configuration state table with occasional start/advance
     ConfigurationStateTable.AddData(Kp, "Kp");
@@ -97,6 +99,10 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandReadState(StateTable, FeedbackTorque, "GetTorqueJoint");
         interfaceProvided->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
         interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJointDesired");
+        // ROS compatible joint state
+        interfaceProvided->AddCommandReadState(StateTable, mStateJoint, "GetStateJoint");
+        interfaceProvided->AddCommandReadState(StateTable, mStateJointDesired, "GetStateJointDesired");
+
         // Set check limits
         interfaceProvided->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
         interfaceProvided->AddCommandWriteState(StateTable, Offset, "SetTorqueOffset");
@@ -183,7 +189,6 @@ void mtsPID::Configure(const std::string & filename)
     DesiredVelocity.SetSize(numJoints);
     Torque.SetSize(numJoints);
     Torque.SetAll(0.0);
-
     FeedbackPositionParam.SetSize(numJoints);
     FeedbackPositionPreviousParam.SetSize(numJoints);
     DesiredPositionParam.SetSize(numJoints);
@@ -228,11 +233,22 @@ void mtsPID::Configure(const std::string & filename)
     mTrackingErrorFlag.SetAll(false);
     mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
 
+    // names in joint states
+    mStateJoint.Name().SetSize(numJoints);
+    mStateJointDesired.Name().SetSize(numJoints);
+
     // read data from xml file
     char context[64];
     for (int i = 0; i < numJoints; i++) {
         // joint
         sprintf(context, "controller/joints/joint[%d]", i+1);
+
+        // name
+        std::string name;
+        config.GetXMLValue(context, "@name", name);
+        mStateJoint.Name().at(i) = name;
+        mStateJointDesired.Name().at(i) = name;
+
         // pid
         config.GetXMLValue(context, "pid/@PGain", Kp[i]);
         config.GetXMLValue(context, "pid/@DGain", Kd[i]);
@@ -266,7 +282,6 @@ void mtsPID::Configure(const std::string & filename)
             CheckJointLimit = false;
         }
     }
-
 
     // Convert from degrees to radians
     // TODO: Decide whether to use degrees or radians in XML file
@@ -317,6 +332,7 @@ void mtsPID::Run(void)
     Robot.GetFeedbackPosition(FeedbackPositionParam);
     FeedbackPositionParam.GetPosition(FeedbackPosition);
     Robot.GetFeedbackTorque(FeedbackTorque);
+
     // compute error
     Error.DifferenceOf(DesiredPosition, FeedbackPosition);
     for (size_t i = 0; i < Error.size(); i++) {
@@ -341,6 +357,11 @@ void mtsPID::Run(void)
         // set param so data in state table is accurate
         FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
     }
+
+    // update ROS message
+    mStateJoint.Position().ForceAssign(FeedbackPosition);
+    mStateJoint.Velocity().ForceAssign(FeedbackVelocity);
+    mStateJoint.Effort().ForceAssign(FeedbackTorque);
 
     // compute torque
     if (Enabled) {
