@@ -371,9 +371,9 @@ void mtsTeleOperation::SetMasterControlState(void)
             Master.SetRobotControlState(mtsStdString("Gravity"));
         } else {
             MasterLockTranslation.Assign(Master.PositionCartesianCurrent.Position().Translation());
-            Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
+            Master.SetRobotControlState(mtsStdString("DVRK_POSITION_CARTESIAN"));
             Master.PositionCartesianDesired.SetGoal(Master.PositionCartesianCurrent.Position());
-            Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
+            Master.SetPositionCartesian(Master.PositionCartesianDesired);
         }
     }
 
