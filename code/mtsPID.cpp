@@ -368,14 +368,35 @@ void mtsPID::Run(void)
 
         // check for tracking error
         if (mEnableTrackingError) {
-            ErrorAbsolute.AbsOf(Error);
-            // if errors are too high
-            if (!ErrorAbsolute.LesserOrEqual(mTrackingErrorTolerances)) {
+            vctDoubleVec::const_iterator error = Error.begin();
+            vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
+            vctBoolVec::iterator limitFlag = mJointLimitFlag.begin();
+            vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
+            vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
+            bool anyTrackingError = false;
+            bool newTrackingError = false;
+            const vctDoubleVec::iterator end = Error.end();
+
+            // detect tracking errors
+            for (; error != end;
+                 ++error, ++tolerance, ++limitFlag, ++trackingErrorFlag, ++previousTrackingErrorFlag) {
+                double errorAbsolute = fabs(*error);
+                // trigger error if the error is too high AND the last request was not outside joint limit
+                if ((errorAbsolute > *tolerance) && !(*limitFlag)) {
+                    anyTrackingError = true;
+                    *trackingErrorFlag = true;
+                    if (*trackingErrorFlag != *previousTrackingErrorFlag) {
+                        newTrackingError = true;
+                        *previousTrackingErrorFlag = *trackingErrorFlag;
+                    }
+                } else {
+                    *trackingErrorFlag = false;
+                }
+            }
+            // act on errors
+            if (anyTrackingError) {
                 Enable(false);
-                // check if this is a new error to send messages
-                mTrackingErrorFlag.Assign(ErrorAbsolute.ElementwiseGreater(mTrackingErrorTolerances));
-                if (mTrackingErrorFlag.NotEqual(mPreviousTrackingErrorFlag)) {
-                    mPreviousTrackingErrorFlag.Assign(mTrackingErrorFlag);
+                if (newTrackingError) {
                     std::string message = this->Name + ": tracking error, mask: ";
                     message.append(mTrackingErrorFlag.ToString());
                     MessageEvents.Error(message);
