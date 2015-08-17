@@ -63,8 +63,11 @@ private:
     // Event Handler
     void MasterErrorEventHandler(const std::string & message);
     void SlaveErrorEventHandler(const std::string & message);
-    void ManipClutchEventHandler(const prmEventButton &button);
-    void SUJClutchEventHandler(const prmEventButton &button);
+
+    void SlaveClutchEventHandler(const prmEventButton & button);
+    void CameraClutchEventHandler(const prmEventButton & button);
+    void StartAlignMaster(void);
+
     void ClutchEventHandler(const prmEventButton & button);
     void OperatorPresentEventHandler(const prmEventButton & button);
 

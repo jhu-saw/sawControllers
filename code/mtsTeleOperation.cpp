@@ -50,7 +50,6 @@ void mtsTeleOperation::Init(void)
     this->IsOperatorPresent = false;
     this->IsEnabled = false;
     Slave.IsManipClutched = false;
-    Slave.IsSUJClutched = false;
 
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
@@ -79,8 +78,7 @@ void mtsTeleOperation::Init(void)
         slaveRequired->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
 
         slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::SlaveErrorEventHandler, this, "Error");
-        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::ManipClutchEventHandler, this, "ManipClutch");
-        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::SUJClutchEventHandler, this, "SUJClutch");
+        slaveRequired->AddEventHandlerWrite(&mtsTeleOperation::SlaveClutchEventHandler, this, "ManipClutch");
     }
 
     // Footpedal events
@@ -104,6 +102,7 @@ void mtsTeleOperation::Init(void)
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", 0.5);
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                                           "SetRegistrationRotation", vctMatRot3());
+        providedSettings->AddCommandWrite(&mtsTeleOperation::CameraClutchEventHandler, this, "CameraClutch", prmEventButton());
         providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), RegistrationRotation, "GetRegistrationRotation");
 
         providedSettings->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
@@ -232,16 +231,14 @@ void mtsTeleOperation::SlaveErrorEventHandler(const std::string & message)
     MessageEvents.Error(this->GetName() + ": received from slave [" + message + "]");
 }
 
-void mtsTeleOperation::ManipClutchEventHandler(const prmEventButton & button)
+void mtsTeleOperation::SlaveClutchEventHandler(const prmEventButton & button)
 {
     if (button.Type() == prmEventButton::PRESSED) {
         Slave.IsManipClutched = true;
         MessageEvents.Status(this->GetName() + ": slave clutch pressed");
-        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch pressed" << std::endl;
     } else {
         Slave.IsManipClutched = false;
         MessageEvents.Status(this->GetName() + ": slave clutch released");
-        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerManipClutch: ManipClutch released" << std::endl;
     }
 
     // Slave State
@@ -251,6 +248,26 @@ void mtsTeleOperation::ManipClutchEventHandler(const prmEventButton & button)
         Slave.SetRobotControlState(mtsStdString("Teleop"));
     }
 
+    // Align master
+    StartAlignMaster();
+}
+
+void mtsTeleOperation::CameraClutchEventHandler(const prmEventButton & button)
+{
+    if (button.Type() == prmEventButton::PRESSED) {
+        Slave.IsManipClutched = true;
+        MessageEvents.Status(this->GetName() + ": camera clutch pressed");
+    } else {
+        Slave.IsManipClutched = false;
+        MessageEvents.Status(this->GetName() + ": camera clutch released");
+    }
+
+    // Align master
+    StartAlignMaster();
+}
+
+void mtsTeleOperation::StartAlignMaster(void)
+{
     // Master
     if (IsEnabled && !Slave.IsManipClutched) {
         vctFrm4x4 masterCartesianDesired;
@@ -263,17 +280,6 @@ void mtsTeleOperation::ManipClutchEventHandler(const prmEventButton & button)
         Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
         Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
-    }
-}
-
-void mtsTeleOperation::SUJClutchEventHandler(const prmEventButton & button)
-{
-    if (button.Type() == prmEventButton::PRESSED) {
-        Slave.IsSUJClutched = true;
-        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerSUJClutch: SUJClutch pressed" << std::endl;
-    } else {
-        Slave.IsSUJClutched = false;
-        CMN_LOG_CLASS_RUN_DEBUG << "EventHandlerSUJClutch: SUJClutch released" << std::endl;
     }
 }
 
