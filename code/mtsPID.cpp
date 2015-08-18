@@ -387,17 +387,17 @@ void mtsPID::Run(void)
                     *trackingErrorFlag = true;
                     if (*trackingErrorFlag != *previousTrackingErrorFlag) {
                         newTrackingError = true;
-                        *previousTrackingErrorFlag = *trackingErrorFlag;
                     }
                 } else {
                     *trackingErrorFlag = false;
                 }
+                *previousTrackingErrorFlag = *trackingErrorFlag;
             }
             // act on errors
             if (anyTrackingError) {
                 Enable(false);
                 if (newTrackingError) {
-                    std::string message = this->Name + ": tracking error, mask: ";
+                    std::string message = this->Name + ": tracking error, mask (1 for error): ";
                     message.append(mTrackingErrorFlag.ToString());
                     MessageEvents.Error(message);
                     CMN_LOG_CLASS_RUN_ERROR << message
@@ -606,7 +606,7 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
             if (mPreviousJointLimitFlag.NotEqual(mJointLimitFlag)) {
                 mPreviousJointLimitFlag.Assign(mJointLimitFlag);
                 Events.JointLimit(mJointLimitFlag);
-                std::string message = this->Name + ": joint limit, mask: ";
+                std::string message = this->Name + ": joint limit, mask (1 for limit): ";
                 message.append(mJointLimitFlag.ToString());
                 MessageEvents.Warning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
@@ -635,11 +635,12 @@ void mtsPID::Enable(const bool & enable)
     Robot.SetTorque(TorqueParam);
 
     // reset error flags
-    mPreviousTrackingErrorFlag.SetAll(false);
-    mTrackingErrorFlag.SetAll(false);
-    mPreviousJointLimitFlag.SetAll(false);
-    mJointLimitFlag.SetAll(false);
-
+    if (enable) {
+        mPreviousTrackingErrorFlag.SetAll(false);
+        mTrackingErrorFlag.SetAll(false);
+        mPreviousJointLimitFlag.SetAll(false);
+        mJointLimitFlag.SetAll(false);
+    }
     // trigger Enabled
     Events.Enabled(Enabled);
 }
