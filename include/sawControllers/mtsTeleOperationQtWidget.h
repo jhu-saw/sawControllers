@@ -2,11 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -47,16 +46,27 @@ protected:
     virtual void closeEvent(QCloseEvent * event);
 
 signals:
-    void SignalEnableTeleop(bool enable);
+    void SignalEnable(bool enable);
+    void SignalScale(double scale);
+    void SignalRotationLocked(bool lock);
+    void SignalTranslationLocked(bool lock);
+
     void SignalAppendMessage(QString);
     void SignalSetColor(QColor);
 
 private slots:
     void timerEvent(QTimerEvent * event);
     void SlotTextChanged(void);
-    void SlotEnableTeleop(bool state);
+    // to set from the GUI
+    void SlotEnable(bool state);
     void SlotSetScale(double scale);
+    void SlotLockRotation(bool lock);
+    void SlotLockTranslation(bool lock);
+    // to update GUI from component's events
     void SlotEnableEventHandler(bool state);
+    void SlotScaleEventHandler(double scale);
+    void SlotRotationLockedEventHandler(bool lock);
+    void SlotTranslationLockedEventHandler(bool lock);
 
 private:
     //! setup TeleOperation controller GUI
@@ -64,11 +74,16 @@ private:
     int TimerPeriodInMilliseconds;
 
     void EnableEventHandler(const bool & enable);
+    void ScaleEventHandler(const double & scale);
+    void RotationLockedEventHandler(const bool & lock);
+    void TranslationLockedEventHandler(const bool & lock);
 
 protected:
     struct {
         mtsFunctionWrite Enable;
         mtsFunctionWrite SetScale;
+        mtsFunctionWrite LockRotation;
+        mtsFunctionWrite LockTranslation;
         mtsFunctionRead GetPositionCartesianMaster;
         mtsFunctionRead GetPositionCartesianSlave;
         mtsFunctionRead GetRegistrationRotation;
@@ -77,6 +92,9 @@ protected:
 
 private:
     QCheckBox * QCBEnable;
+    QCheckBox * QCBLockRotation;
+    QCheckBox * QCBLockTranslation;
+    QDoubleSpinBox * QSBScale;
     prmPositionCartesianGet PositionMaster;
     vctQtWidgetFrameDoubleRead * QFRPositionMasterWidget;
     prmPositionCartesianGet PositionSlave;

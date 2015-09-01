@@ -2,11 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
-  Author(s):  Zihan Chen
+  Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -45,12 +44,22 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
     if (interfaceRequired) {
         interfaceRequired->AddFunction("Enable", TeleOperation.Enable);
         interfaceRequired->AddFunction("SetScale", TeleOperation.SetScale);
+        interfaceRequired->AddFunction("LockRotation", TeleOperation.LockRotation);
+        interfaceRequired->AddFunction("LockTranslation", TeleOperation.LockTranslation);
         interfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
         interfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
         interfaceRequired->AddFunction("GetRegistrationRotation", TeleOperation.GetRegistrationRotation);
         interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
-        // Events
-        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::EnableEventHandler, this, "Enabled");
+        // events
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::EnableEventHandler,
+                                                this, "Enabled");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::ScaleEventHandler,
+                                                this, "Scale");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::RotationLockedEventHandler,
+                                                this, "RotationLocked");
+        interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::TranslationLockedEventHandler,
+                                                this, "TranslationLocked");
+        // messages
         interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::ErrorEventHandler,
                                                 this, "Error");
         interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::WarningEventHandler,
@@ -130,7 +139,7 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 }
 
 
-void mtsTeleOperationQtWidget::SlotEnableTeleop(bool state)
+void mtsTeleOperationQtWidget::SlotEnable(bool state)
 {
     TeleOperation.Enable(mtsBool(state));
 }
@@ -140,9 +149,35 @@ void mtsTeleOperationQtWidget::SlotSetScale(double scale)
     TeleOperation.SetScale(scale);
 }
 
+void mtsTeleOperationQtWidget::SlotLockRotation(bool lock)
+{
+    TeleOperation.LockRotation(lock);
+}
+
+void mtsTeleOperationQtWidget::SlotLockTranslation(bool lock)
+{
+    TeleOperation.LockTranslation(lock);
+}
+
+
 void mtsTeleOperationQtWidget::SlotEnableEventHandler(bool state)
 {
     QCBEnable->setChecked(state);
+}
+
+void mtsTeleOperationQtWidget::SlotScaleEventHandler(double scale)
+{
+    QSBScale->setValue(scale);
+}
+
+void mtsTeleOperationQtWidget::SlotRotationLockedEventHandler(bool lock)
+{
+    QCBLockRotation->setChecked(lock);
+}
+
+void mtsTeleOperationQtWidget::SlotTranslationLockedEventHandler(bool lock)
+{
+    QCBLockTranslation->setChecked(lock);
 }
 
 void mtsTeleOperationQtWidget::setupUi(void)
@@ -189,17 +224,26 @@ void mtsTeleOperationQtWidget::setupUi(void)
     QLabel * instructionsLabel = new QLabel("To start tele-operation you must first insert the tool past the cannula tip (push tool clutch button and manually insert tool).\nYou must keep your right foot on the COAG/MONO pedal to operate.\nYou can use the clutch pedal to re-position your masters.");
     controlLayout->addWidget(instructionsLabel);
 
+    QHBoxLayout * buttonsLayout = new QHBoxLayout;
+    controlLayout->addLayout(buttonsLayout);
+
     // enable/disable teleoperation
     QCBEnable = new QCheckBox("Enable");
-    controlLayout->addWidget(QCBEnable);
+    buttonsLayout->addWidget(QCBEnable);
+
+    QCBLockRotation = new QCheckBox("Lock Rotation");
+    buttonsLayout->addWidget(QCBLockRotation);
+
+    QCBLockTranslation = new QCheckBox("Lock Translation");
+    buttonsLayout->addWidget(QCBLockTranslation);
 
     // scale
-    QDoubleSpinBox * scaleSpinbox = new QDoubleSpinBox();
-    scaleSpinbox->setRange(0.1, 1.0);
-    scaleSpinbox->setSingleStep(0.1);
-    scaleSpinbox->setPrefix("scale ");
-    scaleSpinbox->setValue(0.2);
-    controlLayout->addWidget(scaleSpinbox);
+    QSBScale = new QDoubleSpinBox();
+    QSBScale->setRange(0.1, 1.0);
+    QSBScale->setSingleStep(0.1);
+    QSBScale->setPrefix("scale ");
+    QSBScale->setValue(0.2);
+    controlLayout->addWidget(QSBScale);
 
     // Timing
     QMIntervalStatistics = new mtsQtWidgetIntervalStatistics();
@@ -221,9 +265,25 @@ void mtsTeleOperationQtWidget::setupUi(void)
     resize(sizeHint());
 
     // setup Qt Connection
-    connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTeleop(bool)));
-    connect(this, SIGNAL(SignalEnableTeleop(bool)), this, SLOT(SlotEnableEventHandler(bool)));
-    connect(scaleSpinbox, SIGNAL(valueChanged(double)), this, SLOT(SlotSetScale(double)));
+    connect(QCBEnable, SIGNAL(clicked(bool)),
+            this, SLOT(SlotEnable(bool)));
+    connect(this, SIGNAL(SignalEnable(bool)),
+            this, SLOT(SlotEnableEventHandler(bool)));
+
+    connect(QSBScale, SIGNAL(valueChanged(double)),
+            this, SLOT(SlotSetScale(double)));
+    connect(this, SIGNAL(SignalScale(double)),
+            this, SLOT(SlotScaleEventHandler(double)));
+
+    connect(QCBLockRotation, SIGNAL(clicked(bool)),
+            this, SLOT(SlotLockRotation(bool)));
+    connect(this, SIGNAL(SignalRotationLocked(bool)),
+            this, SLOT(SlotRotationLockedEventHandler(bool)));
+
+    connect(QCBLockTranslation, SIGNAL(clicked(bool)),
+            this, SLOT(SlotLockTranslation(bool)));
+    connect(this, SIGNAL(SignalTranslationLocked(bool)),
+            this, SLOT(SlotTranslationLockedEventHandler(bool)));
 
     // messages
     connect(this, SIGNAL(SignalAppendMessage(QString)),
@@ -236,7 +296,22 @@ void mtsTeleOperationQtWidget::setupUi(void)
 
 void mtsTeleOperationQtWidget::EnableEventHandler(const bool & enable)
 {
-    emit SignalEnableTeleop(enable);
+    emit SignalEnable(enable);
+}
+
+void mtsTeleOperationQtWidget::ScaleEventHandler(const double & scale)
+{
+    emit SignalScale(scale);
+}
+
+void mtsTeleOperationQtWidget::RotationLockedEventHandler(const bool & lock)
+{
+    emit SignalRotationLocked(lock);
+}
+
+void mtsTeleOperationQtWidget::TranslationLockedEventHandler(const bool & lock)
+{
+    emit SignalTranslationLocked(lock);
 }
 
 void mtsTeleOperationQtWidget::SlotTextChanged(void)

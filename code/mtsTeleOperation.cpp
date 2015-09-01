@@ -51,13 +51,19 @@ void mtsTeleOperation::Init(void)
     this->IsEnabled = false;
     Slave.IsManipClutched = false;
 
+    this->RotationLocked = false;
+    this->TranslationLocked = false;
+
     this->StateTable.AddData(Master.PositionCartesianCurrent, "MasterCartesianPosition");
     this->StateTable.AddData(Slave.PositionCartesianCurrent, "SlaveCartesianPosition");
 
     this->ConfigurationStateTable = new mtsStateTable(100, "Configuration");
     this->ConfigurationStateTable->SetAutomaticAdvance(false);
     this->AddStateTable(this->ConfigurationStateTable);
+    this->ConfigurationStateTable->AddData(this->Scale, "Scale");
     this->ConfigurationStateTable->AddData(this->RegistrationRotation, "RegistrationRotation");
+    this->ConfigurationStateTable->AddData(this->RotationLocked, "RotationLocked");
+    this->ConfigurationStateTable->AddData(this->TranslationLocked, "TranslationLocked");
 
     // Setup CISST Interface
     mtsInterfaceRequired * masterRequired = AddInterfaceRequired("Master");
@@ -102,8 +108,13 @@ void mtsTeleOperation::Init(void)
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", 0.5);
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetRegistrationRotation, this,
                                           "SetRegistrationRotation", vctMatRot3());
+        providedSettings->AddCommandWrite(&mtsTeleOperation::LockRotation, this, "LockRotation", false);
+        providedSettings->AddCommandWrite(&mtsTeleOperation::LockTranslation, this, "LockTranslation", false);
         providedSettings->AddCommandWrite(&mtsTeleOperation::CameraClutchEventHandler, this, "CameraClutch", prmEventButton());
+        providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), Scale, "GetScale");
         providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), RegistrationRotation, "GetRegistrationRotation");
+        providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), RotationLocked, "GetRotationLocked");
+        providedSettings->AddCommandReadState(*(this->ConfigurationStateTable), TranslationLocked, "GetTranslationLocked");
 
         providedSettings->AddCommandReadState(this->StateTable, Master.PositionCartesianCurrent, "GetPositionCartesianMaster");
         providedSettings->AddCommandReadState(this->StateTable, Slave.PositionCartesianCurrent, "GetPositionCartesianSlave");
@@ -112,6 +123,10 @@ void mtsTeleOperation::Init(void)
         providedSettings->AddEventWrite(MessageEvents.Warning, "Warning", std::string(""));
         providedSettings->AddEventWrite(MessageEvents.Error, "Error", std::string(""));
         providedSettings->AddEventWrite(MessageEvents.Enabled, "Enabled", false);
+        // configuration
+        providedSettings->AddEventWrite(ConfigurationEvents.Scale, "Scale", 0.5);
+        providedSettings->AddEventWrite(ConfigurationEvents.RotationLocked, "RotationLocked", false);
+        providedSettings->AddEventWrite(ConfigurationEvents.TranslationLocked, "TranslationLocked", false);
     }
 }
 
@@ -181,13 +196,20 @@ void mtsTeleOperation::Run(void)
             // translation
             vct3 masterTranslation;
             vct3 slaveTranslation;
-            masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
-            slaveTranslation = masterTranslation * this->Scale;
-            slaveTranslation = RegistrationRotation * slaveTranslation + Slave.CartesianPrevious.Translation();
-
+            if (this->TranslationLocked) {
+                slaveTranslation = Slave.CartesianPrevious.Translation();
+            } else {
+                masterTranslation = (masterPosition.Translation() - Master.CartesianPrevious.Translation());
+                slaveTranslation = masterTranslation * this->Scale;
+                slaveTranslation = RegistrationRotation * slaveTranslation + Slave.CartesianPrevious.Translation();
+            }
             // rotation
             vctMatRot3 slaveRotation;
-            slaveRotation = RegistrationRotation * masterPosition.Rotation();
+            if (this->RotationLocked) {
+                slaveRotation.From(Slave.CartesianPrevious.Rotation());
+            } else {
+                slaveRotation = RegistrationRotation * masterPosition.Rotation();
+            }
 
             // compute desired slave position
             vctFrm4x4 slaveCartesianDesired;
@@ -353,7 +375,10 @@ void mtsTeleOperation::Enable(const bool & enable)
 
 void mtsTeleOperation::SetScale(const double & scale)
 {
+    this->ConfigurationStateTable->Start();
     this->Scale = scale;
+    this->ConfigurationStateTable->Advance();
+    ConfigurationEvents.Scale(this->Scale);
 }
 
 void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rotation)
@@ -361,6 +386,32 @@ void mtsTeleOperation::SetRegistrationRotation(const vctMatRot3 & rotation)
     this->ConfigurationStateTable->Start();
     this->RegistrationRotation = rotation;
     this->ConfigurationStateTable->Advance();
+}
+
+void mtsTeleOperation::LockRotation(const bool & lock)
+{
+    this->ConfigurationStateTable->Start();
+    this->RotationLocked = lock;
+    this->ConfigurationStateTable->Advance();
+    ConfigurationEvents.RotationLocked(this->RotationLocked);
+    // when releasing the orientation, master orientation is likely off
+    // so disable to force a re-enable with master align
+    if (lock == false) {
+        Enable(false);
+    } else {
+        Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
+        Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
+    }
+}
+
+void mtsTeleOperation::LockTranslation(const bool & lock)
+{
+    this->ConfigurationStateTable->Start();
+    this->TranslationLocked = lock;
+    this->ConfigurationStateTable->Advance();
+    ConfigurationEvents.TranslationLocked(this->TranslationLocked);
+    Master.CartesianPrevious.From(Master.PositionCartesianCurrent.Position());
+    Slave.CartesianPrevious.From(Slave.PositionCartesianCurrent.Position());
 }
 
 void mtsTeleOperation::SetMasterControlState(void)

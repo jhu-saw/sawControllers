@@ -2,11 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-03-06
 
-  (C) Copyright 2013 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -55,6 +54,8 @@ public:
 
     void SetScale(const double & scale);
     void SetRegistrationRotation(const vctMatRot3 & rotation);
+    void LockRotation(const bool & lock);
+    void LockTranslation(const bool & lock);
 
 private:
 
@@ -79,6 +80,11 @@ private:
         mtsFunctionWrite Enabled;
     } MessageEvents;
 
+    struct {
+        mtsFunctionWrite Scale;
+        mtsFunctionWrite RotationLocked;
+        mtsFunctionWrite TranslationLocked;
+    } ConfigurationEvents;
 
     void Enable(const bool & enable);
 
@@ -134,6 +140,8 @@ private:
     bool IsClutched;
     bool IsOperatorPresent;
     bool IsEnabled;
+    bool RotationLocked;
+    bool TranslationLocked;
 
     vctMatRot3 MasterClutchedOrientation;
 
