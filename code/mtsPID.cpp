@@ -358,10 +358,11 @@ void mtsPID::Run(void)
         FeedbackVelocityParam.SetVelocity(FeedbackVelocity);
     }
 
-    // update ROS message
+    // update state data
     mStateJoint.Position().ForceAssign(FeedbackPosition);
     mStateJoint.Velocity().ForceAssign(FeedbackVelocity);
     mStateJoint.Effort().ForceAssign(FeedbackTorque);
+    mStateJointDesired.Position().ForceAssign(DesiredPosition);
 
     // compute torque
     if (Enabled) {
@@ -463,6 +464,9 @@ void mtsPID::Run(void)
         TorqueParam.SetForceTorque(Torque);
         Robot.SetTorque(TorqueParam);
     }
+
+    // update state data
+    mStateJointDesired.Effort().ForceAssign(Torque);
 
     // save previous position
     FeedbackPositionPreviousParam = FeedbackPositionParam;
