@@ -200,7 +200,7 @@ public:
      * @param period     The period of the task
      */
     mtsPID(const std::string & taskname,
-           double period);
+           const double period);
     mtsPID(const mtsTaskPeriodicConstructorArg & arg);
     ~mtsPID(){}
 

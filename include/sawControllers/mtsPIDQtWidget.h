@@ -25,9 +25,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstVector/vctQtWidgetDynamicVector.h>
-#include <cisstParameterTypes/prmPositionJointGet.h>
+#include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
-#include <cisstParameterTypes/prmVelocityJointGet.h>
 
 #include <QCheckBox>
 #include <QSpinBox>
@@ -96,15 +95,11 @@ protected:
         mtsFunctionWrite Enable;
         mtsFunctionWrite EnableTorqueMode;
         mtsFunctionWrite SetPositionJoint;
-        mtsFunctionRead  GetPositionJoint;
-        mtsFunctionRead  GetVelocityJoint;
-        mtsFunctionRead  GetPositionJointDesired;
-        mtsFunctionRead  GetEffortJointDesired;
+        mtsFunctionRead  GetStateJoint;
+        mtsFunctionRead  GetStateJointDesired;
 
-        prmPositionJointGet PositionJointGetParam;
-        vctDoubleVec        PositionJointGetDesired;
-        prmVelocityJointGet VelocityJointGetParam;
-        vctDoubleVec EffortJoint;
+        prmStateJoint    StateJoint;
+        prmStateJoint    StateJointDesired;
 
         mtsFunctionRead  GetJointType;
         mtsFunctionRead  GetPGain;
@@ -146,6 +141,7 @@ private:
     vctPlot2DBase::Signal * DesiredPositionSignal;
     vctPlot2DBase::Signal * CurrentVelocitySignal;
     vctPlot2DBase::Signal * DesiredEffortSignal;
+    vctPlot2DBase::Signal * CurrentEffortSignal;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };

@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -60,10 +60,12 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
 
 void mtsPIDQtWidget::Init(void)
 {
-    PID.PositionJointGetParam.Position().SetSize(NumberOfAxis);
-    PID.PositionJointGetDesired.SetSize(NumberOfAxis);
-    PID.VelocityJointGetParam.Velocity().SetSize(NumberOfAxis);
-    PID.EffortJoint.SetSize(NumberOfAxis);
+    PID.StateJoint.Position().SetSize(NumberOfAxis);
+    PID.StateJoint.Velocity().SetSize(NumberOfAxis);
+    PID.StateJoint.Effort().SetSize(NumberOfAxis);
+    PID.StateJointDesired.Position().SetSize(NumberOfAxis);
+    PID.StateJointDesired.Velocity().SetSize(0);
+    PID.StateJointDesired.Effort().SetSize(NumberOfAxis);
 
     DesiredPosition.SetSize(NumberOfAxis);
     DesiredPosition.SetAll(0.0);
@@ -80,10 +82,8 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("Enable", PID.Enable);
         interfaceRequired->AddFunction("EnableTorqueMode", PID.EnableTorqueMode);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
-        interfaceRequired->AddFunction("GetPositionJoint", PID.GetPositionJoint);
-        interfaceRequired->AddFunction("GetVelocityJoint", PID.GetVelocityJoint);
-        interfaceRequired->AddFunction("GetPositionJointDesired", PID.GetPositionJointDesired);
-        interfaceRequired->AddFunction("GetEffortJointDesired", PID.GetEffortJointDesired);
+        interfaceRequired->AddFunction("GetStateJoint", PID.GetStateJoint);
+        interfaceRequired->AddFunction("GetStateJointDesired", PID.GetStateJointDesired);
         interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
@@ -111,7 +111,6 @@ void mtsPIDQtWidget::Startup(void)
     // Set desired pos to cur pos
     SlotResetPIDGain();
     SlotMaintainPosition();
-
     mtsExecutionResult result;
     prmJointTypeVec jointType;
     result = PID.GetJointType(jointType);
@@ -202,11 +201,8 @@ void mtsPIDQtWidget::SlotIGainChanged(void)
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset desired position
-    prmPositionJointGet prmFeedbackPos;
-    prmFeedbackPos.SetSize(NumberOfAxis);
-    PID.GetPositionJoint(prmFeedbackPos);
-    prmFeedbackPos.Position().ElementwiseMultiply(UnitFactor);
-    QVWDesiredPositionWidget->SetValue(prmFeedbackPos.Position());
+    PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
+    QVWDesiredPositionWidget->SetValue(PID.StateJoint.Position());
     PID.ResetController();
     SlotPositionChanged();
 }
@@ -270,32 +266,35 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     }
 
     // get data from the PID
-    PID.GetPositionJoint(PID.PositionJointGetParam);
-    PID.PositionJointGetParam.Position().ElementwiseMultiply(UnitFactor);
-    PID.GetPositionJointDesired(PID.PositionJointGetDesired);
-    PID.PositionJointGetDesired.ElementwiseMultiply(UnitFactor);
-    PID.GetVelocityJoint(PID.VelocityJointGetParam);
-    PID.VelocityJointGetParam.Velocity().ElementwiseMultiply(UnitFactor);
-    PID.GetEffortJointDesired(PID.EffortJoint);
+    PID.GetStateJoint(PID.StateJoint);
+    PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
+    PID.StateJoint.Velocity().ElementwiseMultiply(UnitFactor);
+    PID.StateJoint.Effort().ElementwiseMultiply(UnitFactor);
+    PID.GetStateJointDesired(PID.StateJointDesired);
+    PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);
+    PID.StateJointDesired.Effort().ElementwiseMultiply(UnitFactor);
 
     // update GUI
-    QVRCurrentPositionWidget->SetValue(PID.PositionJointGetParam.Position());
-    QVRCurrentEffortWidget->SetValue(PID.EffortJoint);
+    QVRCurrentPositionWidget->SetValue(PID.StateJoint.Position());
+    QVRCurrentEffortWidget->SetValue(PID.StateJoint.Effort());
 
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
-        QVWDesiredPositionWidget->SetValue(PID.PositionJointGetDesired);
+        QVWDesiredPositionWidget->SetValue(PID.StateJointDesired.Position());
     }
 
     // plot
-    CurrentPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
-                                                  PID.PositionJointGetParam.Position().Element(PlotIndex)));
-    DesiredPositionSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
-                                                  PID.PositionJointGetDesired.Element(PlotIndex)));
-    CurrentVelocitySignal->AppendPoint(vctDouble2(PID.VelocityJointGetParam.Timestamp(),
-                                                  PID.VelocityJointGetParam.Velocity().Element(PlotIndex)));
-    DesiredEffortSignal->AppendPoint(vctDouble2(PID.PositionJointGetParam.Timestamp(),
-                                                -PID.EffortJoint.Element(PlotIndex))); // negate current to plot the same direction
+    CurrentPositionSignal->AppendPoint(vctDouble2(PID.StateJoint.Timestamp(),
+                                                  PID.StateJoint.Position().Element(PlotIndex)));
+    DesiredPositionSignal->AppendPoint(vctDouble2(PID.StateJointDesired.Timestamp(),
+                                                  PID.StateJointDesired.Position().Element(PlotIndex)));
+    CurrentVelocitySignal->AppendPoint(vctDouble2(PID.StateJoint.Timestamp(),
+                                                  PID.StateJoint.Velocity().Element(PlotIndex)));
+    // negate effort to plot the same direction
+    CurrentEffortSignal->AppendPoint(vctDouble2(PID.StateJoint.Timestamp(),
+                                                -PID.StateJoint.Effort().Element(PlotIndex)));
+    DesiredEffortSignal->AppendPoint(vctDouble2(PID.StateJointDesired.Timestamp(),
+                                                -PID.StateJointDesired.Effort().Element(PlotIndex)));
     QVPlot->updateGL();
 }
 
@@ -381,22 +380,27 @@ void mtsPIDQtWidget::setupUi(void)
     QLabel * label;
     QPalette palette;
     palette.setColor(QPalette::Window, Qt::black);
-    label = new QLabel("Current");
+    label = new QLabel("Current position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Desired");
+    label = new QLabel("Desired position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Velocity");
+    label = new QLabel("Current velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::gray);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Effort");
+    label = new QLabel("Current effort");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::cyan);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    label = new QLabel("Desired effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
@@ -414,6 +418,8 @@ void mtsPIDQtWidget::setupUi(void)
     CurrentVelocitySignal = scaleVelocity->AddSignal("current");
     CurrentVelocitySignal->SetColor(vctDouble3(0.5, 0.5, 0.5));
     vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
+    CurrentEffortSignal = scaleEffort->AddSignal("-current");
+    CurrentEffortSignal->SetColor(vctDouble3(0.0, 1.0, 1.0));
     DesiredEffortSignal = scaleEffort->AddSignal("-desired");
     DesiredEffortSignal->SetColor(vctDouble3(1.0, 1.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));

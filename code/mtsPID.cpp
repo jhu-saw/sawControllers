@@ -26,7 +26,7 @@ http://www.cisst.org/cisst/license.txt.
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 
-mtsPID::mtsPID(const std::string &componentName, double periodInSeconds):
+mtsPID::mtsPID(const std::string & componentName, const double periodInSeconds):
     mtsTaskPeriodic(componentName, periodInSeconds),
     Counter(0),
     CheckJointLimit(true),
@@ -38,7 +38,7 @@ mtsPID::mtsPID(const std::string &componentName, double periodInSeconds):
 }
 
 
-mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg &arg):
+mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
     mtsTaskPeriodic(arg),
     Counter(0),
     CheckJointLimit(true),
@@ -195,6 +195,13 @@ void mtsPID::Configure(const std::string & filename)
     DesiredPositionParam.Goal().SetAll(0.0);
     FeedbackVelocityParam.SetSize(numJoints);
     TorqueParam.SetSize(numJoints);
+
+    mStateJoint.Position().SetSize(numJoints);
+    mStateJoint.Velocity().SetSize(numJoints);
+    mStateJoint.Effort().SetSize(numJoints);
+    mStateJointDesired.Position().SetSize(numJoints);
+    mStateJointDesired.Velocity().SetSize(0); // we don't support desired velocity
+    mStateJointDesired.Effort().SetSize(numJoints);
 
     // errors
     Error.SetSize(numJoints);
