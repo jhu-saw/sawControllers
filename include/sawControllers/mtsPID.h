@@ -64,6 +64,9 @@ protected:
     //! Counter for internal use
     int Counter;
 
+    //! Number of joints, set from the XML file used in Configure method
+    size_t mNumberOfJoints;
+
     //! Proportional gains
     vctDoubleVec Kp;
     //! Derivative gains
@@ -144,6 +147,9 @@ protected:
     //! Enable mtsPID controller
     bool Enabled;
 
+    //! Enable individal joints
+    vctBoolVec mJointsEnabled;
+
     //! Enable mtsPID controller
     vctBoolVec TorqueMode;
 
@@ -159,6 +165,8 @@ protected:
         mtsFunctionWrite Enabled;
         // !Joint limit event
         mtsFunctionWrite JointLimit;
+        //! Enabled joints event
+        mtsFunctionWrite EnabledJoints;
     } Events;
 
     struct {
@@ -184,6 +192,8 @@ protected:
     void SetupInterfaces(void);
 
     void Enable(const bool & enable);
+
+    void EnableJoints(const vctBoolVec & enable);
 
     void EnableTorqueMode(const vctBoolVec & enable);
 

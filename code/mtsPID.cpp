@@ -91,6 +91,7 @@ void mtsPID::SetupInterfaces(void)
     if (interfaceProvided) {
         interfaceProvided->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
         interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
+        interfaceProvided->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
         interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
         interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
@@ -130,6 +131,7 @@ void mtsPID::SetupInterfaces(void)
 
         // Events
         interfaceProvided->AddEventWrite(Events.Enabled, "Enabled", false);
+        interfaceProvided->AddEventWrite(Events.EnabledJoints, "EnabledJoints", vctBoolVec());
         interfaceProvided->AddEventWrite(Events.JointLimit, "JointLimit", vctBoolVec());
         interfaceProvided->AddEventWrite(MessageEvents.Status, "Status", std::string(""));
         interfaceProvided->AddEventWrite(MessageEvents.Warning, "Warning", std::string(""));
@@ -147,10 +149,10 @@ void mtsPID::Configure(const std::string & filename)
 
     // check type, interface and number of joints
     std::string type, interface;
-    int numJoints = -1;
     config.GetXMLValue("/controller", "@type", type, "");
     config.GetXMLValue("/controller", "@interface", interface, "");
-    config.GetXMLValue("/controller", "@numofjoints", numJoints, -1);
+    int numberOfJoints;
+    config.GetXMLValue("/controller", "@numofjoints", numberOfJoints, -1);
     if (type != "PID") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong controller type" << std::endl;
         ConfigurationStateTable.Advance();
@@ -159,96 +161,99 @@ void mtsPID::Configure(const std::string & filename)
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong interface. Require JointTorqueInterface" << std::endl;
         ConfigurationStateTable.Advance();
         return;
-    } else if (numJoints < 0) {
+    } else if (numberOfJoints < 0) {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: invalid number of joints" << std::endl;
         ConfigurationStateTable.Advance();
         return;
     }
+    mNumberOfJoints = static_cast<size_t>(numberOfJoints);
 
     // set dynamic var size
-    Kp.SetSize(numJoints);
-    Kd.SetSize(numJoints);
-    Ki.SetSize(numJoints);
-    Offset.SetSize(numJoints);
+    Kp.SetSize(mNumberOfJoints);
+    Kd.SetSize(mNumberOfJoints);
+    Ki.SetSize(mNumberOfJoints);
+    Offset.SetSize(mNumberOfJoints);
     Offset.SetAll(0.0);
-    JointLowerLimit.SetSize(numJoints);
+    JointLowerLimit.SetSize(mNumberOfJoints);
     JointLowerLimit.SetAll(0.0);
-    JointUpperLimit.SetSize(numJoints);
+    JointUpperLimit.SetSize(mNumberOfJoints);
     JointUpperLimit.SetAll(0.0);
-    mJointLimitFlag.SetSize(numJoints);
+    mJointLimitFlag.SetSize(mNumberOfJoints);
     mJointLimitFlag.SetAll(false);
     mPreviousJointLimitFlag.ForceAssign(mJointLimitFlag);
+    mJointsEnabled.SetSize(mNumberOfJoints);
+    mJointsEnabled.SetAll(true);
 
     // feedback
-    FeedbackPosition.SetSize(numJoints);
-    DesiredPosition.SetSize(numJoints);
-    FeedbackTorque.SetSize(numJoints);
-    DesiredTorque.SetSize(numJoints);
+    FeedbackPosition.SetSize(mNumberOfJoints);
+    DesiredPosition.SetSize(mNumberOfJoints);
+    FeedbackTorque.SetSize(mNumberOfJoints);
+    DesiredTorque.SetSize(mNumberOfJoints);
     DesiredTorque.SetAll(0.0);
-    FeedbackVelocity.SetSize(numJoints);
-    DesiredVelocity.SetSize(numJoints);
-    Torque.SetSize(numJoints);
+    FeedbackVelocity.SetSize(mNumberOfJoints);
+    DesiredVelocity.SetSize(mNumberOfJoints);
+    Torque.SetSize(mNumberOfJoints);
     Torque.SetAll(0.0);
-    FeedbackPositionParam.SetSize(numJoints);
-    FeedbackPositionPreviousParam.SetSize(numJoints);
-    DesiredPositionParam.SetSize(numJoints);
+    FeedbackPositionParam.SetSize(mNumberOfJoints);
+    FeedbackPositionPreviousParam.SetSize(mNumberOfJoints);
+    DesiredPositionParam.SetSize(mNumberOfJoints);
     DesiredPositionParam.Goal().SetAll(0.0);
-    FeedbackVelocityParam.SetSize(numJoints);
-    TorqueParam.SetSize(numJoints);
+    FeedbackVelocityParam.SetSize(mNumberOfJoints);
+    TorqueParam.SetSize(mNumberOfJoints);
 
-    mStateJoint.Position().SetSize(numJoints);
-    mStateJoint.Velocity().SetSize(numJoints);
-    mStateJoint.Effort().SetSize(numJoints);
-    mStateJointDesired.Position().SetSize(numJoints);
+    mStateJoint.Position().SetSize(mNumberOfJoints);
+    mStateJoint.Velocity().SetSize(mNumberOfJoints);
+    mStateJoint.Effort().SetSize(mNumberOfJoints);
+    mStateJointDesired.Position().SetSize(mNumberOfJoints);
     mStateJointDesired.Velocity().SetSize(0); // we don't support desired velocity
-    mStateJointDesired.Effort().SetSize(numJoints);
+    mStateJointDesired.Effort().SetSize(mNumberOfJoints);
 
     // errors
-    Error.SetSize(numJoints);
-    ErrorAbsolute.SetSize(numJoints);
-    dError.SetSize(numJoints);
-    iError.SetSize(numJoints);
-    oldError.SetSize(numJoints);
-    oldDesiredPos.SetSize(numJoints);
+    Error.SetSize(mNumberOfJoints);
+    ErrorAbsolute.SetSize(mNumberOfJoints);
+    dError.SetSize(mNumberOfJoints);
+    iError.SetSize(mNumberOfJoints);
+    oldError.SetSize(mNumberOfJoints);
+    oldDesiredPos.SetSize(mNumberOfJoints);
     ResetController();
 
-    minIErrorLimit.SetSize(numJoints);
+    minIErrorLimit.SetSize(mNumberOfJoints);
     minIErrorLimit.SetAll(-100.0);
-    maxIErrorLimit.SetSize(numJoints);
+    maxIErrorLimit.SetSize(mNumberOfJoints);
     maxIErrorLimit.SetAll(100.0);
 
     // default 1.0: no effect
-    forgetIError.SetSize(numJoints);
+    forgetIError.SetSize(mNumberOfJoints);
     forgetIError.SetAll(1.0);
 
     // default: use regular PID
-    nonlinear.SetSize(numJoints);
+    nonlinear.SetSize(mNumberOfJoints);
     nonlinear.SetAll(0.0);
 
-    DeadBand.SetSize(numJoints);
+    DeadBand.SetSize(mNumberOfJoints);
     DeadBand.SetAll(0.0);
 
     // torque mode
-    TorqueMode.SetSize(numJoints);
+    TorqueMode.SetSize(mNumberOfJoints);
     TorqueMode.SetAll(false);
 
     // tracking error
     mEnableTrackingError = false;
-    mTrackingErrorTolerances.SetSize(numJoints);
+    mTrackingErrorTolerances.SetSize(mNumberOfJoints);
     mTrackingErrorTolerances.SetAll(0.0);
-    mTrackingErrorFlag.SetSize(numJoints);
+    mTrackingErrorFlag.SetSize(mNumberOfJoints);
     mTrackingErrorFlag.SetAll(false);
     mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
 
     // names in joint states
-    mStateJoint.Name().SetSize(numJoints);
-    mStateJointDesired.Name().SetSize(numJoints);
+    mStateJoint.Name().SetSize(mNumberOfJoints);
+    mStateJointDesired.Name().SetSize(mNumberOfJoints);
 
     // read data from xml file
     char context[64];
-    for (int i = 0; i < numJoints; i++) {
+    for (int i = 0; i < numberOfJoints; i++) {
         // joint
-        sprintf(context, "controller/joints/joint[%d]", i+1);
+        sprintf(context, "controller/joints/joint[%d]", i + 1);
 
         // name
         std::string name;
@@ -342,7 +347,7 @@ void mtsPID::Run(void)
 
     // compute error
     Error.DifferenceOf(DesiredPosition, FeedbackPosition);
-    for (size_t i = 0; i < Error.size(); i++) {
+    for (size_t i = 0; i < mNumberOfJoints; i++) {
         if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
             Error[i] = 0.0;
     }
@@ -381,16 +386,20 @@ void mtsPID::Run(void)
             vctBoolVec::iterator limitFlag = mJointLimitFlag.begin();
             vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
             vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
+            vctBoolVec::iterator jointsEnabled = mJointsEnabled.begin();
             bool anyTrackingError = false;
             bool newTrackingError = false;
             const vctDoubleVec::iterator end = Error.end();
 
             // detect tracking errors
             for (; error != end;
-                 ++error, ++tolerance, ++limitFlag, ++trackingErrorFlag, ++previousTrackingErrorFlag) {
+                 ++error, ++tolerance, ++limitFlag, ++jointsEnabled,
+                 ++trackingErrorFlag, ++previousTrackingErrorFlag) {
                 double errorAbsolute = fabs(*error);
-                // trigger error if the error is too high AND the last request was not outside joint limit
-                if ((errorAbsolute > *tolerance) && !(*limitFlag)) {
+                // joint is enabled
+                // AND trigger error if the error is too high
+                // AND the last request was not outside joint limit
+                if ((*jointsEnabled) && (errorAbsolute > *tolerance) && !(*limitFlag)) {
                     anyTrackingError = true;
                     *trackingErrorFlag = true;
                     if (*trackingErrorFlag != *previousTrackingErrorFlag) {
@@ -425,7 +434,7 @@ void mtsPID::Run(void)
         iError.Add(Error);
 
         // check error limit & clamp iError
-        for (size_t i = 0; i < iError.size(); i++) {
+        for (size_t i = 0; i < mNumberOfJoints; i++) {
             // iError clamping
             if (iError.at(i) > maxIErrorLimit.at(i)) {
                 iError.at(i) = maxIErrorLimit.at(i);
@@ -445,10 +454,17 @@ void mtsPID::Run(void)
         Torque.AddElementwiseProductOf(Ki, iError);
 
         // nonlinear control mode
-        for (size_t i = 0; i < Error.size(); i++) {
+        for (size_t i = 0; i < mNumberOfJoints; i++) {
             if ((nonlinear[i] > 0)
                 && (fabs(Error[i]) < nonlinear[i])) {
                 Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
+            }
+        }
+
+        // set torque to zero if that joint was not enabled
+        for (size_t i = 0; i < mNumberOfJoints; i++) {
+            if (!mJointsEnabled[i]) {
+                Torque[i] = 0.0;
             }
         }
 
@@ -456,7 +472,7 @@ void mtsPID::Run(void)
         Torque.Add(Offset);
 
         // Set Torque to DesiredTorque if
-        for (size_t i = 0; i < Torque.size(); i++) {
+        for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (TorqueMode[i]) {
                 Torque[i] = DesiredTorque[i];
             }
@@ -491,7 +507,7 @@ void mtsPID::Cleanup(void)
 
 void mtsPID::SetPGain(const vctDoubleVec & pgain)
 {
-    if (pgain.size() != Kp.size()) {
+    if (pgain.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -502,7 +518,7 @@ void mtsPID::SetPGain(const vctDoubleVec & pgain)
 
 void mtsPID::SetDGain(const vctDoubleVec & dgain)
 {
-    if (dgain.size() != Kd.size()) {
+    if (dgain.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -513,7 +529,7 @@ void mtsPID::SetDGain(const vctDoubleVec & dgain)
 
 void mtsPID::SetIGain(const vctDoubleVec & igain)
 {
-    if (igain.size() != Ki.size()) {
+    if (igain.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -524,7 +540,7 @@ void mtsPID::SetIGain(const vctDoubleVec & igain)
 
 void mtsPID::SetJointLowerLimit(const vctDoubleVec &lowerLimit)
 {
-    if (lowerLimit.size() != JointLowerLimit.size()) {
+    if (lowerLimit.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetJointLowerLimit: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -535,7 +551,7 @@ void mtsPID::SetJointLowerLimit(const vctDoubleVec &lowerLimit)
 
 void mtsPID::SetJointUpperLimit(const vctDoubleVec &upperLimit)
 {
-    if (upperLimit.size() != JointUpperLimit.size()) {
+    if (upperLimit.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetJointUpperLimit: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -547,7 +563,7 @@ void mtsPID::SetJointUpperLimit(const vctDoubleVec &upperLimit)
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
-    if (iminlim.size() != minIErrorLimit.size()) {
+    if (iminlim.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetMinIErrorLimit: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -558,7 +574,7 @@ void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 
 void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
 {
-    if (imaxlim.size() != maxIErrorLimit.size()) {
+    if (imaxlim.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetMaxIErrorLimit: size mismatch" << std::endl;
     } else {
         ConfigurationStateTable.Start();
@@ -636,15 +652,16 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
 
 void mtsPID::Enable(const bool & enable)
 {
+    if (enable == Enabled) {
+        return;
+    }
+
     Enabled = enable;
 
     // set torque to 0
     Torque.SetAll(0.0);
-
-    // write torque to robot
     TorqueParam.SetForceTorque(Torque);
     Robot.SetTorque(TorqueParam);
-
     // reset error flags
     if (enable) {
         mPreviousTrackingErrorFlag.SetAll(false);
@@ -656,13 +673,24 @@ void mtsPID::Enable(const bool & enable)
     Events.Enabled(Enabled);
 }
 
-void mtsPID::EnableTorqueMode(const vctBoolVec &ena)
+void mtsPID::EnableJoints(const vctBoolVec & enable)
 {
-    if (TorqueMode.size() != ena.size()) {
+    if (enable.size() == mNumberOfJoints) {
+        mJointsEnabled.Assign(enable);
+        Events.EnabledJoints(enable);
+    } else {
+        const std::string message = this->Name + ": incorrect vector size for EnableJoints";
+        cmnThrow(message);
+    }
+}
+
+void mtsPID::EnableTorqueMode(const vctBoolVec & enable)
+{
+    if (enable.size() != mNumberOfJoints) {
         CMN_LOG_CLASS_RUN_ERROR << "EnableTorqueMode size mismatch" << std::endl;
         return;
     } else {
-        TorqueMode.Assign(ena);
+        TorqueMode.Assign(enable);
     }
 
     // set torque to 0
@@ -675,7 +703,7 @@ void mtsPID::EnableTorqueMode(const vctBoolVec &ena)
 
 void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
 {
-    if (tolerances.size() == mTrackingErrorTolerances.size()) {
+    if (tolerances.size() == mNumberOfJoints) {
         mTrackingErrorTolerances.Assign(tolerances);
     } else {
         std::string message = this->Name + ": incorrect vector size for SetTrackingErrorTolerances";
