@@ -711,7 +711,12 @@ void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
     }
 }
 
-void mtsPID::ErrorEventHandler(const std::string & message) {
-    this->Enable(false);
-    MessageEvents.Error(this->GetName() + ": received [" + message + "]");
+void mtsPID::ErrorEventHandler(const std::string & message)
+{
+    if (this->Enabled) {
+        this->Enable(false);
+        MessageEvents.Error(this->GetName() + ": received [" + message + "]");
+    } else {
+        MessageEvents.Status(this->GetName() + ": received [" + message + "]");
+    }
 }
