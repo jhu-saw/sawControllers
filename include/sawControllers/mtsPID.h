@@ -157,6 +157,10 @@ protected:
     vctDoubleVec mTrackingErrorTolerances;
     vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
 
+    // Flag to determine if this is connected to actual IO/hardware or
+    // simulated
+    bool mIsSimulated;
+
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
 
@@ -224,6 +228,7 @@ public:
     void Run(void);
     void Cleanup(void);
 
+    void SetSimulated(void);
 
 protected:
     /**

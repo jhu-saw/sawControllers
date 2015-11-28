@@ -31,6 +31,7 @@ mtsPID::mtsPID(const std::string & componentName, const double periodInSeconds):
     Counter(0),
     CheckJointLimit(true),
     Enabled(false),
+    mIsSimulated(false),
     ConfigurationStateTable(100, "Configuration")
 {
     AddStateTable(&ConfigurationStateTable);
@@ -43,6 +44,7 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
     Counter(0),
     CheckJointLimit(true),
     Enabled(false),
+    mIsSimulated(false),
     ConfigurationStateTable(100, "Configuration")
 {
     AddStateTable(&ConfigurationStateTable);
@@ -504,6 +506,12 @@ void mtsPID::Cleanup(void)
     Robot.SetTorque(TorqueParam);
 }
 
+void mtsPID::SetSimulated(void)
+{
+    mIsSimulated = true;
+    // in simulation mode, we don't need IO
+    RemoveInterfaceRequired("RobotJointTorqueInterface");
+}
 
 void mtsPID::SetPGain(const vctDoubleVec & pgain)
 {
