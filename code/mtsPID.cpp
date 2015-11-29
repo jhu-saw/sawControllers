@@ -171,6 +171,7 @@ void mtsPID::Configure(const std::string & filename)
     mNumberOfJoints = static_cast<size_t>(numberOfJoints);
 
     // set dynamic var size
+    JointType.SetSize(mNumberOfJoints);
     Kp.SetSize(mNumberOfJoints);
     Kd.SetSize(mNumberOfJoints);
     Ki.SetSize(mNumberOfJoints);
@@ -263,6 +264,20 @@ void mtsPID::Configure(const std::string & filename)
         mStateJoint.Name().at(i) = name;
         mStateJointDesired.Name().at(i) = name;
 
+        // type
+        std::string type;
+        config.GetXMLValue(context, "@type", type);
+        if (type == "Revolute") {
+            JointType.at(i) = PRM_REVOLUTE;
+        } else if (type == "Prismatic") {
+            JointType.at(i) = PRM_PRISMATIC;
+        } else {
+            CMN_LOG_CLASS_INIT_ERROR << "Configure: joint " << i << " in file: "
+                                     << filename
+                                     << " needs a \"type\", either \"Revolute\" or \"Prismatic\""
+                                     << std::endl;
+        }
+
         // pid
         config.GetXMLValue(context, "pid/@PGain", Kp[i]);
         config.GetXMLValue(context, "pid/@DGain", Kd[i]);
@@ -324,13 +339,16 @@ void mtsPID::Configure(const std::string & filename)
 void mtsPID::Startup(void)
 {
     // get joint type and store in configuration state table
-    mtsExecutionResult result;
-    ConfigurationStateTable.Start();
-    result = Robot.GetJointType(JointType);
-    ConfigurationStateTable.Advance();
-    if (!result) {
-        CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
-                                 << result << std::endl;
+    if (!mIsSimulated) {
+        mtsExecutionResult result;
+        prmJointTypeVec jointType;
+        result = Robot.GetJointType(jointType);
+        if (!result) {
+            CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
+                                     << result << std::endl;
+        } else {
+            std::cerr << CMN_LOG_DETAILS << " -- need to add check to verify size and types are equal" << std::endl;
+        }
     }
 }
 
