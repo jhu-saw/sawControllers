@@ -95,8 +95,8 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         interfaceProvided->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
         interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPositions, this, "SetPositionJoint", DesiredPositionParam);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorques, this, "SetTorqueJoint", prmDesiredTrq);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", DesiredPositionParam);
+        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorque, this, "SetTorqueJoint", prmDesiredTrq);
         interfaceProvided->AddCommandReadState(StateTable, FeedbackPositionParam, "GetPositionJoint");
         interfaceProvided->AddCommandReadState(StateTable, FeedbackVelocityParam, "GetVelocityJoint");
         interfaceProvided->AddCommandReadState(StateTable, FeedbackTorque, "GetTorqueJoint");
@@ -194,7 +194,6 @@ void mtsPID::Configure(const std::string & filename)
     DesiredTorque.SetSize(mNumberOfJoints);
     DesiredTorque.SetAll(0.0);
     FeedbackVelocity.SetSize(mNumberOfJoints);
-    DesiredVelocity.SetSize(mNumberOfJoints);
     Torque.SetSize(mNumberOfJoints);
     Torque.SetAll(0.0);
     FeedbackPositionParam.SetSize(mNumberOfJoints);
@@ -216,8 +215,6 @@ void mtsPID::Configure(const std::string & filename)
     ErrorAbsolute.SetSize(mNumberOfJoints);
     dError.SetSize(mNumberOfJoints);
     iError.SetSize(mNumberOfJoints);
-    oldError.SetSize(mNumberOfJoints);
-    oldDesiredPos.SetSize(mNumberOfJoints);
     ResetController();
 
     minIErrorLimit.SetSize(mNumberOfJoints);
@@ -361,9 +358,16 @@ void mtsPID::Run(void)
     Counter++;
 
     // update states
-    Robot.GetFeedbackPosition(FeedbackPositionParam);
-    FeedbackPositionParam.GetPosition(FeedbackPosition);
-    Robot.GetFeedbackTorque(FeedbackTorque);
+    if (mIsSimulated) {
+        FeedbackPositionParam.SetValid(true);
+        FeedbackPositionParam.SetPosition(FeedbackPositionPreviousParam.Position());
+        FeedbackPositionParam.GetPosition(FeedbackPosition);
+        FeedbackTorque.Assign(Torque);
+    } else {
+        Robot.GetFeedbackPosition(FeedbackPositionParam);
+        FeedbackPositionParam.GetPosition(FeedbackPosition);
+        Robot.GetFeedbackTorque(FeedbackTorque);
+    }
 
     // compute error
     Error.DifferenceOf(DesiredPosition, FeedbackPosition);
@@ -373,7 +377,7 @@ void mtsPID::Run(void)
     }
 
     // update velocities from robot
-    if (Robot.GetFeedbackVelocity.IsValid()) {
+    if (!mIsSimulated && Robot.GetFeedbackVelocity.IsValid()) {
         Robot.GetFeedbackVelocity(FeedbackVelocityParam);
         FeedbackVelocityParam.GetVelocity(FeedbackVelocity);
     } else {
@@ -464,10 +468,6 @@ void mtsPID::Run(void)
             }
         }
 
-        // save Error to oldError
-        oldError.Assign(Error);
-        oldDesiredPos.Assign(DesiredPosition);
-
         // compute torque
         Torque.ElementwiseProductOf(Kp, Error);
         Torque.AddElementwiseProductOf(Kd, dError);
@@ -500,12 +500,24 @@ void mtsPID::Run(void)
 
         // write torque to robot
         TorqueParam.SetForceTorque(Torque);
-        Robot.SetTorque(TorqueParam);
+        if (!mIsSimulated) {
+            Robot.SetTorque(TorqueParam);
+        }
     }
     else {
         Torque.SetAll(0.0);
         TorqueParam.SetForceTorque(Torque);
-        Robot.SetTorque(TorqueParam);
+        if (!mIsSimulated) {
+            Robot.SetTorque(TorqueParam);
+        }
+    }
+
+    // for simulated mode
+    if (mIsSimulated) {
+        FeedbackPositionParam.SetPosition(DesiredPosition);
+        FeedbackPositionParam.SetValid(true);
+        FeedbackPosition.Assign(DesiredPosition);
+        FeedbackTorque.Assign(Torque);
     }
 
     // update state data
@@ -521,7 +533,9 @@ void mtsPID::Cleanup(void)
     // cleanup
     Torque.SetAll(0.0);
     TorqueParam.SetForceTorque(Torque);
-    Robot.SetTorque(TorqueParam);
+    if (!mIsSimulated) {
+        Robot.SetTorque(TorqueParam);
+    }
 }
 
 void mtsPID::SetSimulated(void)
@@ -618,19 +632,18 @@ void mtsPID::ResetController(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << "Reset Controller" << std::endl;
     Error.SetAll(0.0);
-    oldError.SetAll(0.0);
     dError.SetAll(0.0);
     iError.SetAll(0.0);
     Enable(false);
 }
 
-void mtsPID::SetDesiredTorques(const prmForceTorqueJointSet & prmTrq)
+void mtsPID::SetDesiredTorque(const prmForceTorqueJointSet & prmTrq)
 {
     prmDesiredTrq = prmTrq;
     prmDesiredTrq.GetForceTorque( DesiredTorque );
 }
 
-void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
+void mtsPID::SetDesiredPosition(const prmPositionJointSet & positionParam)
 {
     DesiredPositionParam = positionParam;
     DesiredPositionParam.GetGoal(DesiredPosition);
@@ -670,9 +683,6 @@ void mtsPID::SetDesiredPositions(const prmPositionJointSet & positionParam)
             }
         }
     }
-
-    double dt = StateTable.Period;
-    DesiredVelocity = (DesiredPosition - oldDesiredPos) / dt;
 }
 
 
@@ -687,7 +697,9 @@ void mtsPID::Enable(const bool & enable)
     // set torque to 0
     Torque.SetAll(0.0);
     TorqueParam.SetForceTorque(Torque);
-    Robot.SetTorque(TorqueParam);
+    if (!mIsSimulated) {
+        Robot.SetTorque(TorqueParam);
+    }
     // reset error flags
     if (enable) {
         mPreviousTrackingErrorFlag.SetAll(false);
@@ -724,7 +736,9 @@ void mtsPID::EnableTorqueMode(const vctBoolVec & enable)
 
     // write torque to robot
     TorqueParam.SetForceTorque(Torque);
-    Robot.SetTorque(TorqueParam);
+    if (!mIsSimulated) {
+        Robot.SetTorque(TorqueParam);
+    }
 }
 
 void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)

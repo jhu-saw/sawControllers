@@ -95,8 +95,6 @@ protected:
     vctDoubleVec DesiredTorque;
     //! Feedback joint velocities
     vctDoubleVec FeedbackVelocity;
-    //! Desired joint velocities
-    vctDoubleVec DesiredVelocity;
     //! Torque set to robot
     vctDoubleVec Torque;
 
@@ -124,11 +122,6 @@ protected:
     vctDoubleVec dError;
     //! Error integral
     vctDoubleVec iError;
-
-    //! Previous error
-    vctDoubleVec oldError;
-    //! Previous desiredPos
-    vctDoubleVec oldDesiredPos;
 
     //! Min iError
     vctDoubleVec minIErrorLimit;
@@ -190,8 +183,8 @@ protected:
      *
      * @param prmPos   The desired position
      */
-    void SetDesiredPositions(const prmPositionJointSet & prmPos);
-    void SetDesiredTorques(const prmForceTorqueJointSet& prmTrq);
+    void SetDesiredPosition(const prmPositionJointSet & prmPos);
+    void SetDesiredTorque(const prmForceTorqueJointSet& prmTrq);
 
     void SetupInterfaces(void);
 
