@@ -335,7 +335,7 @@ void mtsPID::Configure(const std::string & filename)
 
 void mtsPID::Startup(void)
 {
-    // get joint type and store in configuration state table
+    // get joint type from IO and check against values from PID config file
     if (!mIsSimulated) {
         mtsExecutionResult result;
         prmJointTypeVec jointType;
@@ -344,7 +344,13 @@ void mtsPID::Startup(void)
             CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                      << result << std::endl;
         } else {
-            std::cerr << CMN_LOG_DETAILS << " -- need to add check to verify size and types are equal" << std::endl;
+            if (jointType != JointType) {
+                std::string message =  "Startup: joint types from IO don't match types from configuration files for " + this->GetName();
+                CMN_LOG_CLASS_INIT_ERROR << message << std::endl
+                                         << "From IO:     " << jointType << std::endl
+                                         << "From config: " << JointType << std::endl;
+                cmnThrow("PID::" + message);
+            }
         }
     }
 }
