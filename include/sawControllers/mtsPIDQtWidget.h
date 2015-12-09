@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -129,11 +129,12 @@ private:
     QPushButton * QPBZeroPosition;
     QPushButton * QPBResetPIDGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPositionWidget;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
+    vctQtWidgetDynamicVectorDoubleRead * QVWDesiredEffortWidget;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffortWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGainWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;
     vctQtWidgetDynamicVectorDoubleWrite * QVWIGainWidget;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffortWidget;
 
     // GUI: plot
     vctPlot2DOpenGLQtWidget * QVPlot;

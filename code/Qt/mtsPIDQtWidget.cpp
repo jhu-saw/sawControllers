@@ -281,6 +281,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
         QVWDesiredPositionWidget->SetValue(PID.StateJointDesired.Position());
+        QVWDesiredEffortWidget->SetValue(PID.StateJointDesired.Effort());
     }
 
     // plot
@@ -308,6 +309,7 @@ void mtsPIDQtWidget::setupUi(void)
     const double maximum = 30000;
 
     QGridLayout * gridLayout = new QGridLayout();
+    gridLayout->setSpacing(1);
 
     int row = 0;
     QLabel * currentPosLabel = new QLabel("Current position (deg)");
@@ -322,10 +324,25 @@ void mtsPIDQtWidget::setupUi(void)
     desiredPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(desiredPosLabel, row, 0);
     QVWDesiredPositionWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    // DesiredPositionWidget->SetDecimals(2);
     QVWDesiredPositionWidget->SetStep(0.1);
     QVWDesiredPositionWidget->SetRange(-360.0, 360.0);
     gridLayout->addWidget(QVWDesiredPositionWidget, row, 1);
+    row++;
+
+    QLabel * currentEffortLabel = new QLabel("Current effort (Nm)");
+    currentEffortLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(currentEffortLabel, row, 0);
+    QVRCurrentEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRCurrentEffortWidget->SetPrecision(3);
+    gridLayout->addWidget(QVRCurrentEffortWidget, row, 1);
+    row++;
+
+    QLabel * desiredEffortLabel = new QLabel("Desired effort (Nm)");
+    desiredEffortLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(desiredEffortLabel, row, 0);
+    QVWDesiredEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
+    QVWDesiredEffortWidget->SetPrecision(3);
+    gridLayout->addWidget(QVWDesiredEffortWidget, row, 1);
     row++;
 
     QLabel * pLabel = new QLabel("PGain");
@@ -356,14 +373,6 @@ void mtsPIDQtWidget::setupUi(void)
     QVWIGainWidget->SetPrecision(5);
     QVWIGainWidget->SetRange(-maximum, maximum);
     gridLayout->addWidget(QVWIGainWidget, row, 1);
-    row++;
-
-    QLabel * currentEffortLabel = new QLabel("Current effort (Nm)");
-    currentEffortLabel->setAlignment(Qt::AlignRight);
-    gridLayout->addWidget(currentEffortLabel, row, 0);
-    QVRCurrentEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRCurrentEffortWidget->SetPrecision(5);
-    gridLayout->addWidget(QVRCurrentEffortWidget, row, 1);
     row++;
 
     // plot
