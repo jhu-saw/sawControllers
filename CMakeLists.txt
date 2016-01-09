@@ -1,7 +1,5 @@
 #
-#
-# (C) Copyright 2012 Johns Hopkins University (JHU), All Rights
-# Reserved.
+# (C) Copyright 2012-2016 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -11,8 +9,7 @@
 #
 # --- end cisst license ---
 
-project( sawControllers )
+project (sawControllers)
 
-add_subdirectory( code )
-add_subdirectory( examples )
-
+add_subdirectory (code)
+add_subdirectory (examples)

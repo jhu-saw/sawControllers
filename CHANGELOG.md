@@ -1,6 +1,21 @@
 Change log
 ==========
 
+1.3.0 (2016-01-08)
+==================
+
+* API changes:
+  * None
+* Deprecated features:
+  * None
+* New features:
+  * PID: added SetSimulated mode
+  * PID: added methods to enable/disable some joints (used to change actuator coupling on the fly)
+  * PID: added joint type in XML configuration, used to be pulled from IO, now needed for simulation
+  * PID Qt widget: plot/display desired effort
+* Bug fixes:
+  * PID: forward error as status when PID is disabled
+
 1.2.0 (2015-10-18)
 ==================
 
