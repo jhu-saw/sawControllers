@@ -501,6 +501,10 @@ void mtsPID::Run(void)
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (TorqueMode[i]) {
                 Torque[i] = DesiredTorque[i];
+                // since we assume nobody sent a desired position,
+                // update desired from current
+                mStateJointDesired.Position()[i] = FeedbackPosition[i];
+                DesiredPosition[i] = FeedbackPosition[i];                
             }
         }
 
