@@ -114,7 +114,7 @@ if (cisst_FOUND)
            LIBRARY DESTINATION lib
            ARCHIVE DESTINATION lib)
 
-  install (FILES "${sawControllers_BINARY_DIR}/sawControllersConfig.cmake"
-           DESTINATION "${CISST_CMAKE_INSTALL_SUFFIX}/saw")
+  install (FILES "${sawControllers_CMAKE_CONFIG_FILE}"
+           DESTINATION "share/sawControllers")
 
 endif( cisst_FOUND )
