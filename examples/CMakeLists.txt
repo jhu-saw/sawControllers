@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2015 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2016 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -9,32 +9,34 @@
 #
 # --- end cisst license ---
 
-set(
-  REQUIRED_CISST_LIBRARIES
-  cisstCommon
-  cisstVector
-  cisstOSAbstraction
-  cisstMultiTask
-  cisstParameterTypes
-  cisstRobot
-  cisstNumerical )
+cmake_minimum_required (VERSION 2.8)
+
+set (REQUIRED_CISST_LIBRARIES
+     cisstCommon
+     cisstVector
+     cisstOSAbstraction
+     cisstMultiTask
+     cisstParameterTypes
+     cisstRobot
+     cisstNumerical)
 
 find_package (cisst REQUIRED ${REQUIRED_CISST_LIBRARIES})
 
 if (cisst_FOUND_AS_REQUIRED)
 
   # load cisst configuration
-  include( ${CISST_USE_FILE} )
+  include (${CISST_USE_FILE})
 
-  cisst_find_saw_component (sawControllers REQUIRED)
-  cisst_find_saw_component (sawKeyboard REQUIRED)
+  find_package (sawControllers REQUIRED)
+  find_package (sawKeyboard REQUIRED)
 
   if (sawControllers_FOUND AND sawKeyboard_FOUND)
 
     include_directories (${sawControllers_INCLUDE_DIR}
                          ${sawKeyboard_INCLUDE_DIR})
 
-    link_directories (${sawKeyboard_LIBRARY_DIR})
+    link_directories (${sawControllers_LIBRARY_DIR}
+                      ${sawKeyboard_LIBRARY_DIR})
 
     set (sawControllers_EXAMPLES
          osaGCExample

@@ -9,6 +9,10 @@
 #
 # --- end cisst license ---
 
+cmake_minimum_required (VERSION 2.8)
+
+project (sawControllers)
+
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
      cisstCommonXML
@@ -29,8 +33,10 @@ if (cisst_FOUND)
   # catkin/ROS paths
   cisst_is_catkin_build (sawControllers_IS_CATKIN_BUILT)
   if (sawControllers_IS_CATKIN_BUILT)
-    set (sawControllers_CONFIG_FILE_DIR "${CATKIN_DEVEL_PREFIX}/cmake")
+    set (sawControllers_CONFIG_FILE_DIR
+         "${CATKIN_DEVEL_PREFIX}/share/sawControllers/cmake")
     set (LIBRARY_OUTPUT_PATH "${sawControllers_BINARY_DIR}/lib")
+    set (EXECUTABLE_OUTPUT_PATH "${CATKIN_DEVEL_PREFIX}/bin")
   else ()
     set (sawControllers_CONFIG_FILE_DIR "${sawControllers_BINARY_DIR}")
   endif ()
@@ -54,41 +60,42 @@ if (cisst_FOUND)
   include_directories (${sawControllers_INCLUDE_DIR})
   set (sawControllers_HEADER_DIR "${sawControllers_SOURCE_DIR}/include/sawControllers")
 
-  set(
-    HEADER_FILES
-    ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
-    ${sawControllers_HEADER_DIR}/osaPDGC.h
-    ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
+  set (HEADER_FILES
+       ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
+       ${sawControllers_HEADER_DIR}/osaPDGC.h
+       ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
 
-    ${sawControllers_HEADER_DIR}/mtsController.h
-    ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
-    ${sawControllers_HEADER_DIR}/mtsPDGC.h
-    ${sawControllers_HEADER_DIR}/mtsPID.h
-    ${sawControllers_HEADER_DIR}/mtsTeleOperation.h)
+       ${sawControllers_HEADER_DIR}/mtsController.h
+       ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
+       ${sawControllers_HEADER_DIR}/mtsPDGC.h
+       ${sawControllers_HEADER_DIR}/mtsPID.h
+       ${sawControllers_HEADER_DIR}/mtsTeleOperation.h)
 
-  set(
-    SOURCE_FILES
-    osaGravityCompensation.cpp
-    osaPDGC.cpp
-    osaPIDAntiWindup.cpp
+  set (SOURCE_FILES
+       code/osaGravityCompensation.cpp
+       code/osaPDGC.cpp
+       code/osaPIDAntiWindup.cpp
 
-    mtsController.cpp
-    mtsGravityCompensation.cpp
-    mtsPDGC.cpp
-    mtsPID.cpp
-    mtsTeleOperation.cpp)
+       code/mtsController.cpp
+       code/mtsGravityCompensation.cpp
+       code/mtsPDGC.cpp
+       code/mtsPID.cpp
+       code/mtsTeleOperation.cpp)
 
   add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES})
   cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})
   set_property (TARGET sawControllers PROPERTY FOLDER "sawControllers")
 
   # add Qt code
-  add_subdirectory (Qt)
+  add_subdirectory (code/Qt)
   set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} ${sawControllersQt_LIBRARIES})
 
-  configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/sawControllersConfig.cmake.in"
+  set (sawControllers_CMAKE_CONFIG_FILE
+       "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake")
+
+  configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/cmake/sawControllersConfig.cmake.in"
                   "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake"
-                  @ONLY@)
+                  @ONLY)
 
   cisst_add_config_version ("${sawControllers_CONFIG_FILE_DIR}/sawControllersConfigVersion.cmake"
                             VERSION ${sawControllers_VERSION}

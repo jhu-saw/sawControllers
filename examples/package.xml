@@ -1,0 +1,23 @@
+<package>
+  <name>saw_controllers_examples</name>
+  <version>1.3.0</version>
+  <description>
+  sawControllers Examples
+  </description>
+  <maintainer email="anton.deguet@jhu.edu">Anton Deguet</maintainer>
+  <license>cisst</license>
+  <url>https://github.com/jhu-saw/sawControllers</url>
+
+  <build_depend>cisst_netlib</build_depend>
+  <build_depend>cisst</build_depend>
+  <build_depend>saw_keyboard</build_depend>
+
+  <run_depend>cisst_netlib</run_depend>
+  <run_depend>cisst</run_depend>
+  <run_depend>saw_keyboard</run_depend>
+
+  <export>
+    <build_type>catkin</build_type>
+  </export>
+
+</package>
