@@ -11,10 +11,12 @@
   <build_depend>cisst_netlib</build_depend>
   <build_depend>cisst</build_depend>
   <build_depend>saw_keyboard</build_depend>
+  <build_depend>saw_controllers</build_depend>
 
   <run_depend>cisst_netlib</run_depend>
   <run_depend>cisst</run_depend>
   <run_depend>saw_keyboard</run_depend>
+  <run_depend>saw_controllers</run_depend>
 
   <export>
     <build_type>catkin</build_type>
