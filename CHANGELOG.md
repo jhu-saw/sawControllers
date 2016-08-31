@@ -1,6 +1,18 @@
 Change log
 ==========
 
+1.4.0 (2016-08-31)
+==================
+
+* API changes:
+  * mtsPID: when in torque mode, update last desired position based on current position
+* Deprecated features:
+  * None
+* New features:
+  * CMake: separated components from applications/examples (catkin build 0.4 compatible)
+* Bug fixes:
+  * None
+
 1.3.0 (2016-01-08)
 ==================
 
