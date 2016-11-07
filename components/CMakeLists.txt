@@ -64,6 +64,7 @@ if (cisst_FOUND)
        ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
        ${sawControllers_HEADER_DIR}/osaPDGC.h
        ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
+       ${sawControllers_HEADER_DIR}/osaImpedanceController.h
 
        ${sawControllers_HEADER_DIR}/mtsController.h
        ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
@@ -75,6 +76,7 @@ if (cisst_FOUND)
        code/osaGravityCompensation.cpp
        code/osaPDGC.cpp
        code/osaPIDAntiWindup.cpp
+       code/osaImpedanceController.cpp
 
        code/mtsController.cpp
        code/mtsGravityCompensation.cpp
