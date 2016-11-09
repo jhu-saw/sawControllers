@@ -10,8 +10,24 @@ void osaImpedanceController::SetGains(const prmFixtureGainCartesianSet &gains)
     mImpedanceGains = gains;
 }
 
-void osaImpedanceController::Update(const prmPositionCartesianGet & pose, const prmVelocityCartesianGet & twist, prmForceCartesianSet & wrenchBody)
+void osaImpedanceController::ResetGains()
 {
+    mImpedanceGains.ForceOrientation().Identity();
+    mImpedanceGains.TorqueOrientation().Identity();
+
+    mImpedanceGains.PositionStiffnessPos().Zeros();
+    mImpedanceGains.PositionStiffnessNeg().Zeros();
+    mImpedanceGains.PositionDampingPos().Zeros();
+    mImpedanceGains.PositionDampingNeg().Zeros();
+    mImpedanceGains.OrientationStiffnessPos().Zeros();
+    mImpedanceGains.OrientationStiffnessNeg().Zeros();
+    mImpedanceGains.OrientationDampingPos().Zeros();
+    mImpedanceGains.OrientationDampingNeg().Zeros();
+}
+
+void osaImpedanceController::Update(const prmPositionCartesianGet & pose, const prmVelocityCartesianGet & twist,
+                                    prmForceCartesianSet & wrenchBody, bool needWrenchInBody)
+{       
     // ---- FORCE ----
     vct3 force(0.0);
     vct3 kpForce(0.0);
@@ -35,7 +51,9 @@ void osaImpedanceController::Update(const prmPositionCartesianGet & pose, const 
     }
 
     force = kpForce + kdForce + biasForce;
-    force = pose.Position().Rotation().Inverse() * mImpedanceGains.ForceOrientation() * force;   // Force in Body Frame
+    force = mImpedanceGains.ForceOrientation() * force;   // Force in absolute Frame
+    if(needWrenchInBody)
+        force = pose.Position().Rotation().Inverse() * force;   // Force in body frame
 
 
     // ---- TORQUE ----
@@ -65,7 +83,9 @@ void osaImpedanceController::Update(const prmPositionCartesianGet & pose, const 
     }
 
     torque = kpTorque + kdTorque + biasTorque;
-    torque = pose.Position().Rotation().Inverse() * mImpedanceGains.TorqueOrientation() * torque;   // Torque in Body Frame
+    torque = mImpedanceGains.TorqueOrientation() * torque;   // Torque in absolute Frame
+    if(needWrenchInBody)
+        torque = pose.Position().Rotation().Inverse() * torque;     // Torque in Body Frame
 
     std::copy(force.begin(), force.begin()+3, wrenchBody.Force().begin());
     std::copy(torque.begin(), torque.begin()+3, wrenchBody.Force().begin()+3);

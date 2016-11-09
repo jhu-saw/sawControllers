@@ -14,8 +14,10 @@ public:
     osaImpedanceController();
     ~osaImpedanceController(){}
 
-    void Update(const prmPositionCartesianGet & pose, const prmVelocityCartesianGet & twist, prmForceCartesianSet & wrenchBody);
+    void Update(const prmPositionCartesianGet & pose, const prmVelocityCartesianGet & twist,
+                prmForceCartesianSet & wrenchBody, bool needWrenchInBody = false);
     void SetGains(const prmFixtureGainCartesianSet & gains);
+    void ResetGains();
 
 private:
     prmFixtureGainCartesianSet mImpedanceGains;
