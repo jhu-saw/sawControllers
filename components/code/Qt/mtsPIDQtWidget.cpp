@@ -296,7 +296,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
                                                 -PID.StateJoint.Effort().Element(PlotIndex)));
     DesiredEffortSignal->AppendPoint(vctDouble2(PID.StateJointDesired.Timestamp(),
                                                 -PID.StateJointDesired.Effort().Element(PlotIndex)));
-    QVPlot->updateGL();
+    QVPlot->update();
 }
 
 ////------------ Private Methods ----------------
