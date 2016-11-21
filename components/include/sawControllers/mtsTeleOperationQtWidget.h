@@ -29,6 +29,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <sawControllers/sawControllersQtExport.h>
 
 class QTextEdit;
+class QCheckBox;
+class QDoubleSpinBox;
 
 class CISST_EXPORT mtsTeleOperationQtWidget: public QWidget, public mtsComponent
 {
