@@ -2,10 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-  Author(s):  Zihan Chen
+  Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2016 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -36,6 +36,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmVelocityJointGet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmJointType.h>
+#include <cisstParameterTypes/prmActuatorJointCoupling.h>
 
 #include <sawControllers/sawControllersRevision.h>
 
@@ -49,6 +50,8 @@ class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 protected:
     // Required interface
     struct InterfaceRobotTorque {
+        //! Set actuator/joint coupling
+        mtsFunctionWrite SetCoupling;
         //! Read joint type form robot
         mtsFunctionRead GetJointType;
         //! Read joint position from robot
@@ -61,20 +64,21 @@ protected:
         mtsFunctionWrite SetTorque;
     } Robot;
 
-    //! Counter for internal use
-    int Counter;
 
     //! Number of joints, set from the XML file used in Configure method
     size_t mNumberOfJoints;
 
-    //! Proportional gains
-    vctDoubleVec Kp;
-    //! Derivative gains
-    vctDoubleVec Kd;
-    //! Integral gains
-    vctDoubleVec Ki;
-    //! Offset
-    vctDoubleVec Offset;
+    struct {
+        //! Proportional gains
+        vctDoubleVec Kp;
+        //! Derivative gains
+        vctDoubleVec Kd;
+        //! Integral gains
+        vctDoubleVec Ki;
+        //! Offset
+        vctDoubleVec Offset;
+    } mGains;
+
     //! Joint lower limit
     vctDoubleVec JointLowerLimit;
     //! Joint upper limit
@@ -83,36 +87,28 @@ protected:
     bool CheckJointLimit;
     vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
 
-
-    // TODO: change to prmPositionJointGet
-    //! Feedback joint positions
-    vctDoubleVec FeedbackPosition;
     //! Desired joint positions
     vctDoubleVec DesiredPosition;
-    //! Feedback joint positions
-    vctDoubleVec FeedbackTorque;
+    //! mMeasured joint positions
+    vctDoubleVec mTorqueMeasure;
     //! Desired joint positions
     vctDoubleVec DesiredTorque;
-    //! Feedback joint velocities
-    vctDoubleVec FeedbackVelocity;
     //! Torque set to robot
     vctDoubleVec Torque;
 
     //! prm type joint type
     prmJointTypeVec JointType;
     //! prm type feedback positoin
-    prmPositionJointGet FeedbackPositionParam;
-    prmPositionJointGet FeedbackPositionPreviousParam;
+    prmPositionJointGet mPositionMeasure;
+    prmPositionJointGet mPositionMeasurePrevious;
     //! prm type desired position
     prmPositionJointSet DesiredPositionParam;
-    //! prm type desired torque
-    prmForceTorqueJointSet prmDesiredTrq;
     //! prm type feedback velocity
-    prmVelocityJointGet FeedbackVelocityParam;
+    prmVelocityJointGet mVelocityMeasure;
     //! prm type set torque
     prmForceTorqueJointSet TorqueParam;
     //! prm type joint state
-    prmStateJoint mStateJoint, mStateJointDesired;
+    prmStateJoint mStateJointMeasure, mStateJointCommand;
 
     //! Error
     vctDoubleVec Error;
@@ -164,6 +160,8 @@ protected:
         mtsFunctionWrite JointLimit;
         //! Enabled joints event
         mtsFunctionWrite EnabledJoints;
+        //! Coupling changed event
+        mtsFunctionWrite Coupling;
     } Events;
 
     struct {
@@ -195,6 +193,10 @@ protected:
     void EnableTorqueMode(const vctBoolVec & enable);
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
+
+    void SetCoupling(const prmActuatorJointCoupling & coupling);
+
+    void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
 
     void ErrorEventHandler(const std::string & message);
 
