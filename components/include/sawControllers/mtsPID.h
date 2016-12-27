@@ -87,12 +87,10 @@ protected:
     bool CheckJointLimit;
     vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
 
-    //! Desired joint positions
-    vctDoubleVec DesiredPosition;
-    //! mMeasured joint positions
+    //! Measured joint positions
     vctDoubleVec mTorqueMeasure;
-    //! Desired joint positions
-    vctDoubleVec DesiredTorque;
+    //! Commanded joint positions
+    prmForceTorqueJointSet mTorqueCommand;
     //! Torque set to robot
     vctDoubleVec Torque;
 
@@ -102,7 +100,7 @@ protected:
     prmPositionJointGet mPositionMeasure;
     prmPositionJointGet mPositionMeasurePrevious;
     //! prm type desired position
-    prmPositionJointSet DesiredPositionParam;
+    prmPositionJointSet mPositionCommand;
     //! prm type feedback velocity
     prmVelocityJointGet mVelocityMeasure;
     //! prm type set torque
