@@ -67,7 +67,7 @@ void mtsPID::SetupInterfaces(void)
     }
 
     // this should go in "write" state table
-    StateTable.AddData(Torque, "RequestedTorque");
+    StateTable.AddData(mTorqueCommand, "TorqueCommand");
     // this should go in a "read" state table
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
@@ -101,7 +101,7 @@ void mtsPID::SetupInterfaces(void)
         interfaceProvided->AddCommandReadState(StateTable, mVelocityMeasure, "GetVelocityJoint");
         interfaceProvided->AddCommandReadState(StateTable, mTorqueMeasure, "GetTorqueJoint");
         interfaceProvided->AddCommandReadState(StateTable, mPositionCommand, "GetPositionJointDesired");
-        interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJointDesired");
+        interfaceProvided->AddCommandReadState(StateTable, mTorqueCommand, "GetTorqueJointDesired");
         // ROS compatible joint state
         interfaceProvided->AddCommandReadState(StateTable, mStateJointMeasure, "GetStateJoint");
         interfaceProvided->AddCommandReadState(StateTable, mStateJointCommand, "GetStateJointDesired");
@@ -196,15 +196,14 @@ void mtsPID::Configure(const std::string & filename)
     mTorqueMeasure.SetSize(mNumberOfJoints);
     mTorqueCommand.SetSize(mNumberOfJoints);
     mTorqueCommand.ForceTorque().SetAll(0.0);
+    mTorqueUserCommand.SetSize(mNumberOfJoints);
+    mTorqueUserCommand.ForceTorque().SetAll(0.0);
     mVelocityMeasure.SetSize(mNumberOfJoints);
-    Torque.SetSize(mNumberOfJoints);
-    Torque.SetAll(0.0);
     mPositionMeasure.SetSize(mNumberOfJoints);
     mPositionMeasurePrevious.SetSize(mNumberOfJoints);
     mPositionCommand.SetSize(mNumberOfJoints);
     mPositionCommand.Goal().SetAll(0.0);
     mVelocityMeasure.SetSize(mNumberOfJoints);
-    TorqueParam.SetSize(mNumberOfJoints);
 
     mStateJointMeasure.Position().SetSize(mNumberOfJoints);
     mStateJointMeasure.Velocity().SetSize(mNumberOfJoints);
@@ -367,7 +366,7 @@ void mtsPID::Run(void)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.Position().ForceAssign(mPositionMeasurePrevious.Position());
-        mTorqueMeasure.Assign(Torque);
+        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
         Robot.GetFeedbackTorque(mTorqueMeasure);
@@ -442,10 +441,11 @@ void mtsPID::Run(void)
                     std::string message = this->Name + ": tracking error, mask (1 for error): ";
                     message.append(mTrackingErrorFlag.ToString());
                     MessageEvents.Error(message);
-                    CMN_LOG_CLASS_RUN_ERROR << message
-                                            << ", errors: " << Error
-                                            << ", tolerances: " << mTrackingErrorTolerances
-                                            << std::endl;
+                    CMN_LOG_CLASS_RUN_ERROR << message << std::endl
+                                            << "errors:     " << Error << std::endl
+                                            << "tolerances: " << mTrackingErrorTolerances << std::endl
+                                            << "measure:    " << mPositionMeasure.Position() << std::endl
+                                            << "command:    " << mPositionCommand.Goal() << std::endl;
                 }
             }
         }
@@ -470,32 +470,32 @@ void mtsPID::Run(void)
         }
 
         // compute torque
-        Torque.ElementwiseProductOf(mGains.Kp, Error);
-        Torque.AddElementwiseProductOf(mGains.Kd, dError);
-        Torque.AddElementwiseProductOf(mGains.Ki, iError);
+        mTorqueCommand.ForceTorque().ElementwiseProductOf(mGains.Kp, Error);
+        mTorqueCommand.ForceTorque().AddElementwiseProductOf(mGains.Kd, dError);
+        mTorqueCommand.ForceTorque().AddElementwiseProductOf(mGains.Ki, iError);
 
         // nonlinear control mode
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if ((nonlinear[i] > 0)
                 && (fabs(Error[i]) < nonlinear[i])) {
-                Torque[i] = Torque[i] * fabs(Error[i]) / nonlinear[i];
+                mTorqueCommand.ForceTorque()[i] *= fabs(Error[i]) / nonlinear[i];
             }
         }
 
         // set torque to zero if that joint was not enabled
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (!mJointsEnabled[i]) {
-                Torque[i] = 0.0;
+                mTorqueCommand.ForceTorque()[i] = 0.0;
             }
         }
 
         // Add torque (e.g. gravity compensation)
-        Torque.Add(mGains.Offset);
+        mTorqueCommand.ForceTorque().Add(mGains.Offset);
 
         // Set Torque to DesiredTorque if
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (TorqueMode[i]) {
-                Torque[i] = mTorqueCommand.ForceTorque()[i];
+                mTorqueCommand.ForceTorque()[i] = mTorqueUserCommand.ForceTorque()[i];
                 // since we assume nobody sent a desired position,
                 // update desired from current
                 mStateJointCommand.Position()[i] = mPositionMeasure.Position()[i];
@@ -504,16 +504,14 @@ void mtsPID::Run(void)
         }
 
         // write torque to robot
-        TorqueParam.SetForceTorque(Torque);
         if (!mIsSimulated) {
-            Robot.SetTorque(TorqueParam);
+            Robot.SetTorque(mTorqueCommand);
         }
     }
     else {
-        Torque.SetAll(0.0);
-        TorqueParam.SetForceTorque(Torque);
+        mTorqueCommand.ForceTorque().SetAll(0.0);
         if (!mIsSimulated) {
-            Robot.SetTorque(TorqueParam);
+            Robot.SetTorque(mTorqueCommand);
         }
     }
 
@@ -521,11 +519,11 @@ void mtsPID::Run(void)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.Position().Assign(mPositionCommand.Goal());
-        mTorqueMeasure.Assign(Torque);
+        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
     }
 
     // update state data
-    mStateJointCommand.Effort().ForceAssign(Torque);
+    mStateJointCommand.Effort().ForceAssign(mTorqueCommand.ForceTorque());
 
     // save previous position
     mPositionMeasurePrevious = mPositionMeasure;
@@ -535,10 +533,9 @@ void mtsPID::Run(void)
 void mtsPID::Cleanup(void)
 {
     // cleanup
-    Torque.SetAll(0.0);
-    TorqueParam.SetForceTorque(Torque);
+    mTorqueCommand.ForceTorque().SetAll(0.0);
     if (!mIsSimulated) {
-        Robot.SetTorque(TorqueParam);
+        Robot.SetTorque(mTorqueCommand);
     }
 }
 
@@ -643,7 +640,7 @@ void mtsPID::ResetController(void)
 
 void mtsPID::SetDesiredTorque(const prmForceTorqueJointSet & command)
 {
-    mTorqueCommand = command;
+    mTorqueUserCommand = command;
 }
 
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
@@ -697,10 +694,9 @@ void mtsPID::Enable(const bool & enable)
     Enabled = enable;
 
     // set torque to 0
-    Torque.SetAll(0.0);
-    TorqueParam.SetForceTorque(Torque);
+    mTorqueCommand.ForceTorque().SetAll(0.0);
     if (!mIsSimulated) {
-        Robot.SetTorque(TorqueParam);
+        Robot.SetTorque(mTorqueCommand);
     }
     // reset error flags
     if (enable) {
@@ -734,12 +730,9 @@ void mtsPID::EnableTorqueMode(const vctBoolVec & enable)
     }
 
     // set torque to 0
-    Torque.SetAll(0.0);
-
-    // write torque to robot
-    TorqueParam.SetForceTorque(Torque);
+    mTorqueCommand.ForceTorque().SetAll(0.0);
     if (!mIsSimulated) {
-        Robot.SetTorque(TorqueParam);
+        Robot.SetTorque(mTorqueCommand);
     }
 }
 
@@ -757,9 +750,10 @@ void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.SetPosition(mPositionMeasurePrevious.Position());
-        mTorqueMeasure.Assign(Torque);
+        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
+        std::cerr << "PID post coupling: " << mPositionMeasure << std::endl;
         Robot.GetFeedbackTorque(mTorqueMeasure);
     }
     Events.Coupling(coupling);
