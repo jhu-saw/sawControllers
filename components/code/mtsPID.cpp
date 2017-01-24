@@ -487,6 +487,7 @@ void mtsPID::Run(void)
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (!mJointsEnabled[i]) {
                 Torque[i] = 0.0;
+                mStateJointDesired.Position()[i] = FeedbackPosition[i];
             }
         }
 
@@ -513,6 +514,7 @@ void mtsPID::Run(void)
     else {
         Torque.SetAll(0.0);
         TorqueParam.SetForceTorque(Torque);
+        mStateJointDesired.Position() = FeedbackPosition;
         if (!mIsSimulated) {
             Robot.SetTorque(TorqueParam);
         }
