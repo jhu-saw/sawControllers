@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -166,11 +166,7 @@ protected:
         mtsFunctionWrite EnabledJoints;
     } Events;
 
-    struct {
-        mtsFunctionWrite Status;
-        mtsFunctionWrite Warning;
-        mtsFunctionWrite Error;
-    } MessageEvents;
+    mtsInterfaceProvided * mInterface;
 
     /**
      * @brief Reset encoder, clear e/ed/ei value
