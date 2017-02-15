@@ -192,7 +192,7 @@ protected:
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
-    void ErrorEventHandler(const std::string & message);
+    void ErrorEventHandler(const mtsMessage & message);
 
 public:
 
