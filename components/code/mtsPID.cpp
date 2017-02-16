@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -88,60 +88,59 @@ void mtsPID::SetupInterfaces(void)
     ConfigurationStateTable.AddData(mEnableTrackingError, "EnableTrackingError");
     ConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
-    // provide SetDesiredPositions
-    mtsInterfaceProvided * interfaceProvided = AddInterfaceProvided("Controller");
-    if (interfaceProvided) {
-        interfaceProvided->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
-        interfaceProvided->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
-        interfaceProvided->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
-        interfaceProvided->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", DesiredPositionParam);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetDesiredTorque, this, "SetTorqueJoint", prmForceTorqueJointSet());
-        interfaceProvided->AddCommandReadState(StateTable, mPositionMeasure, "GetPositionJoint");
-        interfaceProvided->AddCommandReadState(StateTable, mVelocityMeasure, "GetVelocityJoint");
-        interfaceProvided->AddCommandReadState(StateTable, mTorqueMeasure, "GetTorqueJoint");
-        interfaceProvided->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
-        interfaceProvided->AddCommandReadState(StateTable, Torque, "GetEffortJointDesired");
+    mInterface = AddInterfaceProvided("Controller");
+    mInterface->AddMessageEvents();
+    if (mInterface) {
+        mInterface->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
+        mInterface->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
+        mInterface->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
+        mInterface->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", DesiredPositionParam);
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredTorque, this, "SetTorqueJoint", TorqueParam);
+        mInterface->AddCommandReadState(StateTable, mPositionMeasure, "GetPositionJoint");
+        mInterface->AddCommandReadState(StateTable, mVelocityMeasure, "GetVelocityJoint");
+        mInterface->AddCommandReadState(StateTable, mTorqueMeasure, "GetTorqueJoint");
+        mInterface->AddCommandReadState(StateTable, DesiredPosition, "GetPositionJointDesired");
+        mInterface->AddCommandReadState(StateTable, Torque, "GetEffortJointDesired");
         // ROS compatible joint state
-        interfaceProvided->AddCommandReadState(StateTable, mStateJointMeasure, "GetStateJoint");
-        interfaceProvided->AddCommandReadState(StateTable, mStateJointCommand, "GetStateJointDesired");
+        mInterface->AddCommandReadState(StateTable, mStateJointMeasure, "GetStateJoint");
+        mInterface->AddCommandReadState(StateTable, mStateJointCommand, "GetStateJointDesired");
 
         // coupling
-        interfaceProvided->AddCommandWrite(&mtsPID::SetCoupling, this, "SetCoupling", prmActuatorJointCoupling());
-        interfaceProvided->AddEventWrite(Events.Coupling, "Coupling", prmActuatorJointCoupling());
+        mInterface->AddCommandWrite(&mtsPID::SetCoupling, this, "SetCoupling", prmActuatorJointCoupling());
+        mInterface->AddEventWrite(Events.Coupling, "Coupling", prmActuatorJointCoupling());
 
         // Set check limits
-        interfaceProvided->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
-        interfaceProvided->AddCommandWriteState(StateTable, mGains.Offset, "SetTorqueOffset");
+        mInterface->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
+        mInterface->AddCommandWriteState(StateTable, mGains.Offset, "SetTorqueOffset");
 
         // Get PID gains
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, mGains.Kp, "GetPGain");
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, mGains.Kd, "GetDGain");
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, mGains.Ki, "GetIGain");
+        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Kp, "GetPGain");
+        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Kd, "GetDGain");
+        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Ki, "GetIGain");
+
         // Get joint limits
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointLowerLimit, "GetJointLowerLimit");
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointUpperLimit, "GetJointUpperLimit");
-        interfaceProvided->AddCommandReadState(ConfigurationStateTable, JointType, "GetJointType");
+        mInterface->AddCommandReadState(ConfigurationStateTable, JointLowerLimit, "GetJointLowerLimit");
+        mInterface->AddCommandReadState(ConfigurationStateTable, JointUpperLimit, "GetJointUpperLimit");
+        mInterface->AddCommandReadState(ConfigurationStateTable, JointType, "GetJointType");
 
         // Error tracking
-        interfaceProvided->AddCommandWriteState(ConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
-        interfaceProvided->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
+        mInterface->AddCommandWriteState(ConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
+        mInterface->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
 
         // Set PID gains
-        interfaceProvided->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", mGains.Kp);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", mGains.Kd);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
+        mInterface->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", mGains.Kp);
+        mInterface->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", mGains.Kd);
+        mInterface->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
+
         // Set joint limits
-        interfaceProvided->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
-        interfaceProvided->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
 
         // Events
-        interfaceProvided->AddEventWrite(Events.Enabled, "Enabled", false);
-        interfaceProvided->AddEventWrite(Events.EnabledJoints, "EnabledJoints", vctBoolVec());
-        interfaceProvided->AddEventWrite(Events.JointLimit, "JointLimit", vctBoolVec());
-        interfaceProvided->AddEventWrite(MessageEvents.Status, "Status", std::string(""));
-        interfaceProvided->AddEventWrite(MessageEvents.Warning, "Warning", std::string(""));
-        interfaceProvided->AddEventWrite(MessageEvents.Error, "Error", std::string(""));
+        mInterface->AddEventWrite(Events.Enabled, "Enabled", false);
+        mInterface->AddEventWrite(Events.EnabledJoints, "EnabledJoints", vctBoolVec());
+        mInterface->AddEventWrite(Events.JointLimit, "JointLimit", vctBoolVec());
     }
 }
 
@@ -442,7 +441,7 @@ void mtsPID::Run(void)
                 if (newTrackingError) {
                     std::string message = this->Name + ": tracking error, mask (1 for error): ";
                     message.append(mTrackingErrorFlag.ToString());
-                    MessageEvents.Error(message);
+                    mInterface->SendError(message);
                     CMN_LOG_CLASS_RUN_ERROR << message
                                             << ", errors: " << Error
                                             << ", tolerances: " << mTrackingErrorTolerances
@@ -487,7 +486,7 @@ void mtsPID::Run(void)
         for (size_t i = 0; i < mNumberOfJoints; i++) {
             if (!mJointsEnabled[i]) {
                 Torque[i] = 0.0;
-                mStateJointDesired.Position()[i] = FeedbackPosition[i];
+                mStateJointCommand.Position()[i] = mPositionMeasure.Position()[i];
             }
         }
 
@@ -514,7 +513,7 @@ void mtsPID::Run(void)
     else {
         Torque.SetAll(0.0);
         TorqueParam.SetForceTorque(Torque);
-        mStateJointDesired.Position() = FeedbackPosition;
+        mStateJointMeasure.Position() = mPositionMeasure.Position();
         if (!mIsSimulated) {
             Robot.SetTorque(TorqueParam);
         }
@@ -680,7 +679,7 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & positionParam)
                 Events.JointLimit(mJointLimitFlag);
                 std::string message = this->Name + ": joint limit, mask (1 for limit): ";
                 message.append(mJointLimitFlag.ToString());
-                MessageEvents.Warning(message);
+                mInterface->SendWarning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
                                           << ", \n requested: " << DesiredPositionParam.Goal()
                                           << ", \n lower limits: " << JointLowerLimit
@@ -779,12 +778,12 @@ void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
     }
 }
 
-void mtsPID::ErrorEventHandler(const std::string & message)
+void mtsPID::ErrorEventHandler(const mtsMessage & message)
 {
     if (this->Enabled) {
         this->Enable(false);
-        MessageEvents.Error(this->GetName() + ": received [" + message + "]");
+        mInterface->SendError(this->GetName() + ": received [" + message.Message + "]");
     } else {
-        MessageEvents.Status(this->GetName() + ": received [" + message + "]");
+        mInterface->SendStatus(this->GetName() + ": received [" + message.Message + "]");
     }
 }
