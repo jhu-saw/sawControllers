@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2016 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -160,11 +160,7 @@ protected:
         mtsFunctionWrite Coupling;
     } Events;
 
-    struct {
-        mtsFunctionWrite Status;
-        mtsFunctionWrite Warning;
-        mtsFunctionWrite Error;
-    } MessageEvents;
+    mtsInterfaceProvided * mInterface;
 
     /**
      * @brief Reset encoder, clear e/ed/ei value
@@ -194,7 +190,7 @@ protected:
 
     void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
 
-    void ErrorEventHandler(const std::string & message);
+    void ErrorEventHandler(const mtsMessage & message);
 
 public:
 

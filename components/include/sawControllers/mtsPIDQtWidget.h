@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -85,7 +85,7 @@ private:
     int TimerPeriodInMilliseconds;
 
     void JointLimitEventHandler(const vctBoolVec & flags);
-    void ErrorEventHandler(const std::string & message);
+    void ErrorEventHandler(const mtsMessage & message);
     void EnableEventHandler(const bool & enable);
 
 protected:
