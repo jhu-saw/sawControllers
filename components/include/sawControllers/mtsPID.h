@@ -145,10 +145,13 @@ protected:
     bool mEnableTrackingError;
     vctDoubleVec mTrackingErrorTolerances;
     vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
-
+    
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
     bool mIsSimulated;
+
+    // Counter of active joints
+    size_t mNumberOfActiveJoints;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
