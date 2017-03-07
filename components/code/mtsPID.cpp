@@ -514,7 +514,7 @@ void mtsPID::Run(void)
         }
 
         // Add torque (e.g. gravity compensation)
-        Torque.Add(mGains.Offset);
+        Torque.Ref(mNumberOfActiveJoints).Add(mGains.Offset.Ref(mNumberOfActiveJoints));
 
         // Set Torque to DesiredTorque if
         for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
