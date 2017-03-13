@@ -29,6 +29,7 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 mtsPID::mtsPID(const std::string & componentName, const double periodInSeconds):
     mtsTaskPeriodic(componentName, periodInSeconds),
     CheckJointLimit(true),
+    ApplyTorqueLimit(false),
     Enabled(false),
     mIsSimulated(false),
     mNumberOfActiveJoints(0),
@@ -42,6 +43,7 @@ mtsPID::mtsPID(const std::string & componentName, const double periodInSeconds):
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
     mtsTaskPeriodic(arg),
     CheckJointLimit(true),
+    ApplyTorqueLimit(false),
     Enabled(false),
     mIsSimulated(false),
     ConfigurationStateTable(100, "Configuration")
@@ -133,6 +135,10 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
         mInterface->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
 
+        // Set torque limits
+        mInterface->AddCommandWrite(&mtsPID::SetTorqueLowerLimit, this, "SetTorqueLowerLimit", TorqueLowerLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetTorqueUpperLimit, this, "SetTorqueUpperLimit", TorqueUpperLimit);
+
         // Events
         mInterface->AddEventWrite(Events.Enabled, "Enabled", false);
         mInterface->AddEventWrite(Events.EnabledJoints, "EnabledJoints", vctBoolVec());
@@ -182,6 +188,10 @@ void mtsPID::Configure(const std::string & filename)
     JointLowerLimit.SetAll(0.0);
     JointUpperLimit.SetSize(mNumberOfJoints);
     JointUpperLimit.SetAll(0.0);
+    TorqueLowerLimit.SetSize(mNumberOfJoints);
+    TorqueLowerLimit.SetAll(0.0);
+    TorqueUpperLimit.SetSize(mNumberOfJoints);
+    TorqueUpperLimit.SetAll(0.0);
     mJointLimitFlag.SetSize(mNumberOfJoints);
     mJointLimitFlag.SetAll(false);
     mPreviousJointLimitFlag.ForceAssign(mJointLimitFlag);
@@ -411,7 +421,7 @@ void mtsPID::Run(void)
         double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
         if (dt > 0) {
             mVelocityMeasure.Velocity().DifferenceOf(mPositionMeasure.Position(),
-                                                      mPositionMeasurePrevious.Position());
+                                                     mPositionMeasurePrevious.Position());
             mVelocityMeasure.Velocity().Divide(dt);
         } else {
             mVelocityMeasure.Velocity().SetAll(0.0);
@@ -527,6 +537,12 @@ void mtsPID::Run(void)
             }
         }
 
+        // Apply torque limits
+        if (ApplyTorqueLimit) {
+            Torque.Ref(mNumberOfActiveJoints).ElementwiseClipAbove(TorqueUpperLimit);
+            Torque.Ref(mNumberOfActiveJoints).ElementwiseClipBelow(TorqueLowerLimit);
+        }
+
         // write torque to robot
         TorqueParam.SetForceTorque(Torque);
         if (!mIsSimulated) {
@@ -629,6 +645,31 @@ void mtsPID::SetJointUpperLimit(const vctDoubleVec & upperLimit)
     ConfigurationStateTable.Advance();
 }
 
+void mtsPID::SetTorqueLowerLimit(const vctDoubleVec & lowerLimit)
+{
+    if (lowerLimit.size() != mNumberOfActiveJoints) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetTorqueLowerLimit: size mismatch" << std::endl;
+        return;
+    }
+    ConfigurationStateTable.Start();
+    TorqueLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
+    ConfigurationStateTable.Advance();
+
+    ApplyTorqueLimit = TorqueLowerLimit.Any() && TorqueUpperLimit.Any();
+}
+
+void mtsPID::SetTorqueUpperLimit(const vctDoubleVec & upperLimit)
+{
+    if (upperLimit.size() != mNumberOfActiveJoints) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetTorqueUpperLimit: size mismatch" << std::endl;
+        return;
+    }
+    ConfigurationStateTable.Start();
+    TorqueUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
+    ConfigurationStateTable.Advance();
+
+    ApplyTorqueLimit = TorqueLowerLimit.Any() && TorqueUpperLimit.Any();
+}
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {

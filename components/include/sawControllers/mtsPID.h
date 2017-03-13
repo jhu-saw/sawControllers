@@ -87,6 +87,13 @@ protected:
     bool CheckJointLimit;
     vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
 
+    //! Torque lower limit
+    vctDoubleVec TorqueLowerLimit;
+    //! Torque upper limit
+    vctDoubleVec TorqueUpperLimit;
+    //! Flag whether to apply torque limit
+    bool ApplyTorqueLimit;
+
     //! Desired joint positions
     vctDoubleVec DesiredPosition;
     //! mMeasured joint positions
@@ -260,6 +267,19 @@ protected:
      */
     void SetJointUpperLimit(const vctDoubleVec & upperLimit);
 
+    /**
+     * @brief Set torque lower limit
+     *
+     * @param lowerLimit  new torque lower limit
+     */
+    void SetTorqueLowerLimit(const vctDoubleVec & lowerLimit);
+
+    /**
+     * @brief Set torque upper limit
+     *
+     * @param upperLimit  new torque upper limit
+     */
+    void SetTorqueUpperLimit(const vctDoubleVec & upperLimit);
 
     /**
      * @brief Set minimum iError limit
