@@ -269,10 +269,8 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.GetStateJoint(PID.StateJoint);
     PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
     PID.StateJoint.Velocity().ElementwiseMultiply(UnitFactor);
-    PID.StateJoint.Effort().ElementwiseMultiply(UnitFactor);
     PID.GetStateJointDesired(PID.StateJointDesired);
-    PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);
-    PID.StateJointDesired.Effort().ElementwiseMultiply(UnitFactor);
+    PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);    
 
     // update GUI
     QVRCurrentPositionWidget->SetValue(PID.StateJoint.Position());

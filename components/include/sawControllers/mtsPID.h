@@ -87,7 +87,17 @@ protected:
     bool CheckJointLimit;
     vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
 
-    //! Measured joint torques
+    //! Torque lower limit
+    vctDoubleVec TorqueLowerLimit;
+    //! Torque upper limit
+    vctDoubleVec TorqueUpperLimit;
+    //! Flag whether to apply torque limit
+    bool ApplyTorqueLimit;
+
+    //! Desired joint positions
+    vctDoubleVec DesiredPosition;
+    //! mMeasured joint positions
+
     vctDoubleVec mTorqueMeasure;
     //! Commanded joint torques sent to IO level
     prmForceTorqueJointSet mTorqueCommand;
@@ -141,10 +151,13 @@ protected:
     bool mEnableTrackingError;
     vctDoubleVec mTrackingErrorTolerances;
     vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
-
+    
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
     bool mIsSimulated;
+
+    // Counter of active joints
+    size_t mNumberOfActiveJoints;
 
     //! Configuration state table
     mtsStateTable ConfigurationStateTable;
@@ -253,6 +266,19 @@ protected:
      */
     void SetJointUpperLimit(const vctDoubleVec & upperLimit);
 
+    /**
+     * @brief Set torque lower limit
+     *
+     * @param lowerLimit  new torque lower limit
+     */
+    void SetTorqueLowerLimit(const vctDoubleVec & lowerLimit);
+
+    /**
+     * @brief Set torque upper limit
+     *
+     * @param upperLimit  new torque upper limit
+     */
+    void SetTorqueUpperLimit(const vctDoubleVec & upperLimit);
 
     /**
      * @brief Set minimum iError limit
