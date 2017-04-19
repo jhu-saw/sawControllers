@@ -94,12 +94,8 @@ protected:
     //! Flag whether to apply torque limit
     bool ApplyTorqueLimit;
 
-    //! Desired joint positions
-    vctDoubleVec DesiredPosition;
-    //! mMeasured joint positions
-
-    vctDoubleVec mTorqueMeasure;
     //! Commanded joint torques sent to IO level
+    vctDoubleVec mTorqueMeasure;
     prmForceTorqueJointSet mTorqueCommand;
     //! Desired joint torques when bypassing PID
     prmForceTorqueJointSet mTorqueUserCommand;

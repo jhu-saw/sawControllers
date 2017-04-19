@@ -438,7 +438,7 @@ void mtsPID::Run(void)
     mStateJointMeasure.Position().Assign(mPositionMeasure.Position(), mNumberOfActiveJoints);
     mStateJointMeasure.Velocity().Assign(mVelocityMeasure.Velocity(), mNumberOfActiveJoints);
     mStateJointMeasure.Effort().Assign(mTorqueMeasure, mNumberOfActiveJoints);
-    mStateJointCommand.Position().Assign(DesiredPosition, mNumberOfActiveJoints);
+    mStateJointCommand.Position().Assign(mPositionCommand.Goal(), mNumberOfActiveJoints);
 
     // compute torque
     if (Enabled) {
