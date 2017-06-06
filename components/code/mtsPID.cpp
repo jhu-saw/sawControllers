@@ -28,28 +28,29 @@ CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicCo
 
 mtsPID::mtsPID(const std::string & componentName, const double periodInSeconds):
     mtsTaskPeriodic(componentName, periodInSeconds),
-    CheckJointLimit(true),
-    ApplyTorqueLimit(false),
-    Enabled(false),
-    mIsSimulated(false),
-    mNumberOfActiveJoints(0),
-    ConfigurationStateTable(100, "Configuration")
+    mConfigurationStateTable(100, "Configuration")
 {
-    AddStateTable(&ConfigurationStateTable);
-    ConfigurationStateTable.SetAutomaticAdvance(false);
+    Init();
 }
 
 
 mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
     mtsTaskPeriodic(arg),
-    CheckJointLimit(true),
-    ApplyTorqueLimit(false),
-    Enabled(false),
-    mIsSimulated(false),
-    ConfigurationStateTable(100, "Configuration")
+    mConfigurationStateTable(100, "Configuration")
 {
-    AddStateTable(&ConfigurationStateTable);
-    ConfigurationStateTable.SetAutomaticAdvance(false);
+    Init();
+}
+
+
+void mtsPID::Init(void)
+{
+    mCheckPositionLimit = true,
+    mApplyEffortLimit = false,
+    mEnabled = false,
+    mIsSimulated = false,
+    mNumberOfActiveJoints = 0,
+    AddStateTable(&mConfigurationStateTable);
+    mConfigurationStateTable.SetAutomaticAdvance(false);
 }
 
 
@@ -61,35 +62,35 @@ void mtsPID::SetupInterfaces(void)
         requiredInterface->AddFunction("SetCoupling", Robot.SetCoupling);
         requiredInterface->AddFunction("GetJointType", Robot.GetJointType);
         requiredInterface->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
-        requiredInterface->AddFunction("GetTorqueJoint", Robot.GetFeedbackTorque);
+        requiredInterface->AddFunction("GetTorqueJoint", Robot.GetFeedbackEffort);
         requiredInterface->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
-        requiredInterface->AddFunction("SetTorqueJoint", Robot.SetTorque);
+        requiredInterface->AddFunction("SetTorqueJoint", Robot.SetEffort);
         // event handlers
         requiredInterface->AddEventHandlerWrite(&mtsPID::CouplingEventHandler, this, "Coupling");
         requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "Error");
     }
 
     // this should go in "write" state table
-    StateTable.AddData(mTorqueCommand, "TorqueCommand");
+    StateTable.AddData(mEffortUserCommand, "EffortUserCommand");
     // this should go in a "read" state table
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
-    StateTable.AddData(mTorqueMeasure, "TorqueMeasure");
-    StateTable.AddData(mPositionCommand, "PositionCommand");
-    StateTable.AddData(CheckJointLimit, "IsCheckJointLimit");
-    StateTable.AddData(mGains.Offset, "TorqueOffset");
+    StateTable.AddData(mEffortMeasure, "EffortMeasure");
+    StateTable.AddData(mPositionUserCommand, "PositionUserCommand");
+    StateTable.AddData(mCheckPositionLimit, "CheckPositionLimit");
+    StateTable.AddData(mGains.Offset, "EffortOffset");
     StateTable.AddData(mStateJointMeasure, "StateJointMeasure");
     StateTable.AddData(mStateJointCommand, "StateJointCommand");
 
     // configuration state table with occasional start/advance
-    ConfigurationStateTable.AddData(mGains.Kp, "Kp");
-    ConfigurationStateTable.AddData(mGains.Kd, "Kd");
-    ConfigurationStateTable.AddData(mGains.Ki, "Ki");
-    ConfigurationStateTable.AddData(JointLowerLimit, "JointLowerLimit");
-    ConfigurationStateTable.AddData(JointUpperLimit, "JointUpperLimit");
-    ConfigurationStateTable.AddData(JointType, "JointType");
-    ConfigurationStateTable.AddData(mEnableTrackingError, "EnableTrackingError");
-    ConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
+    mConfigurationStateTable.AddData(mGains.Kp, "Kp");
+    mConfigurationStateTable.AddData(mGains.Kd, "Kd");
+    mConfigurationStateTable.AddData(mGains.Ki, "Ki");
+    mConfigurationStateTable.AddData(mPositionLowerLimit, "PositionLowerLimit");
+    mConfigurationStateTable.AddData(mPositionUpperLimit, "PositionUpperLimit");
+    mConfigurationStateTable.AddData(mJointType, "JointType");
+    mConfigurationStateTable.AddData(mEnableTrackingError, "EnableTrackingError");
+    mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
     mInterface = AddInterfaceProvided("Controller");
     mInterface->AddMessageEvents();
@@ -97,14 +98,9 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
         mInterface->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         mInterface->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
-        mInterface->AddCommandWrite(&mtsPID::EnableTorqueMode, this, "EnableTorqueMode", TorqueMode);
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", mPositionCommand);
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredTorque, this, "SetTorqueJoint", prmForceTorqueJointSet());
-        mInterface->AddCommandReadState(StateTable, mPositionMeasure, "GetPositionJoint");
-        mInterface->AddCommandReadState(StateTable, mVelocityMeasure, "GetVelocityJoint");
-        mInterface->AddCommandReadState(StateTable, mTorqueMeasure, "GetTorqueJoint");
-        mInterface->AddCommandReadState(StateTable, mPositionCommand, "GetPositionJointDesired");
-        mInterface->AddCommandReadState(StateTable, mTorqueCommand, "GetEffortJointDesired");
+        mInterface->AddCommandWrite(&mtsPID::EnableEffortMode, this, "EnableTorqueMode", mEffortMode);
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", mPositionUserCommand);
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "SetTorqueJoint", prmForceTorqueJointSet());
 
         // ROS compatible joint state
         mInterface->AddCommandReadState(StateTable, mStateJointMeasure, "GetStateJoint");
@@ -115,21 +111,21 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddEventWrite(Events.Coupling, "Coupling", prmActuatorJointCoupling());
 
         // Set check limits
-        mInterface->AddCommandWriteState(StateTable, CheckJointLimit, "SetCheckJointLimit");
+        mInterface->AddCommandWriteState(StateTable, mCheckPositionLimit, "SetCheckPositionLimit");
         mInterface->AddCommandWriteState(StateTable, mGains.Offset, "SetTorqueOffset");
 
         // Get PID gains
-        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Kp, "GetPGain");
-        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Kd, "GetDGain");
-        mInterface->AddCommandReadState(ConfigurationStateTable, mGains.Ki, "GetIGain");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Kp, "GetPGain");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Kd, "GetDGain");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Ki, "GetIGain");
 
         // Get joint limits
-        mInterface->AddCommandReadState(ConfigurationStateTable, JointLowerLimit, "GetJointLowerLimit");
-        mInterface->AddCommandReadState(ConfigurationStateTable, JointUpperLimit, "GetJointUpperLimit");
-        mInterface->AddCommandReadState(ConfigurationStateTable, JointType, "GetJointType");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mPositionLowerLimit, "GetPositionLowerLimit");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mPositionUpperLimit, "GetPositionUpperLimit");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mJointType, "GetJointType");
 
         // Error tracking
-        mInterface->AddCommandWriteState(ConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
+        mInterface->AddCommandWriteState(mConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
         mInterface->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
 
         // Set PID gains
@@ -138,23 +134,23 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
 
         // Set joint limits
-        mInterface->AddCommandWrite(&mtsPID::SetJointLowerLimit, this, "SetJointLowerLimit", JointLowerLimit);
-        mInterface->AddCommandWrite(&mtsPID::SetJointUpperLimit, this, "SetJointUpperLimit", JointUpperLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetPositionLowerLimit, this, "SetPositionLowerLimit", mPositionLowerLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetPositionUpperLimit, this, "SetPositionUpperLimit", mPositionUpperLimit);
 
-        // Set torque limits
-        mInterface->AddCommandWrite(&mtsPID::SetTorqueLowerLimit, this, "SetTorqueLowerLimit", TorqueLowerLimit);
-        mInterface->AddCommandWrite(&mtsPID::SetTorqueUpperLimit, this, "SetTorqueUpperLimit", TorqueUpperLimit);
+        // Set effort limits
+        mInterface->AddCommandWrite(&mtsPID::SetEffortLowerLimit, this, "SetTorqueLowerLimit", mEffortLowerLimit);
+        mInterface->AddCommandWrite(&mtsPID::SetEffortUpperLimit, this, "SetTorqueUpperLimit", mEffortUpperLimit);
 
         // Events
         mInterface->AddEventWrite(Events.Enabled, "Enabled", false);
         mInterface->AddEventWrite(Events.EnabledJoints, "EnabledJoints", vctBoolVec());
-        mInterface->AddEventWrite(Events.JointLimit, "JointLimit", vctBoolVec());
+        mInterface->AddEventWrite(Events.PositionLimit, "PositionLimit", vctBoolVec());
     }
 }
 
 void mtsPID::Configure(const std::string & filename)
 {
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Configure: using " << filename << std::endl;
     cmnXMLPath config;
@@ -170,52 +166,52 @@ void mtsPID::Configure(const std::string & filename)
     config.GetXMLValue("/controller", "@numofjoints", numberOfJoints, -1);
     if (type != "PID") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong controller type" << std::endl;
-        ConfigurationStateTable.Advance();
+        mConfigurationStateTable.Advance();
         return;
     } else if (interface != "JointTorqueInterface") {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong interface. Require JointTorqueInterface" << std::endl;
-        ConfigurationStateTable.Advance();
+        mConfigurationStateTable.Advance();
         return;
     } else if (numberOfJoints < 0) {
         CMN_LOG_CLASS_INIT_ERROR << "Configure: invalid number of joints" << std::endl;
-        ConfigurationStateTable.Advance();
+        mConfigurationStateTable.Advance();
         return;
     }
     mNumberOfJoints = static_cast<size_t>(numberOfJoints);
 
     // set dynamic var size
-    JointType.SetSize(mNumberOfJoints);
+    mJointType.SetSize(mNumberOfJoints);
     mGains.Kp.SetSize(mNumberOfJoints);
     mGains.Kd.SetSize(mNumberOfJoints);
     mGains.Ki.SetSize(mNumberOfJoints);
     mGains.Offset.SetSize(mNumberOfJoints);
     mGains.Offset.SetAll(0.0);
-    JointLowerLimit.SetSize(mNumberOfJoints);
-    JointLowerLimit.SetAll(0.0);
-    JointUpperLimit.SetSize(mNumberOfJoints);
-    JointUpperLimit.SetAll(0.0);
-    TorqueLowerLimit.SetSize(mNumberOfJoints);
-    TorqueLowerLimit.SetAll(0.0);
-    TorqueUpperLimit.SetSize(mNumberOfJoints);
-    TorqueUpperLimit.SetAll(0.0);
-    mJointLimitFlag.SetSize(mNumberOfJoints);
-    mJointLimitFlag.SetAll(false);
-    mPreviousJointLimitFlag.ForceAssign(mJointLimitFlag);
+    mPositionLowerLimit.SetSize(mNumberOfJoints);
+    mPositionLowerLimit.SetAll(0.0);
+    mPositionUpperLimit.SetSize(mNumberOfJoints);
+    mPositionUpperLimit.SetAll(0.0);
+    mEffortLowerLimit.SetSize(mNumberOfJoints);
+    mEffortLowerLimit.SetAll(0.0);
+    mEffortUpperLimit.SetSize(mNumberOfJoints);
+    mEffortUpperLimit.SetAll(0.0);
+    mPositionLimitFlag.SetSize(mNumberOfJoints);
+    mPositionLimitFlag.SetAll(false);
+    mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
     mJointsEnabled.SetSize(mNumberOfJoints);
     mJointsEnabled.SetAll(true);
 
     // feedback
     mPositionMeasure.SetSize(mNumberOfJoints);
-    mTorqueMeasure.SetSize(mNumberOfJoints);
-    mTorqueCommand.SetSize(mNumberOfJoints);
-    mTorqueCommand.ForceTorque().SetAll(0.0);
-    mTorqueUserCommand.SetSize(mNumberOfJoints);
-    mTorqueUserCommand.ForceTorque().SetAll(0.0);
+    mEffortMeasure.SetSize(mNumberOfJoints);
+    mEffortPIDCommand.SetSize(mNumberOfJoints);
+    mEffortPIDCommand.ForceTorque().SetAll(0.0);
+    mEffortUserCommand.SetSize(mNumberOfJoints);
+    mEffortUserCommand.ForceTorque().SetAll(0.0);
     mVelocityMeasure.SetSize(mNumberOfJoints);
     mPositionMeasure.SetSize(mNumberOfJoints);
     mPositionMeasurePrevious.SetSize(mNumberOfJoints);
-    mPositionCommand.SetSize(mNumberOfJoints);
-    mPositionCommand.Goal().SetAll(0.0);
+    mPositionUserCommand.SetSize(mNumberOfJoints);
+    mPositionUserCommand.Goal().SetAll(0.0);
     mVelocityMeasure.SetSize(mNumberOfJoints);
 
 
@@ -236,15 +232,15 @@ void mtsPID::Configure(const std::string & filename)
     forgetIError.SetAll(1.0);
 
     // default: use regular PID
-    nonlinear.SetSize(mNumberOfJoints);
-    nonlinear.SetAll(0.0);
+    mNonLinear.SetSize(mNumberOfJoints);
+    mNonLinear.SetAll(0.0);
 
-    DeadBand.SetSize(mNumberOfJoints);
-    DeadBand.SetAll(0.0);
+    mDeadBand.SetSize(mNumberOfJoints);
+    mDeadBand.SetAll(0.0);
 
-    // torque mode
-    TorqueMode.SetSize(mNumberOfJoints);
-    TorqueMode.SetAll(false);
+    // effort mode
+    mEffortMode.SetSize(mNumberOfJoints);
+    mEffortMode.SetAll(false);
 
     // tracking error
     mEnableTrackingError = false;
@@ -264,22 +260,22 @@ void mtsPID::Configure(const std::string & filename)
         std::string type;
         config.GetXMLValue(context, "@type", type);
         if (type == "Revolute") {
-            JointType.at(i) = PRM_REVOLUTE;
+            mJointType.at(i) = PRM_REVOLUTE;
         } else if (type == "Prismatic") {
-            JointType.at(i) = PRM_PRISMATIC;
+            mJointType.at(i) = PRM_PRISMATIC;
         } else if (type == "Inactive") {
-            JointType.at(i) = PRM_INACTIVE;
+            mJointType.at(i) = PRM_INACTIVE;
         } else {
             CMN_LOG_CLASS_INIT_ERROR << "Configure: joint " << i << " in file: "
                                      << filename
                                      << " needs a \"type\", either \"Revolute\" or \"Prismatic\""
                                      << std::endl;
-            ConfigurationStateTable.Advance();
+            mConfigurationStateTable.Advance();
             return;
         }
 
         // make sure we update the number of active joints
-        if (JointType.at(i) == PRM_INACTIVE) {
+        if (mJointType.at(i) == PRM_INACTIVE) {
             hasInactiveJoints = true;
         } else {
             // we found an inactive joint after an active one, this is not supported
@@ -288,7 +284,7 @@ void mtsPID::Configure(const std::string & filename)
                                          << filename
                                          << " has is not \"Inactive\" but is defined after an \"Inactive\" joint, this is not supported"
                                          << std::endl;
-                ConfigurationStateTable.Advance();
+                mConfigurationStateTable.Advance();
                 return;
             }
             mNumberOfActiveJoints++;
@@ -310,31 +306,31 @@ void mtsPID::Configure(const std::string & filename)
             config.GetXMLValue(context, "pid/@IGain", mGains.Ki[i]);
             config.GetXMLValue(context, "pid/@OffsetTorque", mGains.Offset[i]);
             config.GetXMLValue(context, "pid/@Forget", forgetIError[i]);
-            config.GetXMLValue(context, "pid/@Nonlinear", nonlinear[i]);
+            config.GetXMLValue(context, "pid/@Nonlinear", mNonLinear[i]);
 
             // limit
             config.GetXMLValue(context, "limit/@MinILimit", minIErrorLimit[i]);
             config.GetXMLValue(context, "limit/@MaxILimit", maxIErrorLimit[i]);
             config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances[i]);
-            config.GetXMLValue(context, "limit/@Deadband", DeadBand[i]);
+            config.GetXMLValue(context, "limit/@Deadband", mDeadBand[i]);
 
             // joint limit
-            CheckJointLimit = true;
+            mCheckPositionLimit = true;
             std::string tmpUnits;
             bool ret = false;
             ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
             if (ret) {
-                config.GetXMLValue(context, "pos/@LowerLimit", JointLowerLimit[i]);
-                config.GetXMLValue(context, "pos/@UpperLimit", JointUpperLimit[i]);
+                config.GetXMLValue(context, "pos/@LowerLimit", mPositionLowerLimit[i]);
+                config.GetXMLValue(context, "pos/@UpperLimit", mPositionUpperLimit[i]);
                 if (tmpUnits == "deg") {
-                    JointLowerLimit[i] *= cmnPI_180;
-                    JointUpperLimit[i] *= cmnPI_180;
+                    mPositionLowerLimit[i] *= cmnPI_180;
+                    mPositionUpperLimit[i] *= cmnPI_180;
                 } else if (tmpUnits == "mm") {
-                    JointLowerLimit[i] *= cmn_mm;
-                    JointUpperLimit[i] *= cmn_mm;
+                    mPositionLowerLimit[i] *= cmn_mm;
+                    mPositionUpperLimit[i] *= cmn_mm;
                 }
             } else {
-                CheckJointLimit = false;
+                mCheckPositionLimit = false;
             }
         }
     }
@@ -343,21 +339,21 @@ void mtsPID::Configure(const std::string & filename)
     // TODO: Decide whether to use degrees or radians in XML file
     // TODO: Also do this for other parameters (not just Deadband)
     // TODO: Only do this for revolute joints
-    DeadBand.Multiply(cmnPI_180);
+    mDeadBand.Multiply(cmnPI_180);
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << mGains.Kp << std::endl
                                << "Kd: " << mGains.Kd << std::endl
                                << "Ki: " << mGains.Ki << std::endl
                                << "Offset: " << mGains.Offset << std::endl
-                               << "JntLowerLimit" << JointLowerLimit << std::endl
-                               << "JntUpperLimit" << JointUpperLimit << std::endl
-                               << "Deadband: " << DeadBand << std::endl
+                               << "JntLowerLimit" << mPositionLowerLimit << std::endl
+                               << "JntUpperLimit" << mPositionUpperLimit << std::endl
+                               << "Deadband: " << mDeadBand << std::endl
                                << "minLimit: " << minIErrorLimit << std::endl
                                << "maxLimit: " << maxIErrorLimit << std::endl
                                << "elimit: " << mTrackingErrorTolerances << std::endl
                                << "forget: " << forgetIError << std::endl;
 
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 
     mStateJointMeasure.Position().SetSize(mNumberOfActiveJoints);
     mStateJointMeasure.Velocity().SetSize(mNumberOfActiveJoints);
@@ -384,11 +380,11 @@ void mtsPID::Startup(void)
             for (size_t index = 0;
                  index < mNumberOfActiveJoints;
                  ++index) {
-                if (jointType.at(index) != JointType.at(index)) {
+                if (jointType.at(index) != mJointType.at(index)) {
                     std::string message =  "Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                              << "From IO:     " << jointType << std::endl
-                                             << "From config: " << JointType << std::endl;
+                                             << "From config: " << mJointType << std::endl;
                     cmnThrow("PID::" + message);
                 }
             }
@@ -401,22 +397,17 @@ void mtsPID::Run(void)
     ProcessQueuedEvents();
     ProcessQueuedCommands();
 
-    // update states
+    // get data from IO if not in simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
-        mPositionMeasure.Position().ForceAssign(mPositionMeasurePrevious.Position());
-        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
+        // set current position/effort based on goal
+        mPositionMeasure.Position().ForceAssign(mPositionUserCommand.Goal());
+        mPositionMeasure.SetTimestamp(StateTable.GetTic());
+        // measured effort
+        mEffortMeasure.Assign(mEffortUserCommand.ForceTorque());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
-        Robot.GetFeedbackTorque(mTorqueMeasure);
-    }
-
-    // compute error
-    Error.Ref(mNumberOfActiveJoints).DifferenceOf(mPositionCommand.Goal(),
-                                                  mPositionMeasure.Position().Ref(mNumberOfActiveJoints));
-    for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-        if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
-            Error[i] = 0.0;
+        Robot.GetFeedbackEffort(mEffortMeasure);
     }
 
     // update velocities from robot
@@ -426,9 +417,15 @@ void mtsPID::Run(void)
         // or compute an estimate from position
         double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
         if (dt > 0) {
-            mVelocityMeasure.Velocity().DifferenceOf(mPositionMeasure.Position(),
-                                                     mPositionMeasurePrevious.Position());
-            mVelocityMeasure.Velocity().Divide(dt);
+            vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+            vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+            vctDoubleVec::iterator velocity;
+            const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
+            for (velocity = mVelocityMeasure.Velocity().begin();
+                 velocity != end;
+                 ++velocity) {
+                *velocity = (*currentPosition - *previousPosition) / dt;
+            }
         } else {
             mVelocityMeasure.Velocity().SetAll(0.0);
         }
@@ -437,17 +434,85 @@ void mtsPID::Run(void)
     // update state data
     mStateJointMeasure.Position().Assign(mPositionMeasure.Position(), mNumberOfActiveJoints);
     mStateJointMeasure.Velocity().Assign(mVelocityMeasure.Velocity(), mNumberOfActiveJoints);
-    mStateJointMeasure.Effort().Assign(mTorqueMeasure, mNumberOfActiveJoints);
-    mStateJointCommand.Position().Assign(mPositionCommand.Goal(), mNumberOfActiveJoints);
+    mStateJointMeasure.Effort().Assign(mEffortMeasure, mNumberOfActiveJoints);
 
-    // compute torque
-    if (Enabled) {
+    // loop on all joints
+    vctBoolVec::const_iterator enabled = mJointsEnabled.begin();
+    vctDoubleVec::const_iterator measurePosition = mStateJointMeasure.Position().begin();
+    vctDoubleVec::const_iterator measureVelocity = mStateJointMeasure.Velocity().begin();
+    vctDoubleVec::iterator commandPosition = mStateJointCommand.Position().begin();
+    vctDoubleVec::iterator commandEffort = mStateJointCommand.Effort().begin();
+    vctBoolVec::const_iterator effortMode = mEffortMode.begin();
+    vctDoubleVec::const_iterator effortUserCommand = mEffortUserCommand.ForceTorque().begin();
+    vctDoubleVec::iterator error = Error.begin();
+    vctDoubleVec::iterator deadBand = mDeadBand.begin();
+
+    // loop on all active joints using iterators
+    for (size_t i = 0;
+         i < mNumberOfActiveJoints;
+         ++i,
+             // make sure you increment all iterators declared above!
+             ++enabled,
+             ++measurePosition,
+             ++measureVelocity,
+             ++commandPosition,
+             ++commandEffort,
+             ++effortMode,
+             ++effortUserCommand,
+             ++error,
+             ++deadBand
+         ) {
+
+        // first check if the controller and this joint is enabled
+        if (!mEnabled || !(*enabled)) {
+            *commandEffort = 0.0;
+            *commandPosition = *measurePosition;
+        } else {
+            // the PID controller is enabled and this joint is actively controlled
+            // check the mode, i.e. position or effort pass-through
+            if (*effortMode) {
+                *commandEffort = *effortUserCommand;
+                *commandPosition = *measurePosition;
+            } else {
+                // PID mode
+                *error = *commandPosition - *measurePosition;
+                // apply dead band
+                if ((*error <= *deadBand) && (*error >= -(*deadBand))) {
+                    *error = 0.0;
+                }
+                // check for tracking errors
+
+                
+            }
+        }
+
+    }
+
+    // save previous position with timestamp
+    mPositionMeasurePrevious = mPositionMeasure;
+
+
+
+
+
+    // compute error
+    /* PORTED
+    Error.Ref(mNumberOfActiveJoints).DifferenceOf(mPositionCommand.Goal(),
+                                                  mPositionMeasure.Position().Ref(mNumberOfActiveJoints));
+    for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
+        if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
+            Error[i] = 0.0;
+    }
+    */
+
+    // compute effort
+    if (mEnabled) {
 
         // check for tracking error
         if (mEnableTrackingError) {
             vctDoubleVec::const_iterator error = Error.begin();
             vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
-            vctBoolVec::iterator limitFlag = mJointLimitFlag.begin();
+            vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
             vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
             vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
             vctBoolVec::iterator jointsEnabled = mJointsEnabled.begin();
@@ -485,7 +550,7 @@ void mtsPID::Run(void)
                                             << "errors:     " << Error << std::endl
                                             << "tolerances: " << mTrackingErrorTolerances << std::endl
                                             << "measure:    " << mPositionMeasure.Position() << std::endl
-                                            << "command:    " << mPositionCommand.Goal() << std::endl;
+                                            << "command:    " << mPositionUserCommand.Goal() << std::endl;
                 }
             }
         }
@@ -509,69 +574,64 @@ void mtsPID::Run(void)
             }
         }
 
-        // compute torque
-        mTorqueCommand.ForceTorque().ElementwiseProductOf(mGains.Kp, Error);
-        mTorqueCommand.ForceTorque().AddElementwiseProductOf(mGains.Kd, dError);
-        mTorqueCommand.ForceTorque().AddElementwiseProductOf(mGains.Ki, iError);
+        // compute effort
+        mStateJointCommand.Effort().ElementwiseProductOf(mGains.Kp, Error);
+        mStateJointCommand.Effort().AddElementwiseProductOf(mGains.Kd, dError);
+        mStateJointCommand.Effort().AddElementwiseProductOf(mGains.Ki, iError);
 
         // nonlinear control mode
         for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            if ((nonlinear[i] > 0)
-                && (fabs(Error[i]) < nonlinear[i])) {
-                mTorqueCommand.ForceTorque()[i] *= fabs(Error[i]) / nonlinear[i];
+            if ((mNonLinear[i] > 0)
+                && (fabs(Error[i]) < mNonLinear[i])) {
+                mStateJointCommand.Effort()[i] *= fabs(Error[i]) / mNonLinear[i];
             }
         }
 
-        // set torque to zero if that joint was not enabled
-        for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            if (!mJointsEnabled[i]) {
-                mTorqueCommand.ForceTorque()[i] = 0.0;
-                mStateJointCommand.Position()[i] = mPositionMeasure.Position()[i];
-            }
-        }
 
-        // Add torque (e.g. gravity compensation)
-        mTorqueCommand.ForceTorque().Ref(mNumberOfActiveJoints).Add(mGains.Offset.Ref(mNumberOfActiveJoints));
+        // Add efforts
+        mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).Add(mGains.Offset.Ref(mNumberOfActiveJoints));
 
-        // Set Torque to DesiredTorque if
+        // Set Effort to DesiredEffort if
         for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            if (TorqueMode[i]) {
-                mTorqueCommand.ForceTorque()[i] = mTorqueUserCommand.ForceTorque()[i];
+            /* PORTED 
+            if (mEffortMode[i]) {
+                mStateJointCommand.Effort()[i] = mEffortUserCommand.ForceTorque()[i];
                 // since we assume nobody sent a desired position,
                 // update desired from current
                 mStateJointCommand.Position()[i] = mPositionMeasure.Position()[i];
                 mPositionCommand.Goal()[i] = mPositionMeasure.Position()[i];
             }
+            */
         }
 
-        // Apply torque limits
-        if (ApplyTorqueLimit) {
-            mTorqueCommand.ForceTorque().Ref(mNumberOfActiveJoints).ElementwiseClipAbove(TorqueUpperLimit);
-            mTorqueCommand.ForceTorque().Ref(mNumberOfActiveJoints).ElementwiseClipBelow(TorqueLowerLimit);
+        // Apply effort limits
+        if (mApplyEffortLimit) {
+            mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).ElementwiseClipAbove(mEffortUpperLimit);
+            mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).ElementwiseClipBelow(mEffortLowerLimit);
         }
 
-        // write torque to robot
+        // write effort to robot
         if (!mIsSimulated) {
-            Robot.SetTorque(mTorqueCommand);
+            SetEffortLocal(mStateJointCommand.Effort());
         }
     }
     else {
-        mTorqueCommand.ForceTorque().SetAll(0.0);
+        mStateJointCommand.Effort().SetAll(0.0);
         mStateJointMeasure.Position().Assign(mPositionMeasure.Position(), mNumberOfActiveJoints);
         if (!mIsSimulated) {
-            Robot.SetTorque(mTorqueCommand);
+            SetEffortLocal(mStateJointCommand.Effort());
         }
     }
 
     // for simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
-        mPositionMeasure.Position().Assign(mPositionCommand.Goal());
-        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
+        mPositionMeasure.Position().Assign(mPositionUserCommand.Goal());
+        mEffortMeasure.Assign(mStateJointCommand.Effort());
     }
 
     // update state data
-    mStateJointCommand.Effort().Assign(mTorqueCommand.ForceTorque(), mNumberOfActiveJoints);
+    mStateJointCommand.Effort().Assign(mStateJointCommand.Effort(), mNumberOfActiveJoints);
 
     // save previous position
     mPositionMeasurePrevious = mPositionMeasure;
@@ -581,9 +641,9 @@ void mtsPID::Run(void)
 void mtsPID::Cleanup(void)
 {
     // cleanup
-    mTorqueCommand.ForceTorque().SetAll(0.0);
+    mStateJointCommand.Effort().SetAll(0.0);
     if (!mIsSimulated) {
-        Robot.SetTorque(mTorqueCommand);
+        SetEffortLocal(mStateJointCommand.Effort());
     }
 }
 
@@ -600,9 +660,9 @@ void mtsPID::SetPGain(const vctDoubleVec & gain)
         CMN_LOG_CLASS_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
     mGains.Kp.Assign(gain, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 }
 
 void mtsPID::SetDGain(const vctDoubleVec & gain)
@@ -611,9 +671,9 @@ void mtsPID::SetDGain(const vctDoubleVec & gain)
         CMN_LOG_CLASS_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
     mGains.Kd.Assign(gain, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 }
 
 void mtsPID::SetIGain(const vctDoubleVec & gain)
@@ -622,57 +682,57 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
         CMN_LOG_CLASS_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
     mGains.Ki.Assign(gain, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 }
 
-void mtsPID::SetJointLowerLimit(const vctDoubleVec & lowerLimit)
+void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
 {
     if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetJointLowerLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << "SetPositionLowerLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
-    JointLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Start();
+    mPositionLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
+    mConfigurationStateTable.Advance();
 }
 
-void mtsPID::SetJointUpperLimit(const vctDoubleVec & upperLimit)
+void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
 {
     if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetJointUpperLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << "SetPositionUpperLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
-    JointUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Start();
+    mPositionUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
+    mConfigurationStateTable.Advance();
 }
 
-void mtsPID::SetTorqueLowerLimit(const vctDoubleVec & lowerLimit)
+void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
 {
     if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetTorqueLowerLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << "SetEffortLowerLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
-    TorqueLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Start();
+    mEffortLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
+    mConfigurationStateTable.Advance();
 
-    ApplyTorqueLimit = TorqueLowerLimit.Any() && TorqueUpperLimit.Any();
+    mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
 }
 
-void mtsPID::SetTorqueUpperLimit(const vctDoubleVec & upperLimit)
+void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
 {
     if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetTorqueUpperLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << "SetEffortUpperLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
-    TorqueUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Start();
+    mEffortUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
+    mConfigurationStateTable.Advance();
 
-    ApplyTorqueLimit = TorqueLowerLimit.Any() && TorqueUpperLimit.Any();
+    mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
 }
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
@@ -681,9 +741,9 @@ void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
         CMN_LOG_CLASS_INIT_ERROR << "SetMinIErrorLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
     minIErrorLimit.Assign(iminlim, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 }
 
 void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
@@ -692,9 +752,9 @@ void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
         CMN_LOG_CLASS_INIT_ERROR << "SetMaxIErrorLimit: size mismatch" << std::endl;
         return;
     }
-    ConfigurationStateTable.Start();
+    mConfigurationStateTable.Start();
     maxIErrorLimit.Assign(imaxlim, mNumberOfActiveJoints);
-    ConfigurationStateTable.Advance();
+    mConfigurationStateTable.Advance();
 }
 
 void mtsPID::SetForgetIError(const double & forget)
@@ -711,30 +771,30 @@ void mtsPID::ResetController(void)
     Enable(false);
 }
 
-void mtsPID::SetDesiredTorque(const prmForceTorqueJointSet & command)
+void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
 {
-    mTorqueUserCommand = command;
+    mEffortUserCommand = command;
     if (command.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredTorque: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredEffort: size mismatch" << std::endl;
         return;
     }
 }
 
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 {
-    mPositionCommand = command;
-    if (mPositionCommand.Goal().size() != mNumberOfActiveJoints) {
+    mPositionUserCommand = command;
+    if (mPositionUserCommand.Goal().size() != mNumberOfActiveJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetDesiredPosition: size mismatch" << std::endl;
         return;
     }
 
-    if (CheckJointLimit) {
+    if (mCheckPositionLimit) {
         bool limitReached = false;
-        vctDoubleVec::const_iterator upper = JointUpperLimit.begin();
-        vctDoubleVec::const_iterator lower = JointLowerLimit.begin();
-        vctBoolVec::iterator flags = mJointLimitFlag.begin();
-        vctDoubleVec::iterator desired = mPositionCommand.Goal().begin();
-        const vctDoubleVec::iterator end = mPositionCommand.Goal().end();
+        vctDoubleVec::const_iterator upper = mPositionUpperLimit.begin();
+        vctDoubleVec::const_iterator lower = mPositionLowerLimit.begin();
+        vctBoolVec::iterator flags = mPositionLimitFlag.begin();
+        vctDoubleVec::iterator desired = mPositionUserCommand.Goal().begin();
+        const vctDoubleVec::iterator end = mPositionUserCommand.Goal().end();
         for (; desired != end; ++desired, ++upper, ++lower, ++flags) {
             if (*desired > *upper) {
                 limitReached = true;
@@ -749,16 +809,16 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
             }
         }
         if (limitReached) {
-            if (mPreviousJointLimitFlag.NotEqual(mJointLimitFlag)) {
-                mPreviousJointLimitFlag.Assign(mJointLimitFlag);
-                Events.JointLimit(mJointLimitFlag);
-                std::string message = this->Name + ": joint limit, mask (1 for limit): ";
-                message.append(mJointLimitFlag.ToString());
+            if (mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
+                mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
+                Events.PositionLimit(mPositionLimitFlag);
+                std::string message = this->Name + ": position limit, mask (1 for limit): ";
+                message.append(mPositionLimitFlag.ToString());
                 mInterface->SendWarning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
-                                          << ", \n requested: " << mPositionCommand.Goal()
-                                          << ", \n lower limits: " << JointLowerLimit
-                                          << ", \n upper limits: " << JointUpperLimit
+                                          << ", \n requested: " << mPositionUserCommand.Goal()
+                                          << ", \n lower limits: " << mPositionLowerLimit
+                                          << ", \n upper limits: " << mPositionUpperLimit
                                           << std::endl;
             }
         }
@@ -768,27 +828,28 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 
 void mtsPID::Enable(const bool & enable)
 {
-    if (enable == Enabled) {
+    if (enable == mEnabled) {
         return;
     }
 
-    Enabled = enable;
+    mEnabled = enable;
 
-    // set torque to 0
-    mTorqueCommand.ForceTorque().SetAll(0.0);
+    // set effort to 0
+    mStateJointCommand.Effort().SetAll(0.0);
     if (!mIsSimulated) {
-        Robot.SetTorque(mTorqueCommand);
+        SetEffortLocal(mStateJointCommand.Effort());
     }
     // reset error flags
     if (enable) {
         mPreviousTrackingErrorFlag.SetAll(false);
         mTrackingErrorFlag.SetAll(false);
-        mPreviousJointLimitFlag.SetAll(false);
-        mJointLimitFlag.SetAll(false);
+        mPositionLimitFlagPrevious.SetAll(false);
+        mPositionLimitFlag.SetAll(false);
     }
     // trigger Enabled
-    Events.Enabled(Enabled);
+    Events.Enabled(mEnabled);
 }
+
 
 void mtsPID::EnableJoints(const vctBoolVec & enable)
 {
@@ -801,21 +862,19 @@ void mtsPID::EnableJoints(const vctBoolVec & enable)
     }
 }
 
-void mtsPID::EnableTorqueMode(const vctBoolVec & enable)
+
+void mtsPID::EnableEffortMode(const vctBoolVec & enable)
 {
     if (enable.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_RUN_ERROR << "EnableTorqueMode size mismatch" << std::endl;
+        CMN_LOG_CLASS_RUN_ERROR << "EnableEffortMode size mismatch" << std::endl;
         return;
     }
-
-    TorqueMode.Assign(enable, mNumberOfActiveJoints);
-
-    // set torque to 0
-    mTorqueCommand.ForceTorque().SetAll(0.0);
-    if (!mIsSimulated) {
-        Robot.SetTorque(mTorqueCommand);
-    }
+    // save preference
+    mEffortMode.Assign(enable, mNumberOfActiveJoints);
+    // reset effort to 0
+    mStateJointCommand.Effort().SetAll(0.0);
 }
+
 
 void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
 {
@@ -831,11 +890,11 @@ void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.SetPosition(mPositionMeasurePrevious.Position());
-        mTorqueMeasure.Assign(mTorqueCommand.ForceTorque());
+        mEffortMeasure.Assign(mStateJointCommand.Effort());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
         std::cerr << "PID post coupling: " << mPositionMeasure << std::endl;
-        Robot.GetFeedbackTorque(mTorqueMeasure);
+        Robot.GetFeedbackEffort(mEffortMeasure);
     }
     Events.Coupling(coupling);
 }
@@ -852,7 +911,7 @@ void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
 
 void mtsPID::ErrorEventHandler(const mtsMessage & message)
 {
-    if (this->Enabled) {
+    if (this->mEnabled) {
         this->Enable(false);
         mInterface->SendError(this->GetName() + ": received [" + message.Message + "]");
     } else {
