@@ -113,21 +113,14 @@ protected:
     prmStateJoint mStateJointMeasure, mStateJointCommand;
 
     //! Error
-    vctDoubleVec Error;
-    vctDoubleVec ErrorAbsolute;
+    vctDoubleVec mError;
+    vctDoubleVec mIError;
 
-    //! Error derivative
-    vctDoubleVec dError;
-    //! Error integral
-    vctDoubleVec iError;
-
-    //! Min iError
-    vctDoubleVec minIErrorLimit;
-    //! Max iError
-    vctDoubleVec maxIErrorLimit;
-
-    //! iError forgetting factor
-    vctDoubleVec forgetIError;
+    //! Min/max iError
+    vctDoubleVec mIErrorLimitMin;
+    vctDoubleVec mIErrorLimitMax;
+    //! iError forgetting factor (0 < factor <= 1.0)
+    vctDoubleVec mIErrorForgetFactor;
 
     //! If 0, use regular PID, else use as nonlinear factor
     vctDoubleVec mNonLinear;
@@ -199,6 +192,19 @@ protected:
 
     void SetCoupling(const prmActuatorJointCoupling & coupling);
 
+    /*! Retrieve data from the IO component.  This method checks for
+      the simulated flag and sets position/effort based on user
+      commands if it is simulated.  If the IO component doesn't
+      provide the velocity, the method estimates the velocity based on
+      the previous measured position.  When changing coupling, the
+      previous position might be irrelevant so the user can skip
+      velocity computation.  In this case, velocity is set to 0. */
+    void GetIOData(const bool computeVelocity);
+
+    /*! Utility method to convert vector of doubles
+      (e.g. mStateJointCommand.Effort()) to cisstParameterType
+      prmForceTorqueJointSet and then call the function to sent
+      requested efforts to the IO component. */ 
     void SetEffortLocal(const vctDoubleVec & effort);
 
     void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
