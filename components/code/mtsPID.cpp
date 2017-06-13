@@ -76,7 +76,6 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
     StateTable.AddData(mEffortMeasure, "EffortMeasure");
-    StateTable.AddData(mPositionUserCommand, "PositionUserCommand");
     StateTable.AddData(mCheckPositionLimit, "CheckPositionLimit");
     StateTable.AddData(mGains.Offset, "EffortOffset");
     StateTable.AddData(mStateJointMeasure, "StateJointMeasure");
@@ -99,7 +98,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         mInterface->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
         mInterface->AddCommandWrite(&mtsPID::EnableEffortMode, this, "EnableTorqueMode", mEffortMode);
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", mPositionUserCommand);
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", prmPositionJointSet());
         mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "SetTorqueJoint", prmForceTorqueJointSet());
 
         // ROS compatible joint state
@@ -210,10 +209,7 @@ void mtsPID::Configure(const std::string & filename)
     mVelocityMeasure.SetSize(mNumberOfJoints);
     mPositionMeasure.SetSize(mNumberOfJoints);
     mPositionMeasurePrevious.SetSize(mNumberOfJoints);
-    mPositionUserCommand.SetSize(mNumberOfJoints);
-    mPositionUserCommand.Goal().SetAll(0.0);
     mVelocityMeasure.SetSize(mNumberOfJoints);
-
 
     // errors
     mError.SetSize(mNumberOfJoints);
@@ -425,8 +421,8 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator kD = mGains.Kd.begin();
     vctDoubleVec::const_iterator offset = mGains.Offset.begin();
     vctDoubleVec::const_iterator nonLinear = mNonLinear.begin();
-    vctDoubleVec::const_iterator effortLowerLimit = mEffortLowerLimit.begin(); 
-    vctDoubleVec::const_iterator effortUpperLimit = mEffortUpperLimit.begin(); 
+    vctDoubleVec::const_iterator effortLowerLimit = mEffortLowerLimit.begin();
+    vctDoubleVec::const_iterator effortUpperLimit = mEffortUpperLimit.begin();
 
     // loop on all active joints using iterators
     for (size_t i = 0;
@@ -508,7 +504,7 @@ void mtsPID::Run(void)
 
                 // compute effort
                 *commandEffort =
-                    *kP * (*error) + *kD * dError + *kI * (*iError); 
+                    *kP * (*error) + *kD * dError + *kI * (*iError);
 
                 // nonlinear control mode
                 if (*nonLinear > 0.0) {
@@ -523,14 +519,14 @@ void mtsPID::Run(void)
 
             } // end of PID mode
 
-
-            // apply effort limits in all cases
-            if (*commandEffort > *effortUpperLimit) {
-                *commandEffort = *effortUpperLimit;
-            } else if (*commandEffort < *effortLowerLimit) {
-                *commandEffort = *effortLowerLimit;
+            // apply effort limits if needed
+            if (mApplyEffortLimit) {
+                if (*commandEffort > *effortUpperLimit) {
+                    *commandEffort = *effortUpperLimit;
+                } else if (*commandEffort < *effortLowerLimit) {
+                    *commandEffort = *effortLowerLimit;
+                }
             }
-
         } // end of enabled
     }
 
@@ -545,165 +541,22 @@ void mtsPID::Run(void)
                                     << "errors:     " << mError << std::endl
                                     << "tolerances: " << mTrackingErrorTolerances << std::endl
                                     << "measure:    " << mPositionMeasure.Position() << std::endl
-                                    << "command:    " << mPositionUserCommand.Goal() << std::endl;
+                                    << "command:    " << mStateJointCommand.Position() << std::endl;
         }
     }
 
     // save previous position with timestamp
     mPositionMeasurePrevious = mPositionMeasure;
 
-    // apply effort if needed
-    if (mEnabled && !mIsSimulated) {
-        SetEffortLocal(mStateJointCommand.Effort());
-    }
-    
-
-
-
-    // compute error
-    /* PORTED
-    Error.Ref(mNumberOfActiveJoints).DifferenceOf(mPositionCommand.Goal(),
-                                                  mPositionMeasure.Position().Ref(mNumberOfActiveJoints));
-    for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-        if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
-            Error[i] = 0.0;
-    }
-    */
-
-    // compute effort
-    if (mEnabled) {
-
-
-        /* PORTED
-        // check for tracking error
-        if (mEnableTrackingError) {
-            vctDoubleVec::const_iterator error = Error.begin();
-            vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
-            vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
-            vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
-            vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
-            vctBoolVec::iterator jointsEnabled = mJointsEnabled.begin();
-            bool anyTrackingError = false;
-            bool newTrackingError = false;
-            const vctDoubleVec::iterator end = Error.end();
-
-            // detect tracking errors
-            for (; error != end;
-                 ++error, ++tolerance, ++limitFlag, ++jointsEnabled,
-                 ++trackingErrorFlag, ++previousTrackingErrorFlag) {
-                double errorAbsolute = fabs(*error);
-                // joint is enabled
-                // AND trigger error if the error is too high
-                // AND the last request was not outside joint limit
-                if ((*jointsEnabled) && (errorAbsolute > *tolerance) && !(*limitFlag)) {
-                    anyTrackingError = true;
-                    *trackingErrorFlag = true;
-                    if (*trackingErrorFlag != *previousTrackingErrorFlag) {
-                        newTrackingError = true;
-                    }
-                } else {
-                    *trackingErrorFlag = false;
-                }
-                *previousTrackingErrorFlag = *trackingErrorFlag;
-            }
-            // act on errors
-            if (anyTrackingError) {
-                Enable(false);
-                if (newTrackingError) {
-                    std::string message = this->Name + ": tracking error, mask (1 for error): ";
-                    message.append(mTrackingErrorFlag.ToString());
-                    mInterface->SendError(message);
-                    CMN_LOG_CLASS_RUN_ERROR << message << std::endl
-                                            << "errors:     " << Error << std::endl
-                                            << "tolerances: " << mTrackingErrorTolerances << std::endl
-                                            << "measure:    " << mPositionMeasure.Position() << std::endl
-                                            << "command:    " << mPositionUserCommand.Goal() << std::endl;
-                }
-            }
-        }
-        */
-
-        /* PORTED
-        // compute error derivative
-        dError.Assign(mVelocityMeasure.Velocity());
-        dError.Multiply(-1.0);
-
-        // compute error integral
-        iError.ElementwiseMultiply(forgetIError);
-        iError.Add(Error);
-
-        // check error limit & clamp iError
-        for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            // iError clamping
-            if (iError.at(i) > maxIErrorLimit.at(i)) {
-                iError.at(i) = maxIErrorLimit.at(i);
-            }
-            else if (iError.at(i) < minIErrorLimit.at(i)) {
-                iError.at(i) = minIErrorLimit[i];
-            }
-        }
-
-        // compute effort
-        mStateJointCommand.Effort().ElementwiseProductOf(mGains.Kp, Error);
-        mStateJointCommand.Effort().AddElementwiseProductOf(mGains.Kd, dError);
-        mStateJointCommand.Effort().AddElementwiseProductOf(mGains.Ki, iError);
-
-        // nonlinear control mode
-        for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            if ((mNonLinear[i] > 0)
-                && (fabs(Error[i]) < mNonLinear[i])) {
-                mStateJointCommand.Effort()[i] *= fabs(Error[i]) / mNonLinear[i];
-            }
-        }
-        */
-
-        // Add efforts
-        // 
-        // PORTED mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).Add(mGains.Offset.Ref(mNumberOfActiveJoints));
-
-        // Set Effort to DesiredEffort if
-        for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
-            /* PORTED
-            if (mEffortMode[i]) {
-                mStateJointCommand.Effort()[i] = mEffortUserCommand.ForceTorque()[i];
-                // since we assume nobody sent a desired position,
-                // update desired from current
-                mStateJointCommand.Position()[i] = mPositionMeasure.Position()[i];
-                mPositionCommand.Goal()[i] = mPositionMeasure.Position()[i];
-            }
-            */
-        }
-
-        // Apply effort limits
-        /* PORTED 
-        if (mApplyEffortLimit) {
-            mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).ElementwiseClipAbove(mEffortUpperLimit);
-            mStateJointCommand.Effort().Ref(mNumberOfActiveJoints).ElementwiseClipBelow(mEffortLowerLimit);
-        }
-        */
-
-        // write effort to robot
-        /* PORTED
-        if (!mIsSimulated) {
-            SetEffortLocal(mStateJointCommand.Effort());
-        }
-        */
-    }
-    else {
-        /* PORTED
-        mStateJointCommand.Effort().SetAll(0.0);
-        mStateJointMeasure.Position().Assign(mPositionMeasure.Position(), mNumberOfActiveJoints);
-        if (!mIsSimulated) {
-            SetEffortLocal(mStateJointCommand.Effort());
-        }
-        */
-    }
-
     // for simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
-        mPositionMeasure.Position().Assign(mPositionUserCommand.Goal());
+        mPositionMeasure.Position().Assign(mStateJointCommand.Position());
         mEffortMeasure.Assign(mStateJointCommand.Effort());
+    } else {
+        if (mEnabled) {
+            SetEffortLocal(mStateJointCommand.Effort());
+        }
     }
 
     // update state data
@@ -858,19 +711,21 @@ void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
 
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 {
-    mPositionUserCommand = command;
-    if (mPositionUserCommand.Goal().size() != mNumberOfActiveJoints) {
+
+    if (command.Goal().size() != mNumberOfActiveJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetDesiredPosition: size mismatch" << std::endl;
         return;
     }
+
+    mStateJointCommand.Position().Assign(command.Goal(), mNumberOfActiveJoints);
 
     if (mCheckPositionLimit) {
         bool limitReached = false;
         vctDoubleVec::const_iterator upper = mPositionUpperLimit.begin();
         vctDoubleVec::const_iterator lower = mPositionLowerLimit.begin();
         vctBoolVec::iterator flags = mPositionLimitFlag.begin();
-        vctDoubleVec::iterator desired = mPositionUserCommand.Goal().begin();
-        const vctDoubleVec::iterator end = mPositionUserCommand.Goal().end();
+        vctDoubleVec::iterator desired = mStateJointCommand.Position().begin();
+        const vctDoubleVec::iterator end = mStateJointCommand.Position().end();
         for (; desired != end; ++desired, ++upper, ++lower, ++flags) {
             if (*desired > *upper) {
                 limitReached = true;
@@ -892,7 +747,7 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
                 message.append(mPositionLimitFlag.ToString());
                 mInterface->SendWarning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
-                                          << ", \n requested: " << mPositionUserCommand.Goal()
+                                          << ", \n requested: " << mStateJointCommand.Position()
                                           << ", \n lower limits: " << mPositionLowerLimit
                                           << ", \n upper limits: " << mPositionUpperLimit
                                           << std::endl;
@@ -964,7 +819,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         // set current position/effort based on goal
-        mPositionMeasure.Position().ForceAssign(mPositionUserCommand.Goal());
+        mPositionMeasure.Position().ForceAssign(mStateJointCommand.Position());
         mPositionMeasure.SetTimestamp(StateTable.GetTic());
         // measured effort
         mEffortMeasure.Assign(mEffortUserCommand.ForceTorque());
@@ -1010,7 +865,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
 
 void mtsPID::SetEffortLocal(const vctDoubleVec & effort)
 {
-    mEffortPIDCommand.ForceTorque().Assign(effort);
+    mEffortPIDCommand.ForceTorque().Assign(effort, mNumberOfActiveJoints);
     Robot.SetEffort(mEffortPIDCommand);
 }
 
@@ -1027,7 +882,7 @@ void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
         mStateJointCommand.Velocity().Assign(mStateJointMeasure.Velocity());
         mStateJointCommand.Effort().Assign(mStateJointMeasure.Effort());
     } StateTable.Advance();
-    
+
     Events.Coupling(coupling);
 }
 

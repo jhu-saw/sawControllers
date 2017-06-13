@@ -105,8 +105,6 @@ protected:
     //! prm type feedback positoin
     prmPositionJointGet mPositionMeasure;
     prmPositionJointGet mPositionMeasurePrevious;
-    //! prm type desired position
-    prmPositionJointSet mPositionUserCommand;
     //! prm type feedback velocity
     prmVelocityJointGet mVelocityMeasure;
     //! prm type joint state
