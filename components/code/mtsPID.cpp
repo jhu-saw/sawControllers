@@ -879,7 +879,6 @@ void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
                           // computed using same coupling
         // reset commanded based on measured to have reasonable defaults
         mStateJointCommand.Position().Assign(mStateJointMeasure.Position());
-        mStateJointCommand.Velocity().Assign(mStateJointMeasure.Velocity());
         mStateJointCommand.Effort().Assign(mStateJointMeasure.Effort());
     } StateTable.Advance();
 
