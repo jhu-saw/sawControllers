@@ -109,7 +109,6 @@ void mtsPIDQtWidget::Startup(void)
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQtWidget::Startup" << std::endl;
     // Set desired pos to cur pos
     SlotResetPIDGain();
-    SlotMaintainPosition();
     mtsExecutionResult result;
     prmJointTypeVec jointType;
     result = PID.GetJointType(jointType);
@@ -255,6 +254,10 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QPBMaintainPosition->setEnabled(toggle);
     QPBZeroPosition->setEnabled(toggle);
     QPBResetPIDGain->setEnabled(toggle);
+
+    if (DirectControl) {
+        SlotMaintainPosition();
+    }
 }
 
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
@@ -303,7 +306,7 @@ void mtsPIDQtWidget::setupUi(void)
     font.setBold(true);
     font.setPointSize(12);
 
-    const double maximum = 30000;
+    const double maximum = 30000.0;
 
     QGridLayout * gridLayout = new QGridLayout();
     gridLayout->setSpacing(1);
