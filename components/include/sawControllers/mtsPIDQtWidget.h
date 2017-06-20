@@ -84,7 +84,6 @@ private:
     void setupUi(void);
     int TimerPeriodInMilliseconds;
 
-    void JointLimitEventHandler(const vctBoolVec & flags);
     void ErrorEventHandler(const mtsMessage & message);
     void EnableEventHandler(const bool & enable);
 

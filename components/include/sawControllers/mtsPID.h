@@ -58,10 +58,10 @@ protected:
         mtsFunctionRead GetFeedbackPosition;
         //! Read joint velocity from robot
         mtsFunctionRead GetFeedbackVelocity;
-        //! Read joint torque from robot
-        mtsFunctionRead GetFeedbackTorque;
-        //! Write the joint torques
-        mtsFunctionWrite SetTorque;
+        //! Read joint effort from robot
+        mtsFunctionRead GetFeedbackEffort;
+        //! Write the joint efforts
+        mtsFunctionWrite SetEffort;
     } Robot;
 
 
@@ -79,80 +79,66 @@ protected:
         vctDoubleVec Offset;
     } mGains;
 
-    //! Joint lower limit
-    vctDoubleVec JointLowerLimit;
-    //! Joint upper limit
-    vctDoubleVec JointUpperLimit;
+    //! Position lower limit
+    vctDoubleVec mPositionLowerLimit;
+    //! Position upper limit
+    vctDoubleVec mPositionUpperLimit;
     //! Flag whether check joint limit
-    bool CheckJointLimit;
-    vctBoolVec mPreviousJointLimitFlag, mJointLimitFlag;
+    bool mCheckPositionLimit;
+    vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
 
-    //! Torque lower limit
-    vctDoubleVec TorqueLowerLimit;
-    //! Torque upper limit
-    vctDoubleVec TorqueUpperLimit;
-    //! Flag whether to apply torque limit
-    bool ApplyTorqueLimit;
+    //! Effort lower limit
+    vctDoubleVec mEffortLowerLimit;
+    //! Effort upper limit
+    vctDoubleVec mEffortUpperLimit;
+    //! Flag whether to apply effort limit
+    bool mApplyEffortLimit;
 
-    //! Desired joint positions
-    vctDoubleVec DesiredPosition;
-    //! mMeasured joint positions
-    vctDoubleVec mTorqueMeasure;
-    //! Desired joint positions
-    vctDoubleVec DesiredTorque;
-    //! Torque set to robot
-    vctDoubleVec Torque;
+    //! Commanded joint efforts sent to IO level
+    vctDoubleVec mEffortMeasure;
+    prmForceTorqueJointSet mEffortPIDCommand;
+    //! Desired joint efforts when bypassing PID
+    prmForceTorqueJointSet mEffortUserCommand;
 
     //! prm type joint type
-    prmJointTypeVec JointType;
+    prmJointTypeVec mJointType;
     //! prm type feedback positoin
     prmPositionJointGet mPositionMeasure;
     prmPositionJointGet mPositionMeasurePrevious;
-    //! prm type desired position
-    prmPositionJointSet DesiredPositionParam;
     //! prm type feedback velocity
     prmVelocityJointGet mVelocityMeasure;
-    //! prm type set torque
-    prmForceTorqueJointSet TorqueParam;
     //! prm type joint state
     prmStateJoint mStateJointMeasure, mStateJointCommand;
 
     //! Error
-    vctDoubleVec Error;
-    vctDoubleVec ErrorAbsolute;
+    vctDoubleVec mError;
+    vctDoubleVec mIError;
 
-    //! Error derivative
-    vctDoubleVec dError;
-    //! Error integral
-    vctDoubleVec iError;
-
-    //! Min iError
-    vctDoubleVec minIErrorLimit;
-    //! Max iError
-    vctDoubleVec maxIErrorLimit;
-
-    //! iError forgetting factor
-    vctDoubleVec forgetIError;
+    //! Min/max iError
+    vctDoubleVec mIErrorLimitMin;
+    vctDoubleVec mIErrorLimitMax;
+    //! iError forgetting factor (0 < factor <= 1.0)
+    vctDoubleVec mIErrorForgetFactor;
 
     //! If 0, use regular PID, else use as nonlinear factor
-    vctDoubleVec nonlinear;
+    vctDoubleVec mNonLinear;
 
     //! Deadband (errors less than this are set to 0)
-    vctDoubleVec DeadBand;
+    vctDoubleVec mDeadBand;
 
     //! Enable mtsPID controller
-    bool Enabled;
+    bool mEnabled;
 
     //! Enable individal joints
     vctBoolVec mJointsEnabled;
 
     //! Enable mtsPID controller
-    vctBoolVec TorqueMode;
+    vctBoolVec mEffortMode;
 
     bool mEnableTrackingError;
     vctDoubleVec mTrackingErrorTolerances;
     vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
-    
+
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
     bool mIsSimulated;
@@ -161,13 +147,13 @@ protected:
     size_t mNumberOfActiveJoints;
 
     //! Configuration state table
-    mtsStateTable ConfigurationStateTable;
+    mtsStateTable mConfigurationStateTable;
 
     struct {
         //! Enable event
         mtsFunctionWrite Enabled;
-        // !Joint limit event
-        mtsFunctionWrite JointLimit;
+        //! Position limit event
+        mtsFunctionWrite PositionLimit;
         //! Enabled joints event
         mtsFunctionWrite EnabledJoints;
         //! Coupling changed event
@@ -182,13 +168,15 @@ protected:
      */
     void ResetController(void);
 
-    /**
-     * @brief Set desired joint position
-     *
-     * @param prmPos   The desired position
-     */
-    void SetDesiredPosition(const prmPositionJointSet & prmPos);
-    void SetDesiredTorque(const prmForceTorqueJointSet& prmTrq);
+    /*! See also EnableEffortMode to control with joints are
+      controlled in position or effort mode. */
+    void SetDesiredPosition(const prmPositionJointSet & command);
+
+    /*! See also EnableEffortMode to control with joints are controlled
+      in position or effort mode. */
+    void SetDesiredEffort(const prmForceTorqueJointSet & command);
+
+    void Init(void);
 
     void SetupInterfaces(void);
 
@@ -196,11 +184,26 @@ protected:
 
     void EnableJoints(const vctBoolVec & enable);
 
-    void EnableTorqueMode(const vctBoolVec & enable);
+    void EnableEffortMode(const vctBoolVec & enable);
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
     void SetCoupling(const prmActuatorJointCoupling & coupling);
+
+    /*! Retrieve data from the IO component.  This method checks for
+      the simulated flag and sets position/effort based on user
+      commands if it is simulated.  If the IO component doesn't
+      provide the velocity, the method estimates the velocity based on
+      the previous measured position.  When changing coupling, the
+      previous position might be irrelevant so the user can skip
+      velocity computation.  In this case, velocity is set to 0. */
+    void GetIOData(const bool computeVelocity);
+
+    /*! Utility method to convert vector of doubles
+      (e.g. mStateJointCommand.Effort()) to cisstParameterType
+      prmForceTorqueJointSet and then call the function to sent
+      requested efforts to the IO component. */ 
+    void SetEffortLocal(const vctDoubleVec & effort);
 
     void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
 
@@ -254,32 +257,32 @@ protected:
     void SetIGain(const vctDoubleVec & igain);
 
     /**
-     * @brief Set joint lower limit
+     * @brief Set joint position lower limit
      *
-     * @param lowerLimit  new joint lower limit
+     * @param lowerLimit  new joint position lower limit
      */
-    void SetJointLowerLimit(const vctDoubleVec & lowerLimit);
+    void SetPositionLowerLimit(const vctDoubleVec & lowerLimit);
 
     /**
-     * @brief Set joint upper limit
+     * @brief Set joint position upper limit
      *
-     * @param upperLimit  new joint upper limit
+     * @param upperLimit  new joint position upper limit
      */
-    void SetJointUpperLimit(const vctDoubleVec & upperLimit);
+    void SetPositionUpperLimit(const vctDoubleVec & upperLimit);
 
     /**
-     * @brief Set torque lower limit
+     * @brief Set joint effort lower limit
      *
-     * @param lowerLimit  new torque lower limit
+     * @param lowerLimit  new joint effort lower limit
      */
-    void SetTorqueLowerLimit(const vctDoubleVec & lowerLimit);
+    void SetEffortLowerLimit(const vctDoubleVec & lowerLimit);
 
     /**
-     * @brief Set torque upper limit
+     * @brief Set joint effort upper limit
      *
-     * @param upperLimit  new torque upper limit
+     * @param upperLimit  new joint effort upper limit
      */
-    void SetTorqueUpperLimit(const vctDoubleVec & upperLimit);
+    void SetEffortUpperLimit(const vctDoubleVec & upperLimit);
 
     /**
      * @brief Set minimum iError limit

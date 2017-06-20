@@ -92,7 +92,6 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("SetDGain", PID.SetDGain);
         interfaceRequired->AddFunction("SetIGain", PID.SetIGain);
         // Events
-        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::JointLimitEventHandler, this, "JointLimit");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "Error");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
     }
@@ -270,7 +269,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
     PID.StateJoint.Velocity().ElementwiseMultiply(UnitFactor);
     PID.GetStateJointDesired(PID.StateJointDesired);
-    PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);    
+    PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);
 
     // update GUI
     QVRCurrentPositionWidget->SetValue(PID.StateJoint.Position());
@@ -480,11 +479,6 @@ void mtsPIDQtWidget::setupUi(void)
     // set initial values
     QCBEnableDirectControl->setChecked(DirectControl);
     SlotEnableDirectControl(DirectControl);
-}
-
-void mtsPIDQtWidget::JointLimitEventHandler(const vctBoolVec & flags)
-{
-    CMN_LOG_CLASS_RUN_VERBOSE << "JointLimitEventHandler: " << flags << std::endl;
 }
 
 void mtsPIDQtWidget::ErrorEventHandler(const mtsMessage & message)
