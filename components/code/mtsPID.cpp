@@ -551,8 +551,8 @@ void mtsPID::Run(void)
     // for simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
-        mPositionMeasure.Position().Assign(mStateJointCommand.Position());
-        mEffortMeasure.Assign(mStateJointCommand.Effort());
+        mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
+        mEffortMeasure.Assign(mStateJointCommand.Effort(), mNumberOfActiveJoints);
     } else {
         if (mEnabled) {
             SetEffortLocal(mStateJointCommand.Effort());
@@ -819,7 +819,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         // set current position/effort based on goal
-        mPositionMeasure.Position().ForceAssign(mStateJointCommand.Position());
+        mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
         mPositionMeasure.SetTimestamp(StateTable.GetTic());
         // measured effort
         mEffortMeasure.Assign(mEffortUserCommand.ForceTorque());
