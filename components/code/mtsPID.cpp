@@ -183,16 +183,11 @@ void mtsPID::Configure(const std::string & filename)
     mGains.Kp.SetSize(mNumberOfJoints);
     mGains.Kd.SetSize(mNumberOfJoints);
     mGains.Ki.SetSize(mNumberOfJoints);
-    mGains.Offset.SetSize(mNumberOfJoints);
-    mGains.Offset.SetAll(0.0);
-    mPositionLowerLimit.SetSize(mNumberOfJoints);
-    mPositionLowerLimit.SetAll(0.0);
-    mPositionUpperLimit.SetSize(mNumberOfJoints);
-    mPositionUpperLimit.SetAll(0.0);
-    mEffortLowerLimit.SetSize(mNumberOfJoints);
-    mEffortLowerLimit.SetAll(0.0);
-    mEffortUpperLimit.SetSize(mNumberOfJoints);
-    mEffortUpperLimit.SetAll(0.0);
+    mGains.Offset.SetSize(mNumberOfJoints, 0.0);
+    mPositionLowerLimit.SetSize(mNumberOfJoints, 0.0);
+    mPositionUpperLimit.SetSize(mNumberOfJoints, 0.0);
+    mEffortLowerLimit.SetSize(mNumberOfJoints, 0.0);
+    mEffortUpperLimit.SetSize(mNumberOfJoints, 0.0);
     mPositionLimitFlag.SetSize(mNumberOfJoints);
     mPositionLimitFlag.SetAll(false);
     mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
@@ -200,26 +195,20 @@ void mtsPID::Configure(const std::string & filename)
     mJointsEnabled.SetAll(true);
 
     // feedback
-    mPositionMeasure.SetSize(mNumberOfJoints);
-    mEffortMeasure.SetSize(mNumberOfJoints);
-    mEffortPIDCommand.SetSize(mNumberOfJoints);
-    mEffortPIDCommand.ForceTorque().SetAll(0.0);
-    mEffortUserCommand.SetSize(mNumberOfJoints);
-    mEffortUserCommand.ForceTorque().SetAll(0.0);
-    mVelocityMeasure.SetSize(mNumberOfJoints);
-    mPositionMeasure.SetSize(mNumberOfJoints);
-    mPositionMeasurePrevious.SetSize(mNumberOfJoints);
-    mVelocityMeasure.SetSize(mNumberOfJoints);
+    mPositionMeasure.Position().SetSize(mNumberOfJoints, 0.0);
+    mEffortMeasure.SetSize(mNumberOfJoints, 0.0);
+    mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
+    mEffortUserCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
+    mVelocityMeasure.Velocity().SetSize(mNumberOfJoints, 0.0);
+    mPositionMeasurePrevious.Position().SetSize(mNumberOfJoints, 0.0);
 
     // errors
     mError.SetSize(mNumberOfJoints);
     mIError.SetSize(mNumberOfJoints);
     ResetController();
 
-    mIErrorLimitMin.SetSize(mNumberOfJoints);
-    mIErrorLimitMin.SetAll(cmnTypeTraits<double>::MinNegativeValue());
-    mIErrorLimitMax.SetSize(mNumberOfJoints);
-    mIErrorLimitMax.SetAll(cmnTypeTraits<double>::MaxPositiveValue());
+    mIErrorLimitMin.SetSize(mNumberOfJoints, cmnTypeTraits<double>::MinNegativeValue());
+    mIErrorLimitMax.SetSize(mNumberOfJoints, cmnTypeTraits<double>::MaxPositiveValue());
 
     // default 1.0: no effect
     mIErrorForgetFactor.SetSize(mNumberOfJoints);
@@ -238,10 +227,8 @@ void mtsPID::Configure(const std::string & filename)
 
     // tracking error
     mEnableTrackingError = false;
-    mTrackingErrorTolerances.SetSize(mNumberOfJoints);
-    mTrackingErrorTolerances.SetAll(0.0);
-    mTrackingErrorFlag.SetSize(mNumberOfJoints);
-    mTrackingErrorFlag.SetAll(false);
+    mTrackingErrorTolerances.SetSize(mNumberOfJoints, 0.0);
+    mTrackingErrorFlag.SetSize(mNumberOfJoints, false);
     mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
 
     // read data from xml file
@@ -349,12 +336,12 @@ void mtsPID::Configure(const std::string & filename)
 
     mConfigurationStateTable.Advance();
 
-    mStateJointMeasure.Position().SetSize(mNumberOfActiveJoints);
-    mStateJointMeasure.Velocity().SetSize(mNumberOfActiveJoints);
-    mStateJointMeasure.Effort().SetSize(mNumberOfActiveJoints);
-    mStateJointCommand.Position().SetSize(mNumberOfActiveJoints);
+    mStateJointMeasure.Position().SetSize(mNumberOfActiveJoints, 0.0);
+    mStateJointMeasure.Velocity().SetSize(mNumberOfActiveJoints, 0.0);
+    mStateJointMeasure.Effort().SetSize(mNumberOfActiveJoints, 0.0);
+    mStateJointCommand.Position().SetSize(mNumberOfActiveJoints, 0.0);
     mStateJointCommand.Velocity().SetSize(0); // we don't support desired velocity
-    mStateJointCommand.Effort().SetSize(mNumberOfActiveJoints);
+    mStateJointCommand.Effort().SetSize(mNumberOfActiveJoints, 0.0);
 
     // now that we know the sizes of vectors, create interfaces
     this->SetupInterfaces();
