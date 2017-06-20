@@ -407,7 +407,7 @@ void mtsPID::Run(void)
     }
 
     // compute error
-    Error.Ref(mNumberOfActiveJoints).DifferenceOf(DesiredPosition, mPositionMeasure.Position().Ref(mNumberOfActiveJoints));
+    Error.Ref(mNumberOfActiveJoints).DifferenceOf(DesiredPosition.Ref(mNumberOfActiveJoints), mPositionMeasure.Position().Ref(mNumberOfActiveJoints));
     for (size_t i = 0; i < mNumberOfActiveJoints; i++) {
         if ((Error[i] <= DeadBand[i]) && (Error[i] >= -DeadBand[i]))
             Error[i] = 0.0;
@@ -561,7 +561,7 @@ void mtsPID::Run(void)
     // for simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
-        mPositionMeasure.Position().Assign(DesiredPosition);
+        mPositionMeasure.Position().Assign(DesiredPosition, mNumberOfActiveJoints);
         mTorqueMeasure.Assign(Torque);
     }
 
