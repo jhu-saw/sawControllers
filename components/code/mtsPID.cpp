@@ -73,6 +73,7 @@ void mtsPID::SetupInterfaces(void)
     // this should go in "write" state table
     StateTable.AddData(mEffortUserCommand, "EffortUserCommand");
     // this should go in a "read" state table
+    StateTable.AddData(mEnabled, "Enabled");
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
     StateTable.AddData(mEffortMeasure, "EffortMeasure");
@@ -98,6 +99,9 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         mInterface->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
         mInterface->AddCommandWrite(&mtsPID::EnableEffortMode, this, "EnableTorqueMode", mEffortMode);
+        mInterface->AddCommandReadState(StateTable, mEnabled, "IsEnabled");
+
+        // set goals
         mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", prmPositionJointSet());
         mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "SetTorqueJoint", prmForceTorqueJointSet());
 
