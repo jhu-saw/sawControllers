@@ -119,12 +119,18 @@ void mtsPIDQtWidget::Startup(void)
     } else {
         // set unitFactor;
         for (size_t i = 0; i < this->NumberOfAxis; i++) {
-            if (jointType[i] == PRM_REVOLUTE) {
+            switch (jointType[i]) {
+            case PRM_REVOLUTE:
                 UnitFactor[i] = cmn180_PI;
-            } else if (jointType[i] == PRM_PRISMATIC) {
-                UnitFactor[i] = 1.0 / cmn_mm;
-            } else {
-                cmnThrow("mtsRobotIO1394QtWidget: Unknown joint type");
+                break;
+            case PRM_PRISMATIC:
+                UnitFactor[i] = 1.0 / cmn_mm; // convert internal values to mm
+                break;
+            case PRM_INACTIVE:
+                break;
+            default:
+                cmnThrow("mtsPIDQtWidget: unknown joint type");
+                break;
             }
         }
     }
