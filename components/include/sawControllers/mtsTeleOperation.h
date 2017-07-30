@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-03-06
 
-  (C) Copyright 2013-2015 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -25,6 +25,9 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionCartesianSet.h>
 #include <cisstRobot/robManipulator.h>
 
+//! Always include last
+#include <sawControllers/sawControllersExport.h>
+
 /**
  * @brief  teleoperation component
  *
@@ -35,7 +38,7 @@ http://www.cisst.org/cisst/license.txt.
  * \todo
  *
  */
-class mtsTeleOperation: public mtsTaskPeriodic
+class CISST_EXPORT mtsTeleOperation: public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
