@@ -1,6 +1,24 @@
 Change log
 ==========
 
+1.5.0 (2017-dd-mm)
+==================
+
+* API changes:
+  * mtsPID: full rewrite of main loop using iterators
+  * mtsPID: most internal variables renamed, uses prmStateJoint as much as possible
+  * mtsPID: throttle tracking error messages
+  * mtsPID: now uses mtsMessage for status/warning/error from provided interface
+* Deprecated features:
+  * None
+* New features:
+  * Added osaCartesianImpedanceController!
+* Bug fixes:
+  * mtsPID: desired position properly set when PID is not active on any joint (PID off or in torque mode)
+  * mtsPID Widget:
+    * only sends desired position if in direct mode!
+    * added confirmation message when switching to direct mode
+
 1.4.0 (2016-08-31)
 ==================
 
