@@ -249,6 +249,15 @@ void mtsPIDQtWidget::SlotEnableEventHandler(bool enable)
 
 void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
 {
+    if (toggle) {
+        int answer = QMessageBox::warning(this, tr("mtsPIDQtWidget"),
+                                          tr("In direct control mode you can potentially harm your robot.\nAre you sure you want to continue?"),
+                                          QMessageBox::No | QMessageBox::Yes);
+        if (answer == QMessageBox::No) {
+            toggle = false;
+        }
+    }
+    QCBEnableDirectControl->setChecked(toggle);
     DirectControl = toggle;
     // if checked in DIRECT_CONTROL mode
     QVWDesiredPositionWidget->setEnabled(toggle);
