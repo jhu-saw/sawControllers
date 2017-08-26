@@ -135,7 +135,7 @@ protected:
     //! Enable mtsPID controller
     vctBoolVec mEffortMode;
 
-    bool mEnableTrackingError;
+    bool mTrackingErrorEnabled;
     vctDoubleVec mTrackingErrorTolerances;
     vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
 

@@ -80,7 +80,10 @@ void mtsPIDQtWidget::Init(void)
     if (interfaceRequired) {
         interfaceRequired->AddFunction("ResetController", PID.ResetController);
         interfaceRequired->AddFunction("Enable", PID.Enable);
-        interfaceRequired->AddFunction("EnableTorqueMode", PID.EnableTorqueMode);
+        interfaceRequired->AddFunction("EnableJoints", PID.EnableJoints);
+        interfaceRequired->AddFunction("JointsEnabled", PID.JointsEnabled);
+        interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
+        interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetStateJoint", PID.GetStateJoint);
         interfaceRequired->AddFunction("GetStateJointDesired", PID.GetStateJointDesired);
@@ -161,21 +164,27 @@ void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
     }
 }
 
-void mtsPIDQtWidget::SlotEnablePID(bool toggle)
+void mtsPIDQtWidget::SlotEnable(bool toggle)
 {
     PID.Enable(toggle);
 }
 
-void mtsPIDQtWidget::SlotEnableTorqueMode(bool toggle)
+void mtsPIDQtWidget::SlotEnabledJointsChanged(void)
 {
-    vctBoolVec torqueMode(NumberOfAxis, toggle);
-    PID.EnableTorqueMode(torqueMode);
+    vctBoolVec enable(NumberOfAxis, false);
+    QVWJointsEnabled->GetValue(enable);
+    PID.EnableJoints(enable);
+}
+
+void mtsPIDQtWidget::SlotEnableTrackingError(bool toggle)
+{
+    PID.EnableTrackingError(toggle);
 }
 
 void mtsPIDQtWidget::SlotPositionChanged(void)
 {
     DesiredPosition.SetAll(0.0);
-    QVWDesiredPositionWidget->GetValue(DesiredPosition);
+    QVWDesiredPosition->GetValue(DesiredPosition);
     DesiredPositionParam.SetGoal(DesiredPosition);
     DesiredPositionParam.Goal().ElementwiseDivide(UnitFactor);
     PID.SetPositionJoint(DesiredPositionParam);
@@ -184,21 +193,21 @@ void mtsPIDQtWidget::SlotPositionChanged(void)
 void mtsPIDQtWidget::SlotPGainChanged(void)
 {
     vctDoubleVec pgain(NumberOfAxis, 0.0);
-    QVWPGainWidget->GetValue(pgain);
+    QVWPGain->GetValue(pgain);
     PID.SetPGain(pgain);
 }
 
 void mtsPIDQtWidget::SlotDGainChanged(void)
 {
     vctDoubleVec dgain(NumberOfAxis, 0.0);
-    QVWDGainWidget->GetValue(dgain);
+    QVWDGain->GetValue(dgain);
     PID.SetDGain(dgain);
 }
 
 void mtsPIDQtWidget::SlotIGainChanged(void)
 {
     vctDoubleVec igain(NumberOfAxis, 0.0);
-    QVWIGainWidget->GetValue(igain);
+    QVWIGain->GetValue(igain);
     PID.SetIGain(igain);
 }
 
@@ -206,7 +215,7 @@ void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset desired position
     PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
-    QVWDesiredPositionWidget->SetValue(PID.StateJoint.Position());
+    QVWDesiredPosition->SetValue(PID.StateJoint.Position());
     PID.ResetController();
     SlotPositionChanged();
 }
@@ -215,7 +224,7 @@ void mtsPIDQtWidget::SlotZeroPosition(void)
 {
     // reset desired position
     DesiredPosition.SetAll(0.0);
-    QVWDesiredPositionWidget->SetValue(DesiredPosition);
+    QVWDesiredPosition->SetValue(DesiredPosition);
     PID.ResetController();
     SlotPositionChanged();
 }
@@ -227,13 +236,13 @@ void mtsPIDQtWidget::SlotResetPIDGain(void)
     gain.SetSize(NumberOfAxis);
     // PGain
     PID.GetPGain(gain);
-    QVWPGainWidget->SetValue(gain);
+    QVWPGain->SetValue(gain);
     // DGain
     PID.GetDGain(gain);
-    QVWDGainWidget->SetValue(gain);
+    QVWDGain->SetValue(gain);
     // IGain
     PID.GetIGain(gain);
-    QVWIGainWidget->SetValue(gain);
+    QVWIGain->SetValue(gain);
 }
 
 void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
@@ -244,7 +253,7 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
 
 void mtsPIDQtWidget::SlotEnableEventHandler(bool enable)
 {
-    QCBEnablePID->setChecked(enable);
+    QCBEnable->setChecked(enable);
 }
 
 void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
@@ -260,12 +269,13 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QCBEnableDirectControl->setChecked(toggle);
     DirectControl = toggle;
     // if checked in DIRECT_CONTROL mode
-    QVWDesiredPositionWidget->setEnabled(toggle);
-    QVWPGainWidget->setEnabled(toggle);
-    QVWIGainWidget->setEnabled(toggle);
-    QVWDGainWidget->setEnabled(toggle);
-    QCBEnablePID->setEnabled(toggle);
-    QCBEnableTorqueMode->setEnabled(toggle);
+    QVWJointsEnabled->setEnabled(toggle);
+    QVWDesiredPosition->setEnabled(toggle);
+    QVWPGain->setEnabled(toggle);
+    QVWIGain->setEnabled(toggle);
+    QVWDGain->setEnabled(toggle);
+    QCBEnable->setEnabled(toggle);
+    QCBEnableTrackingError->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
     QPBZeroPosition->setEnabled(toggle);
     QPBResetPIDGain->setEnabled(toggle);
@@ -283,20 +293,25 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     }
 
     // get data from the PID
+    PID.JointsEnabled(JointsEnabled);
     PID.GetStateJoint(PID.StateJoint);
     PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
     PID.StateJoint.Velocity().ElementwiseMultiply(UnitFactor);
     PID.GetStateJointDesired(PID.StateJointDesired);
     PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);
+    bool trackingErrorEnabled;
+    PID.TrackingErrorEnabled(trackingErrorEnabled);
 
     // update GUI
-    QVRCurrentPositionWidget->SetValue(PID.StateJoint.Position());
-    QVRCurrentEffortWidget->SetValue(PID.StateJoint.Effort());
+    QVWJointsEnabled->SetValue(JointsEnabled);
+    QVRCurrentPosition->SetValue(PID.StateJoint.Position());
+    QVRCurrentEffort->SetValue(PID.StateJoint.Effort());
+    QCBEnableTrackingError->setChecked(trackingErrorEnabled);
 
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
-        QVWDesiredPositionWidget->SetValue(PID.StateJointDesired.Position());
-        QVWDesiredEffortWidget->SetValue(PID.StateJointDesired.Effort());
+        QVWDesiredPosition->SetValue(PID.StateJointDesired.Position());
+        QVWDesiredEffort->SetValue(PID.StateJointDesired.Effort());
     }
 
     // plot
@@ -327,67 +342,75 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->setSpacing(1);
 
     int row = 0;
+
+    QLabel * jointsEnabledLabel = new QLabel("Joints enabled");
+    jointsEnabledLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(jointsEnabledLabel, row, 0);
+    QVWJointsEnabled = new vctQtWidgetDynamicVectorBoolWrite();
+    gridLayout->addWidget(QVWJointsEnabled, row, 1);
+    row++;
+
     QLabel * currentPosLabel = new QLabel("Current position (deg)");
     currentPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(currentPosLabel, row, 0);
-    QVRCurrentPositionWidget = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRCurrentPositionWidget->SetPrecision(3);
-    gridLayout->addWidget(QVRCurrentPositionWidget, row, 1);
+    QVRCurrentPosition = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRCurrentPosition->SetPrecision(3);
+    gridLayout->addWidget(QVRCurrentPosition, row, 1);
     row++;
 
     QLabel * desiredPosLabel = new QLabel("Desired position (deg)");
     desiredPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(desiredPosLabel, row, 0);
-    QVWDesiredPositionWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWDesiredPositionWidget->SetStep(0.1);
-    QVWDesiredPositionWidget->SetRange(-360.0, 360.0);
-    gridLayout->addWidget(QVWDesiredPositionWidget, row, 1);
+    QVWDesiredPosition = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWDesiredPosition->SetStep(0.1);
+    QVWDesiredPosition->SetRange(-360.0, 360.0);
+    gridLayout->addWidget(QVWDesiredPosition, row, 1);
     row++;
 
     QLabel * currentEffortLabel = new QLabel("Current effort (Nm)");
     currentEffortLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(currentEffortLabel, row, 0);
-    QVRCurrentEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRCurrentEffortWidget->SetPrecision(3);
-    gridLayout->addWidget(QVRCurrentEffortWidget, row, 1);
+    QVRCurrentEffort = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRCurrentEffort->SetPrecision(3);
+    gridLayout->addWidget(QVRCurrentEffort, row, 1);
     row++;
 
     QLabel * desiredEffortLabel = new QLabel("Desired effort (Nm)");
     desiredEffortLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(desiredEffortLabel, row, 0);
-    QVWDesiredEffortWidget = new vctQtWidgetDynamicVectorDoubleRead();
-    QVWDesiredEffortWidget->SetPrecision(3);
-    gridLayout->addWidget(QVWDesiredEffortWidget, row, 1);
+    QVWDesiredEffort = new vctQtWidgetDynamicVectorDoubleRead();
+    QVWDesiredEffort->SetPrecision(3);
+    gridLayout->addWidget(QVWDesiredEffort, row, 1);
     row++;
 
     QLabel * pLabel = new QLabel("PGain");
     pLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(pLabel);
-    QVWPGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWPGainWidget->SetStep(0.01);
-    QVWPGainWidget->SetPrecision(3);
-    QVWPGainWidget->SetRange(-maximum, maximum);
-    gridLayout->addWidget(QVWPGainWidget, row, 1);
+    QVWPGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWPGain->SetStep(0.01);
+    QVWPGain->SetPrecision(3);
+    QVWPGain->SetRange(-maximum, maximum);
+    gridLayout->addWidget(QVWPGain, row, 1);
     row++;
 
     QLabel * dLabel = new QLabel("DGain");
     dLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(dLabel);
-    QVWDGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWDGainWidget->SetStep(0.01);
-    QVWDGainWidget->SetPrecision(3);
-    QVWDGainWidget->SetRange(-maximum, maximum);
-    gridLayout->addWidget(QVWDGainWidget, row, 1);
+    QVWDGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWDGain->SetStep(0.01);
+    QVWDGain->SetPrecision(3);
+    QVWDGain->SetRange(-maximum, maximum);
+    gridLayout->addWidget(QVWDGain, row, 1);
     row++;
 
     QLabel * iLabel = new QLabel("IGain");
     iLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(iLabel);
-    QVWIGainWidget = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWIGainWidget->SetStep(0.001);
-    QVWIGainWidget->SetPrecision(5);
-    QVWIGainWidget->SetRange(-maximum, maximum);
-    gridLayout->addWidget(QVWIGainWidget, row, 1);
+    QVWIGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWIGain->SetStep(0.001);
+    QVWIGain->SetPrecision(5);
+    QVWIGain->SetRange(-maximum, maximum);
+    gridLayout->addWidget(QVWIGain, row, 1);
     row++;
 
     // plot
@@ -451,26 +474,25 @@ void mtsPIDQtWidget::setupUi(void)
 
     // control
     QCBEnableDirectControl = new QCheckBox("Direct control");
-    QCBEnablePID = new QCheckBox("Enable PID");
-    QCBEnableTorqueMode = new QCheckBox("Enable torque mode");
+    QCBEnable = new QCheckBox("Enable PID");
+    QCBEnableTrackingError = new QCheckBox("Enable tracking error");
     QPBMaintainPosition = new QPushButton("Maintain position");
     QPBZeroPosition = new QPushButton("Zero position");
     QPBResetPIDGain = new QPushButton("Reset PID gains");
     QHBoxLayout * controlLayout = new QHBoxLayout;
     controlLayout->addWidget(QCBEnableDirectControl);
-    controlLayout->addWidget(QCBEnablePID);
-    controlLayout->addWidget(QCBEnableTorqueMode);
+    controlLayout->addWidget(QCBEnable);
+    controlLayout->addWidget(QCBEnableTrackingError);
     controlLayout->addWidget(QPBMaintainPosition);
     controlLayout->addWidget(QPBZeroPosition);
     controlLayout->addWidget(QPBResetPIDGain);
-    controlLayout->addStretch();
     QGroupBox * controlGroupBox = new QGroupBox("Control");
     controlGroupBox->setLayout(controlLayout);
 
     connect(QCBEnableDirectControl, SIGNAL(toggled(bool)), this, SLOT(SlotEnableDirectControl(bool)));
-    connect(QCBEnablePID, SIGNAL(clicked(bool)), this, SLOT(SlotEnablePID(bool)));
-    connect(this, SIGNAL(SignalEnablePID(bool)), this, SLOT(SlotEnableEventHandler(bool)));
-    connect(QCBEnableTorqueMode, SIGNAL(toggled(bool)), this, SLOT(SlotEnableTorqueMode(bool)));
+    connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnable(bool)));
+    connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnableEventHandler(bool)));
+    connect(QCBEnableTrackingError, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTrackingError(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(QPBZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
     connect(QPBResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
@@ -485,14 +507,14 @@ void mtsPIDQtWidget::setupUi(void)
     setLayout(mainLayout);
 
     setWindowTitle(this->GetName().c_str());
-    setMinimumWidth(750);
     resize(sizeHint());
 
     // connect signals & slots
-    connect(QVWDesiredPositionWidget, SIGNAL(valueChanged()), this, SLOT(SlotPositionChanged()));
-    connect(QVWPGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotPGainChanged()));
-    connect(QVWDGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotDGainChanged()));
-    connect(QVWIGainWidget, SIGNAL(valueChanged()), this, SLOT(SlotIGainChanged()));
+    connect(QVWJointsEnabled, SIGNAL(valueChanged()), this, SLOT(SlotEnabledJointsChanged()));
+    connect(QVWDesiredPosition, SIGNAL(valueChanged()), this, SLOT(SlotPositionChanged()));
+    connect(QVWPGain, SIGNAL(valueChanged()), this, SLOT(SlotPGainChanged()));
+    connect(QVWDGain, SIGNAL(valueChanged()), this, SLOT(SlotDGainChanged()));
+    connect(QVWIGain, SIGNAL(valueChanged()), this, SLOT(SlotIGainChanged()));
 
     // set initial values
     QCBEnableDirectControl->setChecked(DirectControl);
@@ -506,5 +528,5 @@ void mtsPIDQtWidget::ErrorEventHandler(const mtsMessage & message)
 
 void mtsPIDQtWidget::EnableEventHandler(const bool & enable)
 {
-    emit SignalEnablePID(enable);
+    emit SignalEnable(enable);
 }

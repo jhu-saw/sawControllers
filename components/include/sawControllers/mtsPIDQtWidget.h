@@ -53,12 +53,13 @@ protected:
     virtual void closeEvent(QCloseEvent * event);
 
 signals:
-    void SignalEnablePID(bool enable);
+    void SignalEnable(bool enable);
 
 private slots:
     //! slot enable/disable mtsPID controller
-    void SlotEnablePID(bool toggle);
-    void SlotEnableTorqueMode(bool toggle);
+    void SlotEnable(bool toggle);
+    void SlotEnabledJointsChanged(void);
+    void SlotEnableTrackingError(bool toggle);
     //! slot send desired pos when input changed
     void SlotPositionChanged(void);
     void SlotPGainChanged(void);
@@ -92,7 +93,10 @@ protected:
     struct ControllerPIDStruct {
         mtsFunctionVoid  ResetController;
         mtsFunctionWrite Enable;
-        mtsFunctionWrite EnableTorqueMode;
+        mtsFunctionWrite EnableJoints;
+        mtsFunctionRead  JointsEnabled;
+        mtsFunctionWrite EnableTrackingError;
+        mtsFunctionRead  TrackingErrorEnabled;
         mtsFunctionWrite SetPositionJoint;
         mtsFunctionRead  GetStateJoint;
         mtsFunctionRead  GetStateJointDesired;
@@ -114,6 +118,7 @@ private:
     bool DirectControl;
 
     //! SetPosition
+    vctBoolVec JointsEnabled;
     vctDoubleVec DesiredPosition;
     prmPositionJointSet DesiredPositionParam;
     vctDoubleVec UnitFactor;
@@ -122,18 +127,19 @@ private:
 
     // GUI: Commands
     QCheckBox * QCBEnableDirectControl;
-    QCheckBox * QCBEnablePID;
-    QCheckBox * QCBEnableTorqueMode;
+    QCheckBox * QCBEnable;
+    QCheckBox * QCBEnableTrackingError;
     QPushButton * QPBMaintainPosition;
     QPushButton * QPBZeroPosition;
     QPushButton * QPBResetPIDGain;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPositionWidget;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPositionWidget;
-    vctQtWidgetDynamicVectorDoubleRead * QVWDesiredEffortWidget;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffortWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWPGainWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWDGainWidget;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWIGainWidget;
+    vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPosition;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPosition;
+    vctQtWidgetDynamicVectorDoubleRead * QVWDesiredEffort;
+    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffort;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWPGain;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDGain;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWIGain;
 
     // GUI: plot
     vctPlot2DOpenGLQtWidget * QVPlot;

@@ -74,6 +74,7 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(mEffortUserCommand, "EffortUserCommand");
     // this should go in a "read" state table
     StateTable.AddData(mEnabled, "Enabled");
+    StateTable.AddData(mJointsEnabled, "JointsEnabled");
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
     StateTable.AddData(mEffortMeasure, "EffortMeasure");
@@ -89,7 +90,7 @@ void mtsPID::SetupInterfaces(void)
     mConfigurationStateTable.AddData(mPositionLowerLimit, "PositionLowerLimit");
     mConfigurationStateTable.AddData(mPositionUpperLimit, "PositionUpperLimit");
     mConfigurationStateTable.AddData(mJointType, "JointType");
-    mConfigurationStateTable.AddData(mEnableTrackingError, "EnableTrackingError");
+    StateTable.AddData(mTrackingErrorEnabled, "EnableTrackingError"); // that table advances automatically
     mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
     mInterface = AddInterfaceProvided("Controller");
@@ -99,7 +100,8 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::Enable, this, "Enable", false);
         mInterface->AddCommandWrite(&mtsPID::EnableJoints, this, "EnableJoints", mJointsEnabled);
         mInterface->AddCommandWrite(&mtsPID::EnableEffortMode, this, "EnableTorqueMode", mEffortMode);
-        mInterface->AddCommandReadState(StateTable, mEnabled, "IsEnabled");
+        mInterface->AddCommandReadState(StateTable, mEnabled, "Enabled");
+        mInterface->AddCommandReadState(StateTable, mJointsEnabled, "JointsEnabled");
 
         // set goals
         mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", prmPositionJointSet());
@@ -128,7 +130,8 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(mConfigurationStateTable, mJointType, "GetJointType");
 
         // Error tracking
-        mInterface->AddCommandWriteState(mConfigurationStateTable, mEnableTrackingError, "EnableTrackingError");
+        mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
+        mInterface->AddCommandReadState(StateTable, mTrackingErrorEnabled, "TrackingErrorEnabled");
         mInterface->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
 
         // Set PID gains
@@ -184,19 +187,6 @@ void mtsPID::Configure(const std::string & filename)
 
     // set dynamic var size
     mJointType.SetSize(mNumberOfJoints);
-    mGains.Kp.SetSize(mNumberOfJoints);
-    mGains.Kd.SetSize(mNumberOfJoints);
-    mGains.Ki.SetSize(mNumberOfJoints);
-    mGains.Offset.SetSize(mNumberOfJoints, 0.0);
-    mPositionLowerLimit.SetSize(mNumberOfJoints, 0.0);
-    mPositionUpperLimit.SetSize(mNumberOfJoints, 0.0);
-    mEffortLowerLimit.SetSize(mNumberOfJoints, 0.0);
-    mEffortUpperLimit.SetSize(mNumberOfJoints, 0.0);
-    mPositionLimitFlag.SetSize(mNumberOfJoints);
-    mPositionLimitFlag.SetAll(false);
-    mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
-    mJointsEnabled.SetSize(mNumberOfJoints);
-    mJointsEnabled.SetAll(true);
 
     // feedback
     mPositionMeasure.Position().SetSize(mNumberOfJoints, 0.0);
@@ -206,37 +196,10 @@ void mtsPID::Configure(const std::string & filename)
     mVelocityMeasure.Velocity().SetSize(mNumberOfJoints, 0.0);
     mPositionMeasurePrevious.Position().SetSize(mNumberOfJoints, 0.0);
 
-    // errors
-    mError.SetSize(mNumberOfJoints);
-    mIError.SetSize(mNumberOfJoints);
-    ResetController();
-
-    mIErrorLimitMin.SetSize(mNumberOfJoints, cmnTypeTraits<double>::MinNegativeValue());
-    mIErrorLimitMax.SetSize(mNumberOfJoints, cmnTypeTraits<double>::MaxPositiveValue());
-
-    // default 1.0: no effect
-    mIErrorForgetFactor.SetSize(mNumberOfJoints);
-    mIErrorForgetFactor.SetAll(1.0);
-
-    // default: use regular PID
-    mNonLinear.SetSize(mNumberOfJoints);
-    mNonLinear.SetAll(0.0);
-
-    mDeadBand.SetSize(mNumberOfJoints);
-    mDeadBand.SetAll(0.0);
-
-    // effort mode
-    mEffortMode.SetSize(mNumberOfJoints);
-    mEffortMode.SetAll(false);
-
-    // tracking error
-    mEnableTrackingError = false;
-    mTrackingErrorTolerances.SetSize(mNumberOfJoints, 0.0);
-    mTrackingErrorFlag.SetSize(mNumberOfJoints, false);
-    mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
-
     // read data from xml file
     char context[64];
+
+    // first loop to find inactive joints
     for (int i = 0; i < numberOfJoints; i++) {
         // joint
         sprintf(context, "controller/joints/joint[%d]", i + 1);
@@ -274,49 +237,97 @@ void mtsPID::Configure(const std::string & filename)
             }
             mNumberOfActiveJoints++;
         }
+    }
 
-        if (!hasInactiveJoints) {
-            // name
-            std::string name;
-            config.GetXMLValue(context, "@name", name);
-            // names in joint states
-            mStateJointMeasure.Name().resize(mNumberOfActiveJoints);
-            mStateJointCommand.Name().resize(mNumberOfActiveJoints);
-            mStateJointMeasure.Name().at(i) = name;
-            mStateJointCommand.Name().at(i) = name;
+    // size all vectors specific to active joints
+    mGains.Kp.SetSize(mNumberOfActiveJoints);
+    mGains.Kd.SetSize(mNumberOfActiveJoints);
+    mGains.Ki.SetSize(mNumberOfActiveJoints);
+    mGains.Offset.SetSize(mNumberOfActiveJoints, 0.0);
+    mPositionLowerLimit.SetSize(mNumberOfActiveJoints, 0.0);
+    mPositionUpperLimit.SetSize(mNumberOfActiveJoints, 0.0);
+    mEffortLowerLimit.SetSize(mNumberOfActiveJoints, 0.0);
+    mEffortUpperLimit.SetSize(mNumberOfActiveJoints, 0.0);
+    mPositionLimitFlag.SetSize(mNumberOfActiveJoints);
+    mPositionLimitFlag.SetAll(false);
+    mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
+    mJointsEnabled.SetSize(mNumberOfActiveJoints);
+    mJointsEnabled.SetAll(true);
 
-            // pid
-            config.GetXMLValue(context, "pid/@PGain", mGains.Kp.at(i));
-            config.GetXMLValue(context, "pid/@DGain", mGains.Kd.at(i));
-            config.GetXMLValue(context, "pid/@IGain", mGains.Ki.at(i));
-            config.GetXMLValue(context, "pid/@OffsetTorque", mGains.Offset.at(i));
-            config.GetXMLValue(context, "pid/@Forget", mIErrorForgetFactor.at(i));
-            config.GetXMLValue(context, "pid/@Nonlinear", mNonLinear.at(i));
+    // errors
+    mError.SetSize(mNumberOfActiveJoints);
+    mIError.SetSize(mNumberOfActiveJoints);
+    ResetController();
 
-            // limit
-            config.GetXMLValue(context, "limit/@MinILimit", mIErrorLimitMin.at(i));
-            config.GetXMLValue(context, "limit/@MaxILimit", mIErrorLimitMax.at(i));
-            config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances.at(i));
-            config.GetXMLValue(context, "limit/@Deadband", mDeadBand.at(i));
+    mIErrorLimitMin.SetSize(mNumberOfActiveJoints, cmnTypeTraits<double>::MinNegativeValue());
+    mIErrorLimitMax.SetSize(mNumberOfActiveJoints, cmnTypeTraits<double>::MaxPositiveValue());
 
-            // joint limit
-            mCheckPositionLimit = true;
-            std::string tmpUnits;
-            bool ret = false;
-            ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
-            if (ret) {
-                config.GetXMLValue(context, "pos/@LowerLimit", mPositionLowerLimit.at(i));
-                config.GetXMLValue(context, "pos/@UpperLimit", mPositionUpperLimit.at(i));
-                if (tmpUnits == "deg") {
-                    mPositionLowerLimit.at(i) *= cmnPI_180;
-                    mPositionUpperLimit.at(i) *= cmnPI_180;
-                } else if (tmpUnits == "mm") {
-                    mPositionLowerLimit.at(i) *= cmn_mm;
-                    mPositionUpperLimit.at(i) *= cmn_mm;
-                }
-            } else {
-                mCheckPositionLimit = false;
+    // default 1.0: no effect
+    mIErrorForgetFactor.SetSize(mNumberOfActiveJoints);
+    mIErrorForgetFactor.SetAll(1.0);
+
+    // default: use regular PID
+    mNonLinear.SetSize(mNumberOfActiveJoints);
+    mNonLinear.SetAll(0.0);
+
+    mDeadBand.SetSize(mNumberOfActiveJoints);
+    mDeadBand.SetAll(0.0);
+
+    // effort mode
+    mEffortMode.SetSize(mNumberOfActiveJoints);
+    mEffortMode.SetAll(false);
+
+    // tracking error
+    mTrackingErrorEnabled = false;
+    mTrackingErrorTolerances.SetSize(mNumberOfActiveJoints, 0.0);
+    mTrackingErrorFlag.SetSize(mNumberOfActiveJoints, false);
+    mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
+
+    // loop to get configuration data except type
+    for (int i = 0; i < mNumberOfActiveJoints; i++) {
+        // joint
+        sprintf(context, "controller/joints/joint[%d]", i + 1);
+
+        // name
+        std::string name;
+        config.GetXMLValue(context, "@name", name);
+        // names in joint states
+        mStateJointMeasure.Name().resize(mNumberOfActiveJoints);
+        mStateJointCommand.Name().resize(mNumberOfActiveJoints);
+        mStateJointMeasure.Name().at(i) = name;
+        mStateJointCommand.Name().at(i) = name;
+        
+        // pid
+        config.GetXMLValue(context, "pid/@PGain", mGains.Kp.at(i));
+        config.GetXMLValue(context, "pid/@DGain", mGains.Kd.at(i));
+        config.GetXMLValue(context, "pid/@IGain", mGains.Ki.at(i));
+        config.GetXMLValue(context, "pid/@OffsetTorque", mGains.Offset.at(i));
+        config.GetXMLValue(context, "pid/@Forget", mIErrorForgetFactor.at(i));
+        config.GetXMLValue(context, "pid/@Nonlinear", mNonLinear.at(i));
+        
+        // limit
+        config.GetXMLValue(context, "limit/@MinILimit", mIErrorLimitMin.at(i));
+        config.GetXMLValue(context, "limit/@MaxILimit", mIErrorLimitMax.at(i));
+        config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances.at(i));
+        config.GetXMLValue(context, "limit/@Deadband", mDeadBand.at(i));
+        
+        // joint limit
+        mCheckPositionLimit = true;
+        std::string tmpUnits;
+        bool ret = false;
+        ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
+        if (ret) {
+            config.GetXMLValue(context, "pos/@LowerLimit", mPositionLowerLimit.at(i));
+            config.GetXMLValue(context, "pos/@UpperLimit", mPositionUpperLimit.at(i));
+            if (tmpUnits == "deg") {
+                mPositionLowerLimit.at(i) *= cmnPI_180;
+                mPositionUpperLimit.at(i) *= cmnPI_180;
+            } else if (tmpUnits == "mm") {
+                mPositionLowerLimit.at(i) *= cmn_mm;
+                mPositionUpperLimit.at(i) *= cmn_mm;
             }
+        } else {
+            mCheckPositionLimit = false;
         }
     }
 
@@ -464,7 +475,7 @@ void mtsPID::Run(void)
                     *error = 0.0;
                 }
                 // check for tracking errors
-                if (mEnableTrackingError) {
+                if (mTrackingErrorEnabled) {
                     double errorAbsolute = fabs(*error);
                     // trigger error if the error is too high
                     // AND the last request was not outside joint limit
@@ -522,7 +533,7 @@ void mtsPID::Run(void)
     }
 
     // report errors (tracking)
-    if (mEnableTrackingError && anyTrackingError) {
+    if (mTrackingErrorEnabled && anyTrackingError) {
         Enable(false);
         if (newTrackingError) {
             std::string message = this->Name + ": tracking error, mask (1 for error): ";
