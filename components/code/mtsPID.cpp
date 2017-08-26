@@ -762,6 +762,8 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 void mtsPID::Enable(const bool & enable)
 {
     if (enable == mEnabled) {
+        // trigger Enabled
+        Events.Enabled(mEnabled);
         return;
     }
 
