@@ -296,7 +296,7 @@ void mtsPID::Configure(const std::string & filename)
         mStateJointCommand.Name().resize(mNumberOfActiveJoints);
         mStateJointMeasure.Name().at(i) = name;
         mStateJointCommand.Name().at(i) = name;
-        
+
         // pid
         config.GetXMLValue(context, "pid/@PGain", mGains.Kp.at(i));
         config.GetXMLValue(context, "pid/@DGain", mGains.Kd.at(i));
@@ -304,13 +304,13 @@ void mtsPID::Configure(const std::string & filename)
         config.GetXMLValue(context, "pid/@OffsetTorque", mGains.Offset.at(i));
         config.GetXMLValue(context, "pid/@Forget", mIErrorForgetFactor.at(i));
         config.GetXMLValue(context, "pid/@Nonlinear", mNonLinear.at(i));
-        
+
         // limit
         config.GetXMLValue(context, "limit/@MinILimit", mIErrorLimitMin.at(i));
         config.GetXMLValue(context, "limit/@MaxILimit", mIErrorLimitMax.at(i));
         config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances.at(i));
         config.GetXMLValue(context, "limit/@Deadband", mDeadBand.at(i));
-        
+
         // joint limit
         mCheckPositionLimit = true;
         std::string tmpUnits;
@@ -560,13 +560,6 @@ void mtsPID::Run(void)
             SetEffortLocal(mStateJointCommand.Effort());
         }
     }
-
-    // update state data
-    // outdated, now use state to compute effort
-    // mStateJointCommand.Effort().Assign(mStateJointCommand.Effort(), mNumberOfActiveJoints);
-
-    // save previous position
-    // PORTED mPositionMeasurePrevious = mPositionMeasure;
 }
 
 
