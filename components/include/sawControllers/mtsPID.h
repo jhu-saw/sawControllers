@@ -35,7 +35,6 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmVelocityJointGet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
-#include <cisstParameterTypes/prmJointType.h>
 #include <cisstParameterTypes/prmActuatorJointCoupling.h>
 
 #include <sawControllers/sawControllersRevision.h>
@@ -100,8 +99,6 @@ protected:
     //! Desired joint efforts when bypassing PID
     prmForceTorqueJointSet mEffortUserCommand;
 
-    //! prm type joint type
-    prmJointTypeVec mJointType;
     //! prm type feedback positoin
     prmPositionJointGet mPositionMeasure;
     prmPositionJointGet mPositionMeasurePrevious;

@@ -89,7 +89,6 @@ void mtsPID::SetupInterfaces(void)
     mConfigurationStateTable.AddData(mGains.Ki, "Ki");
     mConfigurationStateTable.AddData(mPositionLowerLimit, "PositionLowerLimit");
     mConfigurationStateTable.AddData(mPositionUpperLimit, "PositionUpperLimit");
-    mConfigurationStateTable.AddData(mJointType, "JointType");
     StateTable.AddData(mTrackingErrorEnabled, "EnableTrackingError"); // that table advances automatically
     mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
@@ -127,7 +126,6 @@ void mtsPID::SetupInterfaces(void)
         // Get joint limits
         mInterface->AddCommandReadState(mConfigurationStateTable, mPositionLowerLimit, "GetPositionLowerLimit");
         mInterface->AddCommandReadState(mConfigurationStateTable, mPositionUpperLimit, "GetPositionUpperLimit");
-        mInterface->AddCommandReadState(mConfigurationStateTable, mJointType, "GetJointType");
 
         // Error tracking
         mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
@@ -185,9 +183,6 @@ void mtsPID::Configure(const std::string & filename)
     }
     mNumberOfJoints = static_cast<size_t>(numberOfJoints);
 
-    // set dynamic var size
-    mJointType.SetSize(mNumberOfJoints);
-
     // feedback
     mPositionMeasure.Position().SetSize(mNumberOfJoints, 0.0);
     mEffortMeasure.SetSize(mNumberOfJoints, 0.0);
@@ -199,6 +194,9 @@ void mtsPID::Configure(const std::string & filename)
     // read data from xml file
     char context[64];
 
+    mStateJointMeasure.Type().SetSize(numberOfJoints);
+    mStateJointCommand.Type().SetSize(numberOfJoints);
+
     // first loop to find inactive joints
     for (int i = 0; i < numberOfJoints; i++) {
         // joint
@@ -206,13 +204,14 @@ void mtsPID::Configure(const std::string & filename)
 
         // type
         std::string type;
+        prmJointType jointType;
         config.GetXMLValue(context, "@type", type);
         if (type == "Revolute") {
-            mJointType.at(i) = PRM_REVOLUTE;
+            jointType = PRM_JOINT_REVOLUTE;
         } else if (type == "Prismatic") {
-            mJointType.at(i) = PRM_PRISMATIC;
+            jointType = PRM_JOINT_PRISMATIC;
         } else if (type == "Inactive") {
-            mJointType.at(i) = PRM_INACTIVE;
+            jointType = PRM_JOINT_INACTIVE;
         } else {
             CMN_LOG_CLASS_INIT_ERROR << "Configure: joint " << i << " in file: "
                                      << filename
@@ -223,7 +222,7 @@ void mtsPID::Configure(const std::string & filename)
         }
 
         // make sure we update the number of active joints
-        if (mJointType.at(i) == PRM_INACTIVE) {
+        if (jointType == PRM_JOINT_INACTIVE) {
             hasInactiveJoints = true;
         } else {
             // we found an inactive joint after an active one, this is not supported
@@ -237,7 +236,15 @@ void mtsPID::Configure(const std::string & filename)
             }
             mNumberOfActiveJoints++;
         }
+        // save joint type in joint state
+        mStateJointMeasure.Type().at(i) = jointType;
+        mStateJointCommand.Type().at(i) = jointType;
+
     }
+
+    // resize Types so they will match size of all other vectors in States
+    mStateJointMeasure.Type().resize(mNumberOfActiveJoints);
+    mStateJointCommand.Type().resize(mNumberOfActiveJoints);
 
     // size all vectors specific to active joints
     mGains.Kp.SetSize(mNumberOfActiveJoints);
@@ -376,11 +383,11 @@ void mtsPID::Startup(void)
             for (size_t index = 0;
                  index < mNumberOfActiveJoints;
                  ++index) {
-                if (jointType.at(index) != mJointType.at(index)) {
+                if (jointType.at(index) != mStateJointCommand.Type().at(index)) {
                     std::string message =  "Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                              << "From IO:     " << jointType << std::endl
-                                             << "From config: " << mJointType << std::endl;
+                                             << "From config: " << mStateJointCommand.Type() << std::endl;
                     cmnThrow("PID::" + message);
                 }
             }

@@ -32,7 +32,6 @@ http://www.cisst.org/cisst/license.txt.
 
 // cisst
 #include <cisstMultiTask/mtsInterfaceRequired.h>
-#include <cisstParameterTypes/prmJointType.h>
 #include <cisstCommon/cmnConstants.h>
 #include <cisstCommon/cmnUnits.h>
 
@@ -87,7 +86,6 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
         interfaceRequired->AddFunction("GetStateJoint", PID.GetStateJoint);
         interfaceRequired->AddFunction("GetStateJointDesired", PID.GetStateJointDesired);
-        interfaceRequired->AddFunction("GetJointType", PID.GetJointType);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
         interfaceRequired->AddFunction("GetIGain", PID.GetIGain);
@@ -110,32 +108,16 @@ void mtsPIDQtWidget::Configure(const std::string & filename)
 void mtsPIDQtWidget::Startup(void)
 {
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQtWidget::Startup" << std::endl;
-    // Set desired pos to cur pos
+    // get joint state just to compute conversion factors
     SlotResetPIDGain();
-    mtsExecutionResult result;
-    prmJointTypeVec jointType;
-    result = PID.GetJointType(jointType);
+    mtsExecutionResult result = PID.GetStateJoint(PID.StateJoint);
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
         UnitFactor.SetAll(0.0);
     } else {
         // set unitFactor;
-        for (size_t i = 0; i < this->NumberOfAxis; i++) {
-            switch (jointType[i]) {
-            case PRM_REVOLUTE:
-                UnitFactor[i] = cmn180_PI;
-                break;
-            case PRM_PRISMATIC:
-                UnitFactor[i] = 1.0 / cmn_mm; // convert internal values to mm
-                break;
-            case PRM_INACTIVE:
-                break;
-            default:
-                cmnThrow("mtsPIDQtWidget: unknown joint type");
-                break;
-            }
-        }
+        prmJointTypeToFactor(PID.StateJoint.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
     }
 
     // Show the GUI

@@ -104,7 +104,6 @@ protected:
         prmStateJoint    StateJoint;
         prmStateJoint    StateJointDesired;
 
-        mtsFunctionRead  GetJointType;
         mtsFunctionRead  GetPGain;
         mtsFunctionRead  GetDGain;
         mtsFunctionRead  GetIGain;
