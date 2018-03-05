@@ -433,6 +433,31 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator effortLowerLimit = mEffortLowerLimit.begin();
     vctDoubleVec::const_iterator effortUpperLimit = mEffortUpperLimit.begin();
 
+    CMN_ASSERT(mJointsEnabled.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mStateJointMeasure.Position().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mStateJointMeasure.Velocity().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mStateJointCommand.Position().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mStateJointCommand.Effort().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mEffortMode.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mEffortUserCommand.ForceTorque().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mError.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mDeadBand.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mTrackingErrorTolerances.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mPositionLimitFlag.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mTrackingErrorFlag.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mPreviousTrackingErrorFlag.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mIError.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mIErrorForgetFactor.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mIErrorLimitMin.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mIErrorLimitMax.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mGains.Kp.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mGains.Ki.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mGains.Kd.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mGains.Offset.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mNonLinear.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mEffortLowerLimit.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mEffortUpperLimit.size() >= mNumberOfActiveJoints);
+
     // loop on all active joints using iterators
     for (size_t i = 0;
          i < mNumberOfActiveJoints;
