@@ -1,6 +1,18 @@
 Change log
 ==========
 
+1.6.0 (2018-xx-xx)
+==================
+
+* API changes:
+  * JointState objects now maintain the joint type (revolute, prismatic...)
+* Deprecated features:
+  * Removed `GetJointType`
+* New features:
+  * Use `CMN_ASSERT` to check vector sizes
+* Bug fixes:
+  * None
+
 1.5.0 (2017-11-07)
 ==================
 
