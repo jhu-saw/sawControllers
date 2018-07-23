@@ -196,9 +196,8 @@ void mtsPIDQtWidget::SlotIGainChanged(void)
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset desired position
-    PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
-    QVWDesiredPosition->SetValue(PID.StateJoint.Position());
-    PID.ResetController();
+    vctDoubleVec goal(PID.StateJoint.Position());
+    QVWDesiredPosition->SetValue(goal);
     SlotPositionChanged();
 }
 
@@ -207,7 +206,6 @@ void mtsPIDQtWidget::SlotZeroPosition(void)
     // reset desired position
     DesiredPosition.SetAll(0.0);
     QVWDesiredPosition->SetValue(DesiredPosition);
-    PID.ResetController();
     SlotPositionChanged();
 }
 
@@ -261,10 +259,6 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QPBMaintainPosition->setEnabled(toggle);
     QPBZeroPosition->setEnabled(toggle);
     QPBResetPIDGain->setEnabled(toggle);
-
-    if (DirectControl) {
-        SlotMaintainPosition();
-    }
 }
 
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
