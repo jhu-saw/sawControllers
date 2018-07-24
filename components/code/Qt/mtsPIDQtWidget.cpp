@@ -201,14 +201,6 @@ void mtsPIDQtWidget::SlotMaintainPosition(void)
     SlotPositionChanged();
 }
 
-void mtsPIDQtWidget::SlotZeroPosition(void)
-{
-    // reset desired position
-    DesiredPosition.SetAll(0.0);
-    QVWDesiredPosition->SetValue(DesiredPosition);
-    SlotPositionChanged();
-}
-
 void mtsPIDQtWidget::SlotResetPIDGain(void)
 {
     // get gains
@@ -257,7 +249,6 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QCBEnable->setEnabled(toggle);
     QCBEnableTrackingError->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
-    QPBZeroPosition->setEnabled(toggle);
     QPBResetPIDGain->setEnabled(toggle);
 }
 
@@ -453,14 +444,12 @@ void mtsPIDQtWidget::setupUi(void)
     QCBEnable = new QCheckBox("Enable PID");
     QCBEnableTrackingError = new QCheckBox("Enable tracking error");
     QPBMaintainPosition = new QPushButton("Maintain position");
-    QPBZeroPosition = new QPushButton("Zero position");
     QPBResetPIDGain = new QPushButton("Reset PID gains");
     QHBoxLayout * controlLayout = new QHBoxLayout;
     controlLayout->addWidget(QCBEnableDirectControl);
     controlLayout->addWidget(QCBEnable);
     controlLayout->addWidget(QCBEnableTrackingError);
     controlLayout->addWidget(QPBMaintainPosition);
-    controlLayout->addWidget(QPBZeroPosition);
     controlLayout->addWidget(QPBResetPIDGain);
     QGroupBox * controlGroupBox = new QGroupBox("Control");
     controlGroupBox->setLayout(controlLayout);
@@ -470,7 +459,6 @@ void mtsPIDQtWidget::setupUi(void)
     connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(QCBEnableTrackingError, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTrackingError(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
-    connect(QPBZeroPosition, SIGNAL(clicked()), this, SLOT(SlotZeroPosition()));
     connect(QPBResetPIDGain, SIGNAL(clicked()), this, SLOT(SlotResetPIDGain()));
     connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
 

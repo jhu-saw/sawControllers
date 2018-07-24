@@ -67,8 +67,6 @@ private slots:
     void SlotIGainChanged(void);
     //! slot reset desired pos to current pos
     void SlotMaintainPosition(void);
-    //! go to zero position
-    void SlotZeroPosition(void);
     //! slot reset pid gain to current gain
     void SlotResetPIDGain(void);
     //! slot to select which axis to plot
@@ -129,7 +127,6 @@ private:
     QCheckBox * QCBEnable;
     QCheckBox * QCBEnableTrackingError;
     QPushButton * QPBMaintainPosition;
-    QPushButton * QPBZeroPosition;
     QPushButton * QPBResetPIDGain;
     vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPosition;
