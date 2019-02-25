@@ -851,7 +851,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
         mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
         mPositionMeasure.SetTimestamp(StateTable.GetTic());
         // measured effort
-        mEffortMeasure.Assign(mEffortUserCommand.ForceTorque());
+        mEffortMeasure.Ref(mEffortUserCommand.ForceTorque().size(),0).Assign(mEffortUserCommand.ForceTorque());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
         Robot.GetFeedbackEffort(mEffortMeasure);
