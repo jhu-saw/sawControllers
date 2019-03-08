@@ -187,7 +187,6 @@ void mtsPID::Configure(const std::string & filename)
     mPositionMeasure.Position().SetSize(mNumberOfJoints, 0.0);
     mEffortMeasure.SetSize(mNumberOfJoints, 0.0);
     mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
-    mEffortUserCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
     mVelocityMeasure.Velocity().SetSize(mNumberOfJoints, 0.0);
     mPositionMeasurePrevious.Position().SetSize(mNumberOfJoints, 0.0);
 
@@ -245,6 +244,7 @@ void mtsPID::Configure(const std::string & filename)
     // resize Types so they will match size of all other vectors in States
     mStateJointMeasure.Type().resize(mNumberOfActiveJoints);
     mStateJointCommand.Type().resize(mNumberOfActiveJoints);
+    mEffortUserCommand.ForceTorque().SetSize(mNumberOfActiveJoints, 0.0);
 
     // size all vectors specific to active joints
     mGains.Kp.SetSize(mNumberOfActiveJoints);
@@ -729,11 +729,11 @@ void mtsPID::ResetController(void)
 
 void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
 {
-    mEffortUserCommand = command;
     if (command.ForceTorque().size() != mNumberOfActiveJoints) {
         CMN_LOG_CLASS_INIT_ERROR << "SetDesiredEffort: size mismatch" << std::endl;
         return;
     }
+    mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
 }
 
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
@@ -851,7 +851,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
         mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
         mPositionMeasure.SetTimestamp(StateTable.GetTic());
         // measured effort
-        mEffortMeasure.Assign(mEffortUserCommand.ForceTorque(), mNumberOfActiveJoints);
+        mEffortMeasure.Ref(mNumberOfActiveJoints).Assign(mEffortUserCommand.ForceTorque());
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
         Robot.GetFeedbackEffort(mEffortMeasure);
