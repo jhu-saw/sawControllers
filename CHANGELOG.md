@@ -1,7 +1,21 @@
 Change log
 ==========
 
-1.6.0 (2018-xx-xx)
+1.7.0 (2019-03-xx)
+==================
+
+* API changes:
+  * osaCartesianImpedanceController: added support for deadband
+  * mtsPIDQtWidget: removed set all goals to 0 (dangerous jumps)
+* Deprecated features:
+  * None
+* New features:
+  * None
+* Bug fixes:
+  * mtsPID: use number of active joints for mEffortUserCommand
+  * mtsPIDQtWidget: fixed unit conversion for joint values, fixed max joint number in plot area
+
+1.6.0 (2018-05-16)
 ==================
 
 * API changes:
