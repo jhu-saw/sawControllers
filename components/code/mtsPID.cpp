@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2019 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -864,25 +864,42 @@ void mtsPID::GetIOData(const bool computeVelocity)
         if (computeVelocity) {
             // or compute an estimate from position
             double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
-            if (dt > 0) {
-                vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
-                vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
-                vctDoubleVec::iterator velocity;
-                const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
-                for (velocity = mVelocityMeasure.Velocity().begin();
-                     velocity != end;
-                     ++velocity) {
-                    *velocity = (*currentPosition - *previousPosition) / dt;
+            if (!mIsSimulated) {
+                if (dt > 0) {
+                    vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+                    vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+                    vctDoubleVec::iterator velocity;
+                    const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
+                    for (velocity = mVelocityMeasure.Velocity().begin();
+                         velocity != end;
+                         ++velocity) {
+                        *velocity = (*currentPosition - *previousPosition) / dt;
+                    }
                 }
             } else {
-                // dt is useless set to zero to be safe
-                mVelocityMeasure.Velocity().SetAll(0.0);
+                // for simulation
+                if (dt > 0) {
+                    vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+                    vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+                    vctDoubleVec::iterator velocity;
+                    const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
+                    for (velocity = mVelocityMeasure.Velocity().begin();
+                         velocity != end;
+                         ++velocity) {
+                        if (*currentPosition != *previousPosition) {
+                            *velocity = (*currentPosition - *previousPosition) / dt;
+                        }
+                    }
+                }
+                
             }
         } else {
             // user requested to not compute velocities, likely
             // because previousPosition can't be trusted (e.g. after
             // coupling change)
-            mVelocityMeasure.Velocity().SetAll(0.0);
+            if (!mIsSimulated) {
+                mVelocityMeasure.Velocity().SetAll(0.0);
+            }
         }
     }
 
