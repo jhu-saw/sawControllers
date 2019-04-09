@@ -1,10 +1,11 @@
 Change log
 ==========
 
-1.7.0 (2019-03-xx)
+1.7.0 (2019-04-09)
 ==================
 
 * API changes:
+  * Using c++ 14 features **Ubuntu 16.04 or higher** required
   * osaCartesianImpedanceController: added support for deadband
   * mtsPIDQtWidget: removed set all goals to 0 (dangerous jumps)
 * Deprecated features:
