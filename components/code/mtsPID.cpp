@@ -864,42 +864,25 @@ void mtsPID::GetIOData(const bool computeVelocity)
         if (computeVelocity) {
             // or compute an estimate from position
             double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
-            if (!mIsSimulated) {
-                if (dt > 0) {
-                    vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
-                    vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
-                    vctDoubleVec::iterator velocity;
-                    const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
-                    for (velocity = mVelocityMeasure.Velocity().begin();
-                         velocity != end;
-                         ++velocity) {
-                        *velocity = (*currentPosition - *previousPosition) / dt;
-                    }
+            if (dt > 0) {
+                vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+                vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+                vctDoubleVec::iterator velocity;
+                const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
+                for (velocity = mVelocityMeasure.Velocity().begin();
+                     velocity != end;
+                     ++velocity) {
+                    *velocity = (*currentPosition - *previousPosition) / dt;
                 }
             } else {
-                // for simulation
-                if (dt > 0) {
-                    vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
-                    vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
-                    vctDoubleVec::iterator velocity;
-                    const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
-                    for (velocity = mVelocityMeasure.Velocity().begin();
-                         velocity != end;
-                         ++velocity) {
-                        if (*currentPosition != *previousPosition) {
-                            *velocity = (*currentPosition - *previousPosition) / dt;
-                        }
-                    }
-                }
-                
+                // dt is useless set to zero to be safe
+                mVelocityMeasure.Velocity().SetAll(0.0);
             }
         } else {
             // user requested to not compute velocities, likely
             // because previousPosition can't be trusted (e.g. after
             // coupling change)
-            if (!mIsSimulated) {
-                mVelocityMeasure.Velocity().SetAll(0.0);
-            }
+            mVelocityMeasure.Velocity().SetAll(0.0);
         }
     }
 
