@@ -586,7 +586,8 @@ void mtsPID::Run(void)
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
-        mEffortMeasure.Assign(mStateJointCommand.Effort(), mNumberOfActiveJoints);
+        // whole loop above is just to perform joint limit clamp, set computed effort to zero
+        mStateJointCommand.Effort().SetAll(0.0);
     } else {
         if (mEnabled) {
             SetEffortLocal(mStateJointCommand.Effort());
@@ -798,6 +799,9 @@ void mtsPID::Enable(const bool & enable)
     mStateJointCommand.Effort().SetAll(0.0);
     if (!mIsSimulated) {
         SetEffortLocal(mStateJointCommand.Effort());
+    } else {
+        mPositionMeasurePrevious.Position().SetAll(0.0);
+        mStateJointCommand.Position().SetAll(0.0);
     }
     // reset error flags
     if (enable) {
@@ -850,8 +854,11 @@ void mtsPID::GetIOData(const bool computeVelocity)
         // set current position/effort based on goal
         mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
         mPositionMeasure.SetTimestamp(StateTable.GetTic());
-        // measured effort
-        mEffortMeasure.Ref(mNumberOfActiveJoints).Assign(mEffortUserCommand.ForceTorque());
+        // if the previous position is old, reset it so velocities start from this position
+        double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
+        if (dt > 1.0 * cmn_s) {
+            mPositionMeasurePrevious.Position().Assign(mPositionMeasure.Position());
+        }
     } else {
         Robot.GetFeedbackPosition(mPositionMeasure);
         Robot.GetFeedbackEffort(mEffortMeasure);
@@ -861,10 +868,36 @@ void mtsPID::GetIOData(const bool computeVelocity)
     if (!mIsSimulated && Robot.GetFeedbackVelocity.IsValid()) {
         Robot.GetFeedbackVelocity(mVelocityMeasure);
     } else {
-        if (computeVelocity) {
-            // or compute an estimate from position
-            double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
-            if (!mIsSimulated) {
+        // or compute an estimate from position
+        double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
+        if (mIsSimulated) {
+            // for simulation, measured positions are actually
+            // last commanded positions so there will be some gaps
+            // in time
+            if (dt <= 0.0) {
+                mVelocityMeasure.Velocity().SetAll(0.0);
+            } else {
+                vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+                vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+                vctDoubleVec::iterator velocity;
+                const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
+                for (velocity = mVelocityMeasure.Velocity().begin();
+                     velocity != end;
+                     ++currentPosition,
+                         ++previousPosition,
+                         ++velocity) {
+                    if (*currentPosition != *previousPosition) {
+                        *velocity = (*currentPosition - *previousPosition) / dt;
+                    }
+                }
+            }
+        } // end of simulated case
+        else {
+            // not simulated but IO level doesn't provide velocities
+            // so estimate it from measured positions.  this
+            // estimation is very simple and likely noisy so try to
+            // avoid this case as much as possible
+            if (computeVelocity) {
                 if (dt > 0) {
                     vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
                     vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
@@ -872,35 +905,22 @@ void mtsPID::GetIOData(const bool computeVelocity)
                     const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
                     for (velocity = mVelocityMeasure.Velocity().begin();
                          velocity != end;
-                         ++velocity) {
+                         ++currentPosition,
+                             ++previousPosition,
+                             ++velocity) {
                         *velocity = (*currentPosition - *previousPosition) / dt;
                     }
                 }
             } else {
-                // for simulation
-                if (dt > 0) {
-                    vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
-                    vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
-                    vctDoubleVec::iterator velocity;
-                    const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
-                    for (velocity = mVelocityMeasure.Velocity().begin();
-                         velocity != end;
-                         ++velocity) {
-                        if (*currentPosition != *previousPosition) {
-                            *velocity = (*currentPosition - *previousPosition) / dt;
-                        }
-                    }
+                // user requested to not compute velocities, likely
+                // because previousPosition can't be trusted
+                // (e.g. after coupling change)
+                if (!mIsSimulated) {
+                    mVelocityMeasure.Velocity().SetAll(0.0);
                 }
-                
             }
-        } else {
-            // user requested to not compute velocities, likely
-            // because previousPosition can't be trusted (e.g. after
-            // coupling change)
-            if (!mIsSimulated) {
-                mVelocityMeasure.Velocity().SetAll(0.0);
-            }
-        }
+        } // end of software base velocity estimation based on
+          // measured positions
     }
 
     // update state data
