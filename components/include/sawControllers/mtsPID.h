@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2019 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -96,6 +96,9 @@ protected:
     //! Commanded joint efforts sent to IO level
     vctDoubleVec mEffortMeasure;
     prmForceTorqueJointSet mEffortPIDCommand;
+    //! Feedforward, i.e. effort added to the PID output in position mode
+    prmForceTorqueJointSet mFeedForward;
+
     //! Desired joint efforts when bypassing PID
     prmForceTorqueJointSet mEffortUserCommand;
 
@@ -165,12 +168,20 @@ protected:
      */
     void ResetController(void);
 
-    /*! See also EnableEffortMode to control with joints are
-      controlled in position or effort mode. */
+    /*! Set the desired position, i.e. goal used in the PID
+      controller.  See also EnableEffortMode to control with joints
+      are controlled in position or effort mode. */
     void SetDesiredPosition(const prmPositionJointSet & command);
 
-    /*! See also EnableEffortMode to control with joints are controlled
-      in position or effort mode. */
+    /*! Set the effort feed forward for the PID controller.  The
+      effort are added to the output of the PID controller.  These
+      values are ignored for joints controlled in effort mode. */
+    void SetFeedForward(const prmForceTorqueJointSet & feedForward);
+
+    /*! Set the effort directly, this by-passes the PID controller
+      except for the effort limits.  See also EnableEffortMode to
+      control with joints are controlled in position or effort
+      mode. */
     void SetDesiredEffort(const prmForceTorqueJointSet & command);
 
     void Init(void);
@@ -199,7 +210,7 @@ protected:
     /*! Utility method to convert vector of doubles
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
-      requested efforts to the IO component. */ 
+      requested efforts to the IO component. */
     void SetEffortLocal(const vctDoubleVec & effort);
 
     void CouplingEventHandler(const prmActuatorJointCoupling & coupling);

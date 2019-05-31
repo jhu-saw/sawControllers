@@ -104,6 +104,7 @@ void mtsPID::SetupInterfaces(void)
 
         // set goals
         mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", prmPositionJointSet());
+        mInterface->AddCommandWrite(&mtsPID::SetFeedForward, this, "SetFeedForwardJoint", prmForceTorqueJointSet());
         mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "SetTorqueJoint", prmForceTorqueJointSet());
 
         // ROS compatible joint state
@@ -189,6 +190,7 @@ void mtsPID::Configure(const std::string & filename)
     mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
     mVelocityMeasure.Velocity().SetSize(mNumberOfJoints, 0.0);
     mPositionMeasurePrevious.Position().SetSize(mNumberOfJoints, 0.0);
+    mFeedForward.ForceTorque().SetSize(mNumberOfJoints, 0.0);
 
     // read data from xml file
     char context[64];
@@ -429,6 +431,7 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator kI = mGains.Ki.begin();
     vctDoubleVec::const_iterator kD = mGains.Kd.begin();
     vctDoubleVec::const_iterator offset = mGains.Offset.begin();
+    vctDoubleVec::const_iterator feedForward = mFeedForward.ForceTorque().begin();
     vctDoubleVec::const_iterator nonLinear = mNonLinear.begin();
     vctDoubleVec::const_iterator effortLowerLimit = mEffortLowerLimit.begin();
     vctDoubleVec::const_iterator effortUpperLimit = mEffortUpperLimit.begin();
@@ -484,6 +487,7 @@ void mtsPID::Run(void)
              ++kI,
              ++kD,
              ++offset,
+             ++feedForward,
              ++nonLinear,
              ++effortLowerLimit,
              ++effortUpperLimit
@@ -550,6 +554,9 @@ void mtsPID::Run(void)
 
                 // add constant offsets in PID mode only and after non-linear scaling
                 *commandEffort += *offset;
+
+                // finally, add feedForward
+                *commandEffort += *feedForward;
 
             } // end of PID mode
 
@@ -728,15 +735,6 @@ void mtsPID::ResetController(void)
     Enable(false);
 }
 
-void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
-{
-    if (command.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredEffort: size mismatch" << std::endl;
-        return;
-    }
-    mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
-}
-
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 {
 
@@ -785,6 +783,26 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 }
 
 
+void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
+{
+    if (feedForward.ForceTorque().size() != mNumberOfActiveJoints) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetFeedForward: size mismatch" << std::endl;
+        return;
+    }
+    mFeedForward.ForceTorque().Assign(feedForward.ForceTorque());
+}
+
+
+void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
+{
+    if (command.ForceTorque().size() != mNumberOfActiveJoints) {
+        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredEffort: size mismatch" << std::endl;
+        return;
+    }
+    mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
+}
+
+
 void mtsPID::Enable(const bool & enable)
 {
     if (enable == mEnabled) {
@@ -809,6 +827,7 @@ void mtsPID::Enable(const bool & enable)
         mTrackingErrorFlag.SetAll(false);
         mPositionLimitFlagPrevious.SetAll(false);
         mPositionLimitFlag.SetAll(false);
+        mFeedForward.ForceTorque().SetAll(0.0);
     }
     // trigger Enabled
     Events.Enabled(mEnabled);
@@ -837,6 +856,7 @@ void mtsPID::EnableEffortMode(const vctBoolVec & enable)
     mEffortMode.Assign(enable, mNumberOfActiveJoints);
     // reset effort to 0
     mStateJointCommand.Effort().SetAll(0.0);
+    mFeedForward.ForceTorque().SetAll(0.0);
 }
 
 void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
