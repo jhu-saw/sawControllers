@@ -868,7 +868,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
     // mStateJointCommand
     if (mIsSimulated) {
         // check that position is not too old
-        if ((StateTable.GetTic() - mCommandTime) > 50.0 * cmn_ms) {
+        if ((StateTable.GetTic() - mCommandTime) > 20.0 * cmn_ms) {
             mVelocityMeasure.Velocity().SetAll(0.0);
         } else {
             // evaluate velocity based on positions sent by arm/client
@@ -876,14 +876,20 @@ void mtsPID::GetIOData(const bool computeVelocity)
             if (dt > 0) {
                 vctDoubleVec::const_iterator currentPosition = mStateJointCommand.Position().begin();
                 vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
+                vctBoolVec::const_iterator effortMode = mEffortMode.begin();
                 vctDoubleVec::iterator velocity;
                 const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
                 for (velocity = mVelocityMeasure.Velocity().begin();
                      velocity != end;
                      ++currentPosition,
                          ++previousPosition,
+                         ++effortMode,
                          ++velocity) {
-                    *velocity = (*currentPosition - *previousPosition) / dt;
+                    if (*effortMode) {
+                        *velocity = 0.0;
+                    } else {
+                        *velocity = (*currentPosition - *previousPosition) / dt;
+                    }
                 }
             }
         }
