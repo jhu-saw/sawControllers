@@ -44,11 +44,7 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
 
 void mtsPID::Init(void)
 {
-    mCheckPositionLimit = true,
     mApplyEffortLimit = false,
-    mEnabled = false,
-    mIsSimulated = false,
-    mNumberOfActiveJoints = 0,
     AddStateTable(&mConfigurationStateTable);
     mConfigurationStateTable.SetAutomaticAdvance(false);
 }
@@ -75,11 +71,17 @@ void mtsPID::SetupInterfaces(void)
     // this should go in a "read" state table
     StateTable.AddData(mEnabled, "Enabled");
     StateTable.AddData(mJointsEnabled, "JointsEnabled");
+
+    // measures are timestamped by the IO level
+    mPositionMeasure.SetAutomaticTimestamp(false);
     StateTable.AddData(mPositionMeasure, "PositionMeasure");
+    mVelocityMeasure.SetAutomaticTimestamp(false);
     StateTable.AddData(mVelocityMeasure, "VelocityMeasure");
     StateTable.AddData(mEffortMeasure, "EffortMeasure");
     StateTable.AddData(mCheckPositionLimit, "CheckPositionLimit");
     StateTable.AddData(mGains.Offset, "EffortOffset");
+
+    mStateJointMeasure.SetAutomaticTimestamp(false);
     StateTable.AddData(mStateJointMeasure, "StateJointMeasure");
     StateTable.AddData(mStateJointCommand, "StateJointCommand");
 
@@ -157,7 +159,7 @@ void mtsPID::Configure(const std::string & filename)
 {
     mConfigurationStateTable.Start();
 
-    CMN_LOG_CLASS_INIT_VERBOSE << "Configure: using " << filename << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << this->Name << " Configure: using " << filename << std::endl;
     cmnXMLPath config;
     config.SetInputSource(filename);
     mNumberOfActiveJoints = 0;
@@ -170,15 +172,15 @@ void mtsPID::Configure(const std::string & filename)
     int numberOfJoints;
     config.GetXMLValue("/controller", "@numofjoints", numberOfJoints, -1);
     if (type != "PID") {
-        CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong controller type" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: wrong controller type" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     } else if (interface != "JointTorqueInterface") {
-        CMN_LOG_CLASS_INIT_ERROR << "Configure: wrong interface. Require JointTorqueInterface" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: wrong interface. Require JointTorqueInterface" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     } else if (numberOfJoints < 0) {
-        CMN_LOG_CLASS_INIT_ERROR << "Configure: invalid number of joints" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: invalid number of joints" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     }
@@ -214,7 +216,7 @@ void mtsPID::Configure(const std::string & filename)
         } else if (type == "Inactive") {
             jointType = PRM_JOINT_INACTIVE;
         } else {
-            CMN_LOG_CLASS_INIT_ERROR << "Configure: joint " << i << " in file: "
+            CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: joint " << i << " in file: "
                                      << filename
                                      << " needs a \"type\", either \"Revolute\" or \"Prismatic\""
                                      << std::endl;
@@ -228,7 +230,7 @@ void mtsPID::Configure(const std::string & filename)
         } else {
             // we found an inactive joint after an active one, this is not supported
             if (hasInactiveJoints) {
-                CMN_LOG_CLASS_INIT_ERROR << "Configure: joint " << i << " in file: "
+                CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: joint " << i << " in file: "
                                          << filename
                                          << " has is not \"Inactive\" but is defined after an \"Inactive\" joint, this is not supported"
                                          << std::endl;
@@ -379,14 +381,14 @@ void mtsPID::Startup(void)
         prmJointTypeVec jointType;
         result = Robot.GetJointType(jointType);
         if (!result) {
-            CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
+            CMN_LOG_CLASS_INIT_ERROR << this->Name << " Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                      << result << std::endl;
         } else {
             for (size_t index = 0;
                  index < mNumberOfActiveJoints;
                  ++index) {
                 if (jointType.at(index) != mStateJointCommand.Type().at(index)) {
-                    std::string message =  "Startup: joint types from IO don't match types from configuration files for " + this->GetName();
+                    std::string message = this->Name + " Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                              << "From IO:     " << jointType << std::endl
                                              << "From config: " << mStateJointCommand.Type() << std::endl;
@@ -586,19 +588,16 @@ void mtsPID::Run(void)
         }
     }
 
-    // save previous position with timestamp
-    mPositionMeasurePrevious = mPositionMeasure;
+    // make sure we apply efforts only if enabled
+    if (mEnabled) {
+        SetEffortLocal(mStateJointCommand.Effort());
+    }
 
     // for simulated mode
     if (mIsSimulated) {
         mPositionMeasure.SetValid(true);
         mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
-        // whole loop above is just to perform joint limit clamp, set computed effort to zero
-        mStateJointCommand.Effort().SetAll(0.0);
-    } else {
-        if (mEnabled) {
-            SetEffortLocal(mStateJointCommand.Effort());
-        }
+        mPositionMeasure.SetTimestamp(StateTable.GetTic());
     }
 }
 
@@ -607,9 +606,7 @@ void mtsPID::Cleanup(void)
 {
     // cleanup
     mStateJointCommand.Effort().SetAll(0.0);
-    if (!mIsSimulated) {
-        SetEffortLocal(mStateJointCommand.Effort());
-    }
+    SetEffortLocal(mStateJointCommand.Effort());
 }
 
 void mtsPID::SetSimulated(void)
@@ -622,7 +619,7 @@ void mtsPID::SetSimulated(void)
 void mtsPID::SetPGain(const vctDoubleVec & gain)
 {
     if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetPGain: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPGain: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -633,7 +630,7 @@ void mtsPID::SetPGain(const vctDoubleVec & gain)
 void mtsPID::SetDGain(const vctDoubleVec & gain)
 {
     if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetDGain: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDGain: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -644,7 +641,7 @@ void mtsPID::SetDGain(const vctDoubleVec & gain)
 void mtsPID::SetIGain(const vctDoubleVec & gain)
 {
     if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetIGain: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetIGain: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -655,7 +652,7 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
 void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
 {
     if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetPositionLowerLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPositionLowerLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -666,7 +663,7 @@ void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
 void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
 {
     if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetPositionUpperLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPositionUpperLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -677,7 +674,7 @@ void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
 void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
 {
     if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetEffortLowerLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetEffortLowerLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -690,7 +687,7 @@ void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
 void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
 {
     if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetEffortUpperLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetEffortUpperLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -703,7 +700,7 @@ void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
     if (iminlim.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetMinIErrorLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetMinIErrorLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -714,7 +711,7 @@ void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
 {
     if (imaxlim.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetMaxIErrorLimit: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetMaxIErrorLimit: size mismatch" << std::endl;
         return;
     }
     mConfigurationStateTable.Start();
@@ -729,7 +726,7 @@ void mtsPID::SetForgetIError(const double & forget)
 
 void mtsPID::ResetController(void)
 {
-    CMN_LOG_CLASS_RUN_VERBOSE << "Reset Controller" << std::endl;
+    CMN_LOG_CLASS_RUN_VERBOSE << this->Name << " Reset Controller" << std::endl;
     mError.SetAll(0.0);
     mIError.SetAll(0.0);
     Enable(false);
@@ -739,11 +736,12 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 {
 
     if (command.Goal().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredPosition: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDesiredPosition: size mismatch" << std::endl;
         return;
     }
 
     mStateJointCommand.Position().Assign(command.Goal(), mNumberOfActiveJoints);
+    mCommandTime = command.Timestamp(); // mStateJointCommand timestamp is set by this class so can't use it later
 
     if (mCheckPositionLimit) {
         bool limitReached = false;
@@ -786,7 +784,7 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
 {
     if (feedForward.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetFeedForward: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetFeedForward: size mismatch" << std::endl;
         return;
     }
     mFeedForward.ForceTorque().Assign(feedForward.ForceTorque());
@@ -796,7 +794,7 @@ void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
 void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
 {
     if (command.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << "SetDesiredEffort: size mismatch" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDesiredEffort: size mismatch" << std::endl;
         return;
     }
     mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
@@ -815,18 +813,15 @@ void mtsPID::Enable(const bool & enable)
 
     // set effort to 0
     mStateJointCommand.Effort().SetAll(0.0);
-    if (!mIsSimulated) {
-        SetEffortLocal(mStateJointCommand.Effort());
-    } else {
-        mPositionMeasurePrevious.Position().SetAll(0.0);
-        mStateJointCommand.Position().SetAll(0.0);
-    }
+    SetEffortLocal(mStateJointCommand.Effort());
+
     // reset error flags
     if (enable) {
         mPreviousTrackingErrorFlag.SetAll(false);
         mTrackingErrorFlag.SetAll(false);
         mPositionLimitFlagPrevious.SetAll(false);
         mPositionLimitFlag.SetAll(false);
+        mPreviousCommandTime = 0.0;
         mFeedForward.ForceTorque().SetAll(0.0);
     }
     // trigger Enabled
@@ -849,7 +844,7 @@ void mtsPID::EnableJoints(const vctBoolVec & enable)
 void mtsPID::EnableEffortMode(const vctBoolVec & enable)
 {
     if (enable.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_RUN_ERROR << "EnableEffortMode size mismatch" << std::endl;
+        CMN_LOG_CLASS_RUN_ERROR << this->Name << " EnableEffortMode size mismatch" << std::endl;
         return;
     }
     // save preference
@@ -868,36 +863,18 @@ void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
 
 void mtsPID::GetIOData(const bool computeVelocity)
 {
-    // get data from IO if not in simulated mode
+    // get data from IO if not in simulated mode.  When is simulation
+    // mode, position come from the user/client and is found in
+    // mStateJointCommand
     if (mIsSimulated) {
-        mPositionMeasure.SetValid(true);
-        // set current position/effort based on goal
-        mPositionMeasure.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
-        mPositionMeasure.SetTimestamp(StateTable.GetTic());
-        // if the previous position is old, reset it so velocities start from this position
-        double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
-        if (dt > 1.0 * cmn_s) {
-            mPositionMeasurePrevious.Position().Assign(mPositionMeasure.Position());
-        }
-    } else {
-        Robot.GetFeedbackPosition(mPositionMeasure);
-        Robot.GetFeedbackEffort(mEffortMeasure);
-    }
-
-    // update velocities from robot
-    if (!mIsSimulated && Robot.GetFeedbackVelocity.IsValid()) {
-        Robot.GetFeedbackVelocity(mVelocityMeasure);
-    } else {
-        // or compute an estimate from position
-        double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
-        if (mIsSimulated) {
-            // for simulation, measured positions are actually
-            // last commanded positions so there will be some gaps
-            // in time
-            if (dt <= 0.0) {
-                mVelocityMeasure.Velocity().SetAll(0.0);
-            } else {
-                vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
+        // check that position is not too old
+        if ((StateTable.GetTic() - mCommandTime) > 50.0 * cmn_ms) {
+            mVelocityMeasure.Velocity().SetAll(0.0);
+        } else {
+            // evaluate velocity based on positions sent by arm/client
+            const double dt = mCommandTime - mPreviousCommandTime;
+            if (dt > 0) {
+                vctDoubleVec::const_iterator currentPosition = mStateJointCommand.Position().begin();
                 vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
                 vctDoubleVec::iterator velocity;
                 const vctDoubleVec::iterator end = mVelocityMeasure.Velocity().end();
@@ -906,18 +883,30 @@ void mtsPID::GetIOData(const bool computeVelocity)
                      ++currentPosition,
                          ++previousPosition,
                          ++velocity) {
-                    if (*currentPosition != *previousPosition) {
-                        *velocity = (*currentPosition - *previousPosition) / dt;
-                    }
+                    *velocity = (*currentPosition - *previousPosition) / dt;
                 }
             }
-        } // end of simulated case
-        else {
-            // not simulated but IO level doesn't provide velocities
-            // so estimate it from measured positions.  this
-            // estimation is very simple and likely noisy so try to
-            // avoid this case as much as possible
-            if (computeVelocity) {
+        }
+        // timestamp using last know position
+        mPositionMeasurePrevious.Position().Assign(mStateJointCommand.Position(), mNumberOfActiveJoints);
+        mPreviousCommandTime = mCommandTime;
+    }
+
+    // talking to actual robot
+    else {
+        Robot.GetFeedbackPosition(mPositionMeasure);
+        Robot.GetFeedbackEffort(mEffortMeasure);
+
+        if (computeVelocity) {
+            // update velocities from robot, this should be most cases
+            if (Robot.GetFeedbackVelocity.IsValid()) {
+                Robot.GetFeedbackVelocity(mVelocityMeasure);
+            } else {
+                // IO level doesn't provide velocities
+                // so estimate it from measured positions.  this
+                // estimation is very simple and likely noisy so try to
+                // avoid this case as much as possible
+                const double dt = mPositionMeasure.Timestamp() - mPositionMeasurePrevious.Timestamp();
                 if (dt > 0) {
                     vctDoubleVec::const_iterator currentPosition = mPositionMeasure.Position().begin();
                     vctDoubleVec::const_iterator previousPosition = mPositionMeasurePrevious.Position().begin();
@@ -931,28 +920,32 @@ void mtsPID::GetIOData(const bool computeVelocity)
                         *velocity = (*currentPosition - *previousPosition) / dt;
                     }
                 }
-            } else {
-                // user requested to not compute velocities, likely
-                // because previousPosition can't be trusted
-                // (e.g. after coupling change)
-                if (!mIsSimulated) {
-                    mVelocityMeasure.Velocity().SetAll(0.0);
-                }
-            }
-        } // end of software base velocity estimation based on
-          // measured positions
+            } // end of software base velocity estimation based on
+            // measured positions
+        } else {
+            // user requested to not compute velocities, likely
+            // because previousPosition can't be trusted
+            // (e.g. after coupling change)
+            mVelocityMeasure.Velocity().SetAll(0.0);
+        }
+
+        // save previous position with timestamp
+        mPositionMeasurePrevious = mPositionMeasure;
     }
 
     // update state data
     mStateJointMeasure.Position().Assign(mPositionMeasure.Position(), mNumberOfActiveJoints);
     mStateJointMeasure.Velocity().Assign(mVelocityMeasure.Velocity(), mNumberOfActiveJoints);
     mStateJointMeasure.Effort().Assign(mEffortMeasure, mNumberOfActiveJoints);
+    mStateJointMeasure.SetTimestamp(mPositionMeasure.Timestamp());
 }
 
 void mtsPID::SetEffortLocal(const vctDoubleVec & effort)
 {
-    mEffortPIDCommand.ForceTorque().Assign(effort, mNumberOfActiveJoints);
-    Robot.SetEffort(mEffortPIDCommand);
+    if (!mIsSimulated) {
+        mEffortPIDCommand.ForceTorque().Assign(effort, mNumberOfActiveJoints);
+        Robot.SetEffort(mEffortPIDCommand);
+    }
 }
 
 void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
