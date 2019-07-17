@@ -315,6 +315,9 @@ protected:
      */
     void SetForgetIError(const double & forget);
 
+    /*! Return true is size mismatch.  Also sends error message and
+      disables PID. */
+    bool SizeMismatch(const size_t size, const std::string & methodName);
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPID);

@@ -618,8 +618,7 @@ void mtsPID::SetSimulated(void)
 
 void mtsPID::SetPGain(const vctDoubleVec & gain)
 {
-    if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPGain: size mismatch" << std::endl;
+    if (SizeMismatch(gain.size(), "SetPGain")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -629,8 +628,7 @@ void mtsPID::SetPGain(const vctDoubleVec & gain)
 
 void mtsPID::SetDGain(const vctDoubleVec & gain)
 {
-    if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDGain: size mismatch" << std::endl;
+    if (SizeMismatch(gain.size(), "SetDGain")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -640,8 +638,7 @@ void mtsPID::SetDGain(const vctDoubleVec & gain)
 
 void mtsPID::SetIGain(const vctDoubleVec & gain)
 {
-    if (gain.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetIGain: size mismatch" << std::endl;
+    if (SizeMismatch(gain.size(), "SetIGain")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -651,8 +648,7 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
 
 void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
 {
-    if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPositionLowerLimit: size mismatch" << std::endl;
+    if (SizeMismatch(lowerLimit.size(), "SetPositionLowerLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -662,8 +658,7 @@ void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
 
 void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
 {
-    if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetPositionUpperLimit: size mismatch" << std::endl;
+    if (SizeMismatch(upperLimit.size(), "SetPositionUpperLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -673,8 +668,7 @@ void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
 
 void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
 {
-    if (lowerLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetEffortLowerLimit: size mismatch" << std::endl;
+    if (SizeMismatch(lowerLimit.size(), "SetEffortLowerLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -686,8 +680,7 @@ void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
 
 void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
 {
-    if (upperLimit.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetEffortUpperLimit: size mismatch" << std::endl;
+    if (SizeMismatch(upperLimit.size(), "SetEffortUpperLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -699,8 +692,7 @@ void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 {
-    if (iminlim.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetMinIErrorLimit: size mismatch" << std::endl;
+    if (SizeMismatch(iminlim.size(), "SetMinIErrorLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -710,8 +702,7 @@ void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
 
 void mtsPID::SetMaxIErrorLimit(const vctDoubleVec & imaxlim)
 {
-    if (imaxlim.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetMaxIErrorLimit: size mismatch" << std::endl;
+    if (SizeMismatch(imaxlim.size(), "SetMaxIErrorLimit")) {
         return;
     }
     mConfigurationStateTable.Start();
@@ -734,9 +725,7 @@ void mtsPID::ResetController(void)
 
 void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 {
-
-    if (command.Goal().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDesiredPosition: size mismatch" << std::endl;
+    if (SizeMismatch(command.Goal().size(), "SetDesiredPosition")) {
         return;
     }
 
@@ -783,8 +772,7 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 
 void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
 {
-    if (feedForward.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetFeedForward: size mismatch" << std::endl;
+    if (SizeMismatch(feedForward.ForceTorque().size(), "SetFeedForward")) {
         return;
     }
     mFeedForward.ForceTorque().Assign(feedForward.ForceTorque());
@@ -793,8 +781,7 @@ void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
 
 void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
 {
-    if (command.ForceTorque().size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " SetDesiredEffort: size mismatch" << std::endl;
+    if (SizeMismatch(command.ForceTorque().size(), "SetDesiredEffort")) {
         return;
     }
     mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
@@ -831,20 +818,17 @@ void mtsPID::Enable(const bool & enable)
 
 void mtsPID::EnableJoints(const vctBoolVec & enable)
 {
-    if (enable.size() == mNumberOfActiveJoints) {
-        mJointsEnabled.Assign(enable, mNumberOfActiveJoints);
-        Events.EnabledJoints(enable);
-    } else {
-        const std::string message = this->Name + ": incorrect vector size for EnableJoints";
-        cmnThrow(message);
+    if (SizeMismatch(enable.size(), "EnableJoints")) {
+        return;
     }
+    mJointsEnabled.Assign(enable, mNumberOfActiveJoints);
+    Events.EnabledJoints(enable);
 }
 
 
 void mtsPID::EnableEffortMode(const vctBoolVec & enable)
 {
-    if (enable.size() != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_RUN_ERROR << this->Name << " EnableEffortMode size mismatch" << std::endl;
+    if (SizeMismatch(enable.size(), "EnableEffortMode")) {
         return;
     }
     // save preference
@@ -988,4 +972,17 @@ void mtsPID::ErrorEventHandler(const mtsMessage & message)
     } else {
         mInterface->SendStatus(this->GetName() + ": received [" + message.Message + "]");
     }
+}
+
+bool mtsPID::SizeMismatch(const size_t size, const std::string & methodName)
+{
+    if (size != mNumberOfActiveJoints) {
+        CMN_LOG_CLASS_INIT_ERROR << this->Name << " " << methodName << ": size mismatch, expected "
+                                 << mNumberOfActiveJoints << ", received "
+                                 << size << std::endl;
+        Enable(false);
+        mInterface->SendError(this->GetName() + "::" + methodName + ": size mismatch");
+        return true;
+    }
+    return false;
 }
