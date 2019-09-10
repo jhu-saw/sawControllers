@@ -318,6 +318,11 @@ protected:
     /*! Return true is size mismatch.  Also sends error message and
       disables PID. */
     bool SizeMismatch(const size_t size, const std::string & methodName);
+
+    /*! Sends a warning message if any lower limit is greater or equal
+      to upper limit. */
+    void CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
+                         const std::string & methodName);
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPID);

@@ -159,7 +159,7 @@ void mtsPID::Configure(const std::string & filename)
 {
     mConfigurationStateTable.Start();
 
-    CMN_LOG_CLASS_INIT_VERBOSE << this->Name << " Configure: using " << filename << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " Configure: using " << filename << std::endl;
     cmnXMLPath config;
     config.SetInputSource(filename);
     mNumberOfActiveJoints = 0;
@@ -172,15 +172,15 @@ void mtsPID::Configure(const std::string & filename)
     int numberOfJoints;
     config.GetXMLValue("/controller", "@numofjoints", numberOfJoints, -1);
     if (type != "PID") {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: wrong controller type" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: wrong controller type" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     } else if (interface != "JointTorqueInterface") {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: wrong interface. Require JointTorqueInterface" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: wrong interface. Require JointTorqueInterface" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     } else if (numberOfJoints < 0) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: invalid number of joints" << std::endl;
+        CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: invalid number of joints" << std::endl;
         mConfigurationStateTable.Advance();
         return;
     }
@@ -216,7 +216,7 @@ void mtsPID::Configure(const std::string & filename)
         } else if (type == "Inactive") {
             jointType = PRM_JOINT_INACTIVE;
         } else {
-            CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: joint " << i << " in file: "
+            CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: joint " << i << " in file: "
                                      << filename
                                      << " needs a \"type\", either \"Revolute\" or \"Prismatic\""
                                      << std::endl;
@@ -230,7 +230,7 @@ void mtsPID::Configure(const std::string & filename)
         } else {
             // we found an inactive joint after an active one, this is not supported
             if (hasInactiveJoints) {
-                CMN_LOG_CLASS_INIT_ERROR << this->Name << " Configure: joint " << i << " in file: "
+                CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: joint " << i << " in file: "
                                          << filename
                                          << " has is not \"Inactive\" but is defined after an \"Inactive\" joint, this is not supported"
                                          << std::endl;
@@ -381,14 +381,14 @@ void mtsPID::Startup(void)
         prmJointTypeVec jointType;
         result = Robot.GetJointType(jointType);
         if (!result) {
-            CMN_LOG_CLASS_INIT_ERROR << this->Name << " Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
+            CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                      << result << std::endl;
         } else {
             for (size_t index = 0;
                  index < mNumberOfActiveJoints;
                  ++index) {
                 if (jointType.at(index) != mStateJointCommand.Type().at(index)) {
-                    std::string message = this->Name + " Startup: joint types from IO don't match types from configuration files for " + this->GetName();
+                    std::string message = this->GetName() + " Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                              << "From IO:     " << jointType << std::endl
                                              << "From config: " << mStateJointCommand.Type() << std::endl;
@@ -577,7 +577,7 @@ void mtsPID::Run(void)
     if (mTrackingErrorEnabled && anyTrackingError) {
         Enable(false);
         if (newTrackingError) {
-            std::string message = this->Name + ": tracking error, mask (1 for error): ";
+            std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
             message.append(mTrackingErrorFlag.ToString());
             mInterface->SendError(message);
             CMN_LOG_CLASS_RUN_ERROR << message << std::endl
@@ -654,6 +654,10 @@ void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
     mConfigurationStateTable.Start();
     mPositionLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
     mConfigurationStateTable.Advance();
+
+    CheckLowerUpper(mPositionLowerLimit, mPositionUpperLimit, "SetPositionLowerLimit");
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetPositionLowerLimit: called with "
+                               << lowerLimit << std::endl;
 }
 
 void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
@@ -664,6 +668,10 @@ void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
     mConfigurationStateTable.Start();
     mPositionUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
     mConfigurationStateTable.Advance();
+
+    CheckLowerUpper(mPositionLowerLimit, mPositionUpperLimit, "SetPositionUpperLimit");
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetPositionUpperLimit: called with "
+                               << upperLimit << std::endl;
 }
 
 void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
@@ -676,6 +684,10 @@ void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
     mConfigurationStateTable.Advance();
 
     mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
+
+    CheckLowerUpper(mEffortLowerLimit, mEffortUpperLimit, "SetEffortLowerLimit");
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetEffortLowerLimit: called with "
+                               << lowerLimit << std::endl;
 }
 
 void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
@@ -688,6 +700,10 @@ void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
     mConfigurationStateTable.Advance();
 
     mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
+
+    CheckLowerUpper(mEffortLowerLimit, mEffortUpperLimit, "SetEffortUpperLimit");
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetEffortUpperLimit: called with "
+                               << upperLimit << std::endl;
 }
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
@@ -717,7 +733,7 @@ void mtsPID::SetForgetIError(const double & forget)
 
 void mtsPID::ResetController(void)
 {
-    CMN_LOG_CLASS_RUN_VERBOSE << this->Name << " Reset Controller" << std::endl;
+    CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " Reset Controller" << std::endl;
     mError.SetAll(0.0);
     mIError.SetAll(0.0);
     Enable(false);
@@ -756,7 +772,7 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
             if (mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
                 mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
                 Events.PositionLimit(mPositionLimitFlag);
-                std::string message = this->Name + ": position limit, mask (1 for limit): ";
+                std::string message = this->GetName() + ": position limit, mask (1 for limit): ";
                 message.append(mPositionLimitFlag.ToString());
                 mInterface->SendWarning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
@@ -959,7 +975,7 @@ void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
     if (tolerances.size() == mNumberOfActiveJoints) {
         mTrackingErrorTolerances.Assign(tolerances, mNumberOfActiveJoints);
     } else {
-        std::string message = this->Name + ": incorrect vector size for SetTrackingErrorTolerances";
+        std::string message = this->GetName() + ": incorrect vector size for SetTrackingErrorTolerances";
         cmnThrow(message);
     }
 }
@@ -977,7 +993,7 @@ void mtsPID::ErrorEventHandler(const mtsMessage & message)
 bool mtsPID::SizeMismatch(const size_t size, const std::string & methodName)
 {
     if (size != mNumberOfActiveJoints) {
-        CMN_LOG_CLASS_INIT_ERROR << this->Name << " " << methodName << ": size mismatch, expected "
+        CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " " << methodName << ": size mismatch, expected "
                                  << mNumberOfActiveJoints << ", received "
                                  << size << std::endl;
         Enable(false);
@@ -985,4 +1001,19 @@ bool mtsPID::SizeMismatch(const size_t size, const std::string & methodName)
         return true;
     }
     return false;
+}
+
+void mtsPID::CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
+                             const std::string & methodName)
+{
+    // it only makes sense to check if there's at least one limit set
+    if (lower.Any() || upper.Any()) {
+        if (lower.ElementwiseGreaterOrEqual(upper).Any()) {
+            CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " " << methodName
+                                     << ": lower limit greater or equal to upper limit " << std::endl
+                                     << " - lower: " << lower << std::endl
+                                     << " - upper: " << upper << std::endl;
+            mInterface->SendWarning(this->GetName() + "::" + methodName + ": lower limit greater or equal to upper limit");
+        }
+    }
 }
