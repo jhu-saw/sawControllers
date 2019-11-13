@@ -35,6 +35,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <cisstParameterTypes/prmVelocityJointGet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
+#include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmActuatorJointCoupling.h>
 
 #include <sawControllers/sawControllersRevision.h>
@@ -78,18 +79,13 @@ protected:
         vctDoubleVec Offset;
     } mGains;
 
-    //! Position lower limit
-    vctDoubleVec mPositionLowerLimit;
-    //! Position upper limit
-    vctDoubleVec mPositionUpperLimit;
+    //! Joint configuration
+    prmConfigurationJoint mConfigurationJoint;
+
     //! Flag whether check joint limit
     bool mCheckPositionLimit = true;
     vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
 
-    //! Effort lower limit
-    vctDoubleVec mEffortLowerLimit;
-    //! Effort upper limit
-    vctDoubleVec mEffortUpperLimit;
     //! Flag whether to apply effort limit
     bool mApplyEffortLimit;
 
@@ -266,32 +262,14 @@ protected:
     void SetIGain(const vctDoubleVec & igain);
 
     /**
-     * @brief Set joint position lower limit
+     * @brief Set joint configuration.  Size of vector of names must
+     * match the current configuration.  Empty vectors are ignored and
+     * non empty vectors must match the size of the current
+     * configuration.
      *
-     * @param lowerLimit  new joint position lower limit
+     * @param configuration
      */
-    void SetPositionLowerLimit(const vctDoubleVec & lowerLimit);
-
-    /**
-     * @brief Set joint position upper limit
-     *
-     * @param upperLimit  new joint position upper limit
-     */
-    void SetPositionUpperLimit(const vctDoubleVec & upperLimit);
-
-    /**
-     * @brief Set joint effort lower limit
-     *
-     * @param lowerLimit  new joint effort lower limit
-     */
-    void SetEffortLowerLimit(const vctDoubleVec & lowerLimit);
-
-    /**
-     * @brief Set joint effort upper limit
-     *
-     * @param upperLimit  new joint effort upper limit
-     */
-    void SetEffortUpperLimit(const vctDoubleVec & upperLimit);
+    void SetConfigurationJoint(const prmConfigurationJoint & configuration);
 
     /**
      * @brief Set minimum iError limit

@@ -26,6 +26,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsComponent.h>
 #include <cisstVector/vctQtWidgetDynamicVector.h>
 #include <cisstParameterTypes/prmStateJoint.h>
+#include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
 
 #include <QCheckBox>
@@ -96,9 +97,11 @@ protected:
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
         mtsFunctionWrite SetPositionJoint;
+        mtsFunctionRead  GetConfigurationJoint;
         mtsFunctionRead  GetStateJoint;
         mtsFunctionRead  GetStateJointDesired;
 
+        prmConfigurationJoint ConfigurationJoint;
         prmStateJoint    StateJoint;
         prmStateJoint    StateJointDesired;
 

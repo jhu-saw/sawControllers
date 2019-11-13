@@ -89,8 +89,7 @@ void mtsPID::SetupInterfaces(void)
     mConfigurationStateTable.AddData(mGains.Kp, "Kp");
     mConfigurationStateTable.AddData(mGains.Kd, "Kd");
     mConfigurationStateTable.AddData(mGains.Ki, "Ki");
-    mConfigurationStateTable.AddData(mPositionLowerLimit, "PositionLowerLimit");
-    mConfigurationStateTable.AddData(mPositionUpperLimit, "PositionUpperLimit");
+    mConfigurationStateTable.AddData(mConfigurationJoint, "ConfigurationJoint");
     StateTable.AddData(mTrackingErrorEnabled, "EnableTrackingError"); // that table advances automatically
     mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
 
@@ -126,9 +125,8 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Kd, "GetDGain");
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Ki, "GetIGain");
 
-        // Get joint limits
-        mInterface->AddCommandReadState(mConfigurationStateTable, mPositionLowerLimit, "GetPositionLowerLimit");
-        mInterface->AddCommandReadState(mConfigurationStateTable, mPositionUpperLimit, "GetPositionUpperLimit");
+        // Get joint configuration
+        mInterface->AddCommandReadState(mConfigurationStateTable, mConfigurationJoint, "GetConfigurationJoint");
 
         // Error tracking
         mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
@@ -140,13 +138,8 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", mGains.Kd);
         mInterface->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
 
-        // Set joint limits
-        mInterface->AddCommandWrite(&mtsPID::SetPositionLowerLimit, this, "SetPositionLowerLimit", mPositionLowerLimit);
-        mInterface->AddCommandWrite(&mtsPID::SetPositionUpperLimit, this, "SetPositionUpperLimit", mPositionUpperLimit);
-
-        // Set effort limits
-        mInterface->AddCommandWrite(&mtsPID::SetEffortLowerLimit, this, "SetTorqueLowerLimit", mEffortLowerLimit);
-        mInterface->AddCommandWrite(&mtsPID::SetEffortUpperLimit, this, "SetTorqueUpperLimit", mEffortUpperLimit);
+        // Set joint configuration
+        mInterface->AddCommandWrite(&mtsPID::SetConfigurationJoint, this, "SetConfigurationJoint", mConfigurationJoint);
 
         // Events
         mInterface->AddEventWrite(Events.Enabled, "Enabled", false);
@@ -197,8 +190,7 @@ void mtsPID::Configure(const std::string & filename)
     // read data from xml file
     char context[64];
 
-    mStateJointMeasure.Type().SetSize(numberOfJoints);
-    mStateJointCommand.Type().SetSize(numberOfJoints);
+    mConfigurationJoint.Type().SetSize(numberOfJoints);
 
     // first loop to find inactive joints
     for (int i = 0; i < numberOfJoints; i++) {
@@ -240,14 +232,11 @@ void mtsPID::Configure(const std::string & filename)
             mNumberOfActiveJoints++;
         }
         // save joint type in joint state
-        mStateJointMeasure.Type().at(i) = jointType;
-        mStateJointCommand.Type().at(i) = jointType;
-
+        mConfigurationJoint.Type().at(i) = jointType;
     }
 
     // resize Types so they will match size of all other vectors in States
-    mStateJointMeasure.Type().resize(mNumberOfActiveJoints);
-    mStateJointCommand.Type().resize(mNumberOfActiveJoints);
+    mConfigurationJoint.Type().resize(mNumberOfActiveJoints);
     mEffortUserCommand.ForceTorque().SetSize(mNumberOfActiveJoints, 0.0);
 
     // size all vectors specific to active joints
@@ -255,10 +244,10 @@ void mtsPID::Configure(const std::string & filename)
     mGains.Kd.SetSize(mNumberOfActiveJoints);
     mGains.Ki.SetSize(mNumberOfActiveJoints);
     mGains.Offset.SetSize(mNumberOfActiveJoints, 0.0);
-    mPositionLowerLimit.SetSize(mNumberOfActiveJoints, 0.0);
-    mPositionUpperLimit.SetSize(mNumberOfActiveJoints, 0.0);
-    mEffortLowerLimit.SetSize(mNumberOfActiveJoints, 0.0);
-    mEffortUpperLimit.SetSize(mNumberOfActiveJoints, 0.0);
+    mConfigurationJoint.PositionMin().SetSize(mNumberOfActiveJoints, 0.0);
+    mConfigurationJoint.PositionMax().SetSize(mNumberOfActiveJoints, 0.0);
+    mConfigurationJoint.EffortMin().SetSize(mNumberOfActiveJoints, 0.0);
+    mConfigurationJoint.EffortMax().SetSize(mNumberOfActiveJoints, 0.0);
     mPositionLimitFlag.SetSize(mNumberOfActiveJoints);
     mPositionLimitFlag.SetAll(false);
     mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
@@ -305,8 +294,10 @@ void mtsPID::Configure(const std::string & filename)
         // names in joint states
         mStateJointMeasure.Name().resize(mNumberOfActiveJoints);
         mStateJointCommand.Name().resize(mNumberOfActiveJoints);
+        mConfigurationJoint.Name().resize(mNumberOfActiveJoints);
         mStateJointMeasure.Name().at(i) = name;
         mStateJointCommand.Name().at(i) = name;
+        mConfigurationJoint.Name().at(i) = name;
 
         // pid
         config.GetXMLValue(context, "pid/@PGain", mGains.Kp.at(i));
@@ -328,14 +319,14 @@ void mtsPID::Configure(const std::string & filename)
         bool ret = false;
         ret = config.GetXMLValue(context, "pos/@Units", tmpUnits);
         if (ret) {
-            config.GetXMLValue(context, "pos/@LowerLimit", mPositionLowerLimit.at(i));
-            config.GetXMLValue(context, "pos/@UpperLimit", mPositionUpperLimit.at(i));
+            config.GetXMLValue(context, "pos/@LowerLimit", mConfigurationJoint.PositionMin().at(i));
+            config.GetXMLValue(context, "pos/@UpperLimit", mConfigurationJoint.PositionMax().at(i));
             if (tmpUnits == "deg") {
-                mPositionLowerLimit.at(i) *= cmnPI_180;
-                mPositionUpperLimit.at(i) *= cmnPI_180;
+                mConfigurationJoint.PositionMin().at(i) *= cmnPI_180;
+                mConfigurationJoint.PositionMax().at(i) *= cmnPI_180;
             } else if (tmpUnits == "mm") {
-                mPositionLowerLimit.at(i) *= cmn_mm;
-                mPositionUpperLimit.at(i) *= cmn_mm;
+                mConfigurationJoint.PositionMin().at(i) *= cmn_mm;
+                mConfigurationJoint.PositionMax().at(i) *= cmn_mm;
             }
         } else {
             mCheckPositionLimit = false;
@@ -352,8 +343,8 @@ void mtsPID::Configure(const std::string & filename)
                                << "Kd: " << mGains.Kd << std::endl
                                << "Ki: " << mGains.Ki << std::endl
                                << "Offset: " << mGains.Offset << std::endl
-                               << "JntLowerLimit" << mPositionLowerLimit << std::endl
-                               << "JntUpperLimit" << mPositionUpperLimit << std::endl
+                               << "JntLowerLimit" << mConfigurationJoint.PositionMin() << std::endl
+                               << "JntUpperLimit" << mConfigurationJoint.PositionMax() << std::endl
                                << "Deadband: " << mDeadBand << std::endl
                                << "minILimit: " << mIErrorLimitMin << std::endl
                                << "maxILimit: " << mIErrorLimitMax << std::endl
@@ -387,11 +378,11 @@ void mtsPID::Startup(void)
             for (size_t index = 0;
                  index < mNumberOfActiveJoints;
                  ++index) {
-                if (jointType.at(index) != mStateJointCommand.Type().at(index)) {
+                if (jointType.at(index) != mConfigurationJoint.Type().at(index)) {
                     std::string message = this->GetName() + " Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                              << "From IO:     " << jointType << std::endl
-                                             << "From config: " << mStateJointCommand.Type() << std::endl;
+                                             << "From config: " << mConfigurationJoint.Type() << std::endl;
                     cmnThrow("PID::" + message);
                 }
             }
@@ -435,8 +426,8 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator offset = mGains.Offset.begin();
     vctDoubleVec::const_iterator feedForward = mFeedForward.ForceTorque().begin();
     vctDoubleVec::const_iterator nonLinear = mNonLinear.begin();
-    vctDoubleVec::const_iterator effortLowerLimit = mEffortLowerLimit.begin();
-    vctDoubleVec::const_iterator effortUpperLimit = mEffortUpperLimit.begin();
+    vctDoubleVec::const_iterator effortLowerLimit = mConfigurationJoint.EffortMin().begin();
+    vctDoubleVec::const_iterator effortUpperLimit = mConfigurationJoint.EffortMax().begin();
 
     CMN_ASSERT(mJointsEnabled.size() >= mNumberOfActiveJoints);
     CMN_ASSERT(mStateJointMeasure.Position().size() >= mNumberOfActiveJoints);
@@ -460,8 +451,8 @@ void mtsPID::Run(void)
     CMN_ASSERT(mGains.Kd.size() >= mNumberOfActiveJoints);
     CMN_ASSERT(mGains.Offset.size() >= mNumberOfActiveJoints);
     CMN_ASSERT(mNonLinear.size() >= mNumberOfActiveJoints);
-    CMN_ASSERT(mEffortLowerLimit.size() >= mNumberOfActiveJoints);
-    CMN_ASSERT(mEffortUpperLimit.size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mConfigurationJoint.EffortMin().size() >= mNumberOfActiveJoints);
+    CMN_ASSERT(mConfigurationJoint.EffortMax().size() >= mNumberOfActiveJoints);
 
     // loop on all active joints using iterators
     for (size_t i = 0;
@@ -646,64 +637,49 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
     mConfigurationStateTable.Advance();
 }
 
-void mtsPID::SetPositionLowerLimit(const vctDoubleVec & lowerLimit)
+void mtsPID::SetConfigurationJoint(const prmConfigurationJoint & configuration)
 {
-    if (SizeMismatch(lowerLimit.size(), "SetPositionLowerLimit")) {
+    if (SizeMismatch(configuration.Name().size(), "SetConfigurationJoint")) {
         return;
     }
     mConfigurationStateTable.Start();
-    mPositionLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
-    mConfigurationStateTable.Advance();
-
-    CheckLowerUpper(mPositionLowerLimit, mPositionUpperLimit, "SetPositionLowerLimit");
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetPositionLowerLimit: called with "
-                               << lowerLimit << std::endl;
-}
-
-void mtsPID::SetPositionUpperLimit(const vctDoubleVec & upperLimit)
-{
-    if (SizeMismatch(upperLimit.size(), "SetPositionUpperLimit")) {
-        return;
+    // min position
+    if (configuration.PositionMin().size() != 0) {
+        if (SizeMismatch(configuration.PositionMin().size(), "SetConfigurationJoint::PositionMin")) {
+            return;
+        }
+        mConfigurationJoint.PositionMin().Assign(configuration.PositionMin());
     }
-    mConfigurationStateTable.Start();
-    mPositionUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
-    mConfigurationStateTable.Advance();
-
-    CheckLowerUpper(mPositionLowerLimit, mPositionUpperLimit, "SetPositionUpperLimit");
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetPositionUpperLimit: called with "
-                               << upperLimit << std::endl;
-}
-
-void mtsPID::SetEffortLowerLimit(const vctDoubleVec & lowerLimit)
-{
-    if (SizeMismatch(lowerLimit.size(), "SetEffortLowerLimit")) {
-        return;
+    // max position
+    if (configuration.PositionMax().size() != 0) {
+        if (SizeMismatch(configuration.PositionMax().size(), "SetConfigurationJoint::PositionMax")) {
+            return;
+        }
+        mConfigurationJoint.PositionMax().Assign(configuration.PositionMax());
     }
-    mConfigurationStateTable.Start();
-    mEffortLowerLimit.Assign(lowerLimit, mNumberOfActiveJoints);
-    mConfigurationStateTable.Advance();
-
-    mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
-
-    CheckLowerUpper(mEffortLowerLimit, mEffortUpperLimit, "SetEffortLowerLimit");
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetEffortLowerLimit: called with "
-                               << lowerLimit << std::endl;
-}
-
-void mtsPID::SetEffortUpperLimit(const vctDoubleVec & upperLimit)
-{
-    if (SizeMismatch(upperLimit.size(), "SetEffortUpperLimit")) {
-        return;
+    // min effort
+    if (configuration.EffortMin().size() != 0) {
+        if (SizeMismatch(configuration.EffortMin().size(), "SetConfigurationJoint::EffortMin")) {
+            return;
+        }
+        mConfigurationJoint.EffortMin().Assign(configuration.EffortMin());
     }
-    mConfigurationStateTable.Start();
-    mEffortUpperLimit.Assign(upperLimit, mNumberOfActiveJoints);
+    // max effort
+    if (configuration.EffortMax().size() != 0) {
+        if (SizeMismatch(configuration.EffortMax().size(), "SetConfigurationJoint::EffortMax")) {
+            return;
+        }
+        mConfigurationJoint.EffortMax().Assign(configuration.EffortMax());
+    }
     mConfigurationStateTable.Advance();
 
-    mApplyEffortLimit = mEffortLowerLimit.Any() && mEffortUpperLimit.Any();
+    // consistency checks
+    CheckLowerUpper(mConfigurationJoint.PositionMin(), mConfigurationJoint.PositionMax(), "SetPositionLowerLimit");
+    CheckLowerUpper(mConfigurationJoint.EffortMin(), mConfigurationJoint.EffortMax(), "SetEffortLowerLimit");
+    mApplyEffortLimit = mConfigurationJoint.EffortMin().Any() && mConfigurationJoint.EffortMax().Any();
 
-    CheckLowerUpper(mEffortLowerLimit, mEffortUpperLimit, "SetEffortUpperLimit");
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetEffortUpperLimit: called with "
-                               << upperLimit << std::endl;
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetConfigurationJoint: called with "
+                               << configuration << std::endl;
 }
 
 void mtsPID::SetMinIErrorLimit(const vctDoubleVec & iminlim)
@@ -750,8 +726,8 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
 
     if (mCheckPositionLimit) {
         bool limitReached = false;
-        vctDoubleVec::const_iterator upper = mPositionUpperLimit.begin();
-        vctDoubleVec::const_iterator lower = mPositionLowerLimit.begin();
+        vctDoubleVec::const_iterator upper = mConfigurationJoint.PositionMax().begin();
+        vctDoubleVec::const_iterator lower = mConfigurationJoint.PositionMin().begin();
         vctBoolVec::iterator flags = mPositionLimitFlag.begin();
         vctDoubleVec::iterator desired = mStateJointCommand.Position().begin();
         const vctDoubleVec::iterator end = mStateJointCommand.Position().end();
@@ -777,8 +753,8 @@ void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
                 mInterface->SendWarning(message);
                 CMN_LOG_CLASS_RUN_WARNING << message
                                           << ", \n requested: " << mStateJointCommand.Position()
-                                          << ", \n lower limits: " << mPositionLowerLimit
-                                          << ", \n upper limits: " << mPositionUpperLimit
+                                          << ", \n lower limits: " << mConfigurationJoint.PositionMin()
+                                          << ", \n upper limits: " << mConfigurationJoint.PositionMax()
                                           << std::endl;
             }
         }

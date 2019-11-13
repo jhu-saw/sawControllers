@@ -84,6 +84,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
         interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
         interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
+        interfaceRequired->AddFunction("GetConfigurationJoint", PID.GetConfigurationJoint);
         interfaceRequired->AddFunction("GetStateJoint", PID.GetStateJoint);
         interfaceRequired->AddFunction("GetStateJointDesired", PID.GetStateJointDesired);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
@@ -110,14 +111,14 @@ void mtsPIDQtWidget::Startup(void)
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQtWidget::Startup" << std::endl;
     // get joint state just to compute conversion factors
     SlotResetPIDGain();
-    mtsExecutionResult result = PID.GetStateJoint(PID.StateJoint);
+    mtsExecutionResult result = PID.GetConfigurationJoint(PID.ConfigurationJoint);
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
         UnitFactor.SetAll(0.0);
     } else {
         // set unitFactor;
-        prmJointTypeToFactor(PID.StateJoint.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
+        prmJointTypeToFactor(PID.ConfigurationJoint.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
     }
 
     // Show the GUI
