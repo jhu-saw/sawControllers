@@ -639,34 +639,34 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
 
 void mtsPID::SetConfigurationJoint(const prmConfigurationJoint & configuration)
 {
-    if (SizeMismatch(configuration.Name().size(), "SetConfigurationJoint")) {
+    if (SizeMismatch(configuration.Name().size(), "SetConfigurationJoint.Name")) {
         return;
     }
     mConfigurationStateTable.Start();
     // min position
     if (configuration.PositionMin().size() != 0) {
-        if (SizeMismatch(configuration.PositionMin().size(), "SetConfigurationJoint::PositionMin")) {
+        if (SizeMismatch(configuration.PositionMin().size(), "SetConfigurationJoint.PositionMin")) {
             return;
         }
         mConfigurationJoint.PositionMin().Assign(configuration.PositionMin());
     }
     // max position
     if (configuration.PositionMax().size() != 0) {
-        if (SizeMismatch(configuration.PositionMax().size(), "SetConfigurationJoint::PositionMax")) {
+        if (SizeMismatch(configuration.PositionMax().size(), "SetConfigurationJoint.PositionMax")) {
             return;
         }
         mConfigurationJoint.PositionMax().Assign(configuration.PositionMax());
     }
     // min effort
     if (configuration.EffortMin().size() != 0) {
-        if (SizeMismatch(configuration.EffortMin().size(), "SetConfigurationJoint::EffortMin")) {
+        if (SizeMismatch(configuration.EffortMin().size(), "SetConfigurationJoint.EffortMin")) {
             return;
         }
         mConfigurationJoint.EffortMin().Assign(configuration.EffortMin());
     }
     // max effort
     if (configuration.EffortMax().size() != 0) {
-        if (SizeMismatch(configuration.EffortMax().size(), "SetConfigurationJoint::EffortMax")) {
+        if (SizeMismatch(configuration.EffortMax().size(), "SetConfigurationJoint.EffortMax")) {
             return;
         }
         mConfigurationJoint.EffortMax().Assign(configuration.EffortMax());
