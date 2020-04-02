@@ -96,10 +96,10 @@ protected:
         mtsFunctionRead  JointsEnabled;
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
-        mtsFunctionWrite SetPositionJoint;
-        mtsFunctionRead  GetConfigurationJoint;
-        mtsFunctionRead  GetStateJoint;
-        mtsFunctionRead  GetStateJointDesired;
+        mtsFunctionWrite servo_jp;
+        mtsFunctionRead  configuration_js;
+        mtsFunctionRead  measured_js;
+        mtsFunctionRead  setpoint_js;
 
         prmConfigurationJoint ConfigurationJoint;
         prmStateJoint    StateJoint;

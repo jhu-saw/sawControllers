@@ -103,9 +103,9 @@ protected:
 
     class RobotMaster {
     public:
-        mtsFunctionRead GetPositionCartesian;
-        mtsFunctionWrite SetPositionCartesian;
-        mtsFunctionWrite SetPositionGoalCartesian;
+        mtsFunctionRead measured_cp;
+        mtsFunctionWrite servo_cp;
+        mtsFunctionWrite move_cp;
         mtsFunctionWrite SetRobotControlState;
 
         mtsFunctionRead GetGripperPosition;
@@ -118,8 +118,8 @@ protected:
 
     class RobotSlave {
     public:
-        mtsFunctionRead GetPositionCartesian;
-        mtsFunctionWrite SetPositionCartesian;
+        mtsFunctionRead measured_cp;
+        mtsFunctionWrite servo_cp;
         mtsFunctionWrite SetRobotControlState;
 
         mtsFunctionWrite SetJawPosition;

@@ -32,7 +32,7 @@ public:
     if( input ){
 
       StateTable.AddData( tin, "TorquesInput" );
-      input->AddCommandWriteState( StateTable, tin, "SetTorqueJoint" );
+      input->AddCommandWriteState( StateTable, tin, "servo_jf" );
 
     }
     else{

@@ -68,9 +68,9 @@ void mtsTeleOperation::Init(void)
     // Setup CISST Interface
     mtsInterfaceRequired * masterRequired = AddInterfaceRequired("Master");
     if (masterRequired) {
-        masterRequired->AddFunction("GetPositionCartesian", Master.GetPositionCartesian);
-        masterRequired->AddFunction("SetPositionCartesian", Master.SetPositionCartesian);
-        masterRequired->AddFunction("SetPositionGoalCartesian", Master.SetPositionGoalCartesian);
+        masterRequired->AddFunction("measured_cp", Master.measured_cp);
+        masterRequired->AddFunction("servo_cp", Master.servo_cp);
+        masterRequired->AddFunction("move_cp", Master.move_cp);
         masterRequired->AddFunction("GetGripperPosition", Master.GetGripperPosition);
         masterRequired->AddFunction("SetRobotControlState", Master.SetRobotControlState);
         masterRequired->AddEventHandlerWrite(&mtsTeleOperation::MasterErrorEventHandler, this, "Error");
@@ -78,8 +78,8 @@ void mtsTeleOperation::Init(void)
 
     mtsInterfaceRequired * slaveRequired = AddInterfaceRequired("Slave");
     if (slaveRequired) {
-        slaveRequired->AddFunction("GetPositionCartesian", Slave.GetPositionCartesian);
-        slaveRequired->AddFunction("SetPositionCartesian", Slave.SetPositionCartesian);
+        slaveRequired->AddFunction("measured_cp", Slave.measured_cp);
+        slaveRequired->AddFunction("servo_cp", Slave.servo_cp);
         slaveRequired->AddFunction("SetJawPosition", Slave.SetJawPosition);
         slaveRequired->AddFunction("SetRobotControlState", Slave.SetRobotControlState);
 
@@ -102,7 +102,7 @@ void mtsTeleOperation::Init(void)
     if (providedSettings) {
         // commands
         providedSettings->AddCommandReadState(StateTable, StateTable.PeriodStats,
-                                              "GetPeriodStatistics"); // mtsIntervalStatistics
+                                              "period_statistics"); // mtsIntervalStatistics
 
         providedSettings->AddCommandWrite(&mtsTeleOperation::Enable, this, "Enable", false);
         providedSettings->AddCommandWrite(&mtsTeleOperation::SetScale, this, "SetScale", 0.5);
@@ -150,9 +150,9 @@ void mtsTeleOperation::Run(void)
 
     // get master Cartesian position
     mtsExecutionResult executionResult;
-    executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
+    executionResult = Master.measured_cp(Master.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "Run: call to Master.GetPositionCartesian failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "Run: call to Master.measured_cp failed \""
                                 << executionResult << "\"" << std::endl;
         MessageEvents.Error(this->GetName() + ": unable to get cartesian position from master");
         this->Enable(false);
@@ -160,9 +160,9 @@ void mtsTeleOperation::Run(void)
     vctFrm4x4 masterPosition(Master.PositionCartesianCurrent.Position());
 
     // get slave Cartesian position
-    executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
+    executionResult = Slave.measured_cp(Slave.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "Run: call to Slave.GetPositionCartesian failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "Run: call to Slave.measured_cp failed \""
                                 << executionResult << "\"" << std::endl;
         MessageEvents.Error(this->GetName() + ": unable to get cartesian position from slave");
         this->Enable(false);
@@ -218,7 +218,7 @@ void mtsTeleOperation::Run(void)
             Slave.PositionCartesianDesired.Goal().FromNormalized(slaveCartesianDesired);
 
             // Slave go this cartesian position
-            Slave.SetPositionCartesian(Slave.PositionCartesianDesired);
+            Slave.servo_cp(Slave.PositionCartesianDesired);
 
             // Gripper
             if (Master.GetGripperPosition.IsValid()) {
@@ -301,21 +301,21 @@ void mtsTeleOperation::StartAlignMaster(void)
         // Send Master command position
         Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
-        Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
+        Master.move_cp(Master.PositionCartesianDesired);
     }
 }
 
 void mtsTeleOperation::ClutchEventHandler(const prmEventButton & button)
 {
     mtsExecutionResult executionResult;
-    executionResult = Master.GetPositionCartesian(Master.PositionCartesianCurrent);
+    executionResult = Master.measured_cp(Master.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerClutched: call to Master.GetPositionCartesian failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerClutched: call to Master.measured_cp failed \""
                                 << executionResult << "\"" << std::endl;
     }
-    executionResult = Slave.GetPositionCartesian(Slave.PositionCartesianCurrent);
+    executionResult = Slave.measured_cp(Slave.PositionCartesianCurrent);
     if (!executionResult.IsOK()) {
-        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerClutched: call to Slave.GetPositionCartesian failed \""
+        CMN_LOG_CLASS_RUN_ERROR << "EventHandlerClutched: call to Slave.measured_cp failed \""
                                 << executionResult << "\"" << std::endl;
     }
 
@@ -366,7 +366,7 @@ void mtsTeleOperation::Enable(const bool & enable)
         // Send Master command postion
         Master.SetRobotControlState(mtsStdString("DVRK_POSITION_GOAL_CARTESIAN"));
         Master.PositionCartesianDesired.Goal().FromNormalized(masterCartesianDesired);
-        Master.SetPositionGoalCartesian(Master.PositionCartesianDesired);
+        Master.move_cp(Master.PositionCartesianDesired);
     }
 
     // Send event for GUI
@@ -430,7 +430,7 @@ void mtsTeleOperation::SetMasterControlState(void)
             MasterLockTranslation.Assign(Master.PositionCartesianCurrent.Position().Translation());
             Master.SetRobotControlState(mtsStdString("DVRK_POSITION_CARTESIAN"));
             Master.PositionCartesianDesired.SetGoal(Master.PositionCartesianCurrent.Position());
-            Master.SetPositionCartesian(Master.PositionCartesianDesired);
+            Master.servo_cp(Master.PositionCartesianDesired);
         }
     }
 

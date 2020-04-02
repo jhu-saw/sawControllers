@@ -17,7 +17,7 @@ mtsGravityCompensation::mtsGravityCompensation( const std::string& taskname,
   mtsInterfaceRequired* output = AddInterfaceRequired( "Output" );
   
   input->AddFunction( "GetPositionJoint", GetPositions );
-  output->AddFunction( "SetTorqueJoint",  SetTorques );
+  output->AddFunction( "servo_jf",  SetTorques );
 
 }
 

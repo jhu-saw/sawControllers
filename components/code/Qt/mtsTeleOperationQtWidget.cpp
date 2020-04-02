@@ -56,7 +56,7 @@ mtsTeleOperationQtWidget::mtsTeleOperationQtWidget(const std::string & component
         interfaceRequired->AddFunction("GetPositionCartesianMaster", TeleOperation.GetPositionCartesianMaster);
         interfaceRequired->AddFunction("GetPositionCartesianSlave", TeleOperation.GetPositionCartesianSlave);
         interfaceRequired->AddFunction("GetRegistrationRotation", TeleOperation.GetRegistrationRotation);
-        interfaceRequired->AddFunction("GetPeriodStatistics", TeleOperation.GetPeriodStatistics);
+        interfaceRequired->AddFunction("period_statistics", TeleOperation.period_statistics);
         // events
         interfaceRequired->AddEventHandlerWrite(&mtsTeleOperationQtWidget::EnableEventHandler,
                                                 this, "Enabled");
@@ -141,7 +141,7 @@ void mtsTeleOperationQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     QFRPositionMasterWidget->SetValue(PositionMaster.Position());
     QFRPositionSlaveWidget->SetValue(registeredSlave);
 
-    TeleOperation.GetPeriodStatistics(IntervalStatistics);
+    TeleOperation.period_statistics(IntervalStatistics);
     QMIntervalStatistics->SetValue(IntervalStatistics);
 }
 

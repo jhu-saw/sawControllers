@@ -22,7 +22,7 @@ mtsPDGC::mtsPDGC( const std::string& taskname,
   
   input->AddFunction(    "GetPositionJoint", GetDesiredPositions );
   feedback->AddFunction( "GetPositionJoint", GetFeedbackPositions );
-  output->AddFunction(   "SetTorqueJoint",  SetTorques );
+  output->AddFunction(   "servo_jf",  SetTorques );
 
 }
 

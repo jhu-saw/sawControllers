@@ -269,7 +269,7 @@ protected:
      *
      * @param configuration
      */
-    void SetConfigurationJoint(const prmConfigurationJoint & configuration);
+    void configure_js(const prmConfigurationJoint & configuration);
 
     /**
      * @brief Set minimum iError limit

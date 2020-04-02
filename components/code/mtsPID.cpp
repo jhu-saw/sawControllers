@@ -60,7 +60,7 @@ void mtsPID::SetupInterfaces(void)
         requiredInterface->AddFunction("GetPositionJoint", Robot.GetFeedbackPosition);
         requiredInterface->AddFunction("GetTorqueJoint", Robot.GetFeedbackEffort);
         requiredInterface->AddFunction("GetVelocityJoint", Robot.GetFeedbackVelocity, MTS_OPTIONAL);
-        requiredInterface->AddFunction("SetTorqueJoint", Robot.SetEffort);
+        requiredInterface->AddFunction("servo_jf", Robot.SetEffort);
         // event handlers
         requiredInterface->AddEventHandlerWrite(&mtsPID::CouplingEventHandler, this, "Coupling");
         requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "Error");
@@ -104,13 +104,13 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(StateTable, mJointsEnabled, "JointsEnabled");
 
         // set goals
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "SetPositionJoint", prmPositionJointSet());
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "servo_jp", prmPositionJointSet());
         mInterface->AddCommandWrite(&mtsPID::SetFeedForward, this, "SetFeedForwardJoint", prmForceTorqueJointSet());
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "SetTorqueJoint", prmForceTorqueJointSet());
+        mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "servo_jf", prmForceTorqueJointSet());
 
         // ROS compatible joint state
-        mInterface->AddCommandReadState(StateTable, mStateJointMeasure, "GetStateJoint");
-        mInterface->AddCommandReadState(StateTable, mStateJointCommand, "GetStateJointDesired");
+        mInterface->AddCommandReadState(StateTable, mStateJointMeasure, "measured_js");
+        mInterface->AddCommandReadState(StateTable, mStateJointCommand, "setpoint_js");
 
         // coupling
         mInterface->AddCommandWrite(&mtsPID::SetCoupling, this, "SetCoupling", prmActuatorJointCoupling());
@@ -126,7 +126,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Ki, "GetIGain");
 
         // Get joint configuration
-        mInterface->AddCommandReadState(mConfigurationStateTable, mConfigurationJoint, "GetConfigurationJoint");
+        mInterface->AddCommandReadState(mConfigurationStateTable, mConfigurationJoint, "configuration_js");
 
         // Error tracking
         mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
@@ -139,7 +139,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
 
         // Set joint configuration
-        mInterface->AddCommandWrite(&mtsPID::SetConfigurationJoint, this, "SetConfigurationJoint", mConfigurationJoint);
+        mInterface->AddCommandWrite(&mtsPID::configure_js, this, "configure_js", mConfigurationJoint);
 
         // Events
         mInterface->AddEventWrite(Events.Enabled, "Enabled", false);
@@ -637,36 +637,36 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
     mConfigurationStateTable.Advance();
 }
 
-void mtsPID::SetConfigurationJoint(const prmConfigurationJoint & configuration)
+void mtsPID::configure_js(const prmConfigurationJoint & configuration)
 {
-    if (SizeMismatch(configuration.Name().size(), "SetConfigurationJoint.Name")) {
+    if (SizeMismatch(configuration.Name().size(), "configure_js.Name")) {
         return;
     }
     mConfigurationStateTable.Start();
     // min position
     if (configuration.PositionMin().size() != 0) {
-        if (SizeMismatch(configuration.PositionMin().size(), "SetConfigurationJoint.PositionMin")) {
+        if (SizeMismatch(configuration.PositionMin().size(), "configure_js.PositionMin")) {
             return;
         }
         mConfigurationJoint.PositionMin().Assign(configuration.PositionMin());
     }
     // max position
     if (configuration.PositionMax().size() != 0) {
-        if (SizeMismatch(configuration.PositionMax().size(), "SetConfigurationJoint.PositionMax")) {
+        if (SizeMismatch(configuration.PositionMax().size(), "configure_js.PositionMax")) {
             return;
         }
         mConfigurationJoint.PositionMax().Assign(configuration.PositionMax());
     }
     // min effort
     if (configuration.EffortMin().size() != 0) {
-        if (SizeMismatch(configuration.EffortMin().size(), "SetConfigurationJoint.EffortMin")) {
+        if (SizeMismatch(configuration.EffortMin().size(), "configure_js.EffortMin")) {
             return;
         }
         mConfigurationJoint.EffortMin().Assign(configuration.EffortMin());
     }
     // max effort
     if (configuration.EffortMax().size() != 0) {
-        if (SizeMismatch(configuration.EffortMax().size(), "SetConfigurationJoint.EffortMax")) {
+        if (SizeMismatch(configuration.EffortMax().size(), "configure_js.EffortMax")) {
             return;
         }
         mConfigurationJoint.EffortMax().Assign(configuration.EffortMax());
@@ -678,7 +678,7 @@ void mtsPID::SetConfigurationJoint(const prmConfigurationJoint & configuration)
     CheckLowerUpper(mConfigurationJoint.EffortMin(), mConfigurationJoint.EffortMax(), "SetEffortLowerLimit");
     mApplyEffortLimit = mConfigurationJoint.EffortMin().Any() && mConfigurationJoint.EffortMax().Any();
 
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::SetConfigurationJoint: called with "
+    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::configure_js: called with "
                                << configuration << std::endl;
 }
 

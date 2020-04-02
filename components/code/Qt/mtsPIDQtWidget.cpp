@@ -83,10 +83,10 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("JointsEnabled", PID.JointsEnabled);
         interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
         interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
-        interfaceRequired->AddFunction("SetPositionJoint", PID.SetPositionJoint);
-        interfaceRequired->AddFunction("GetConfigurationJoint", PID.GetConfigurationJoint);
-        interfaceRequired->AddFunction("GetStateJoint", PID.GetStateJoint);
-        interfaceRequired->AddFunction("GetStateJointDesired", PID.GetStateJointDesired);
+        interfaceRequired->AddFunction("servo_jp", PID.servo_jp);
+        interfaceRequired->AddFunction("configuration_js", PID.configuration_js);
+        interfaceRequired->AddFunction("measured_js", PID.measured_js);
+        interfaceRequired->AddFunction("setpoint_js", PID.setpoint_js);
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
         interfaceRequired->AddFunction("GetIGain", PID.GetIGain);
@@ -111,7 +111,7 @@ void mtsPIDQtWidget::Startup(void)
     CMN_LOG_CLASS_INIT_VERBOSE << "mtsPIDQtWidget::Startup" << std::endl;
     // get joint state just to compute conversion factors
     SlotResetPIDGain();
-    mtsExecutionResult result = PID.GetConfigurationJoint(PID.ConfigurationJoint);
+    mtsExecutionResult result = PID.configuration_js(PID.ConfigurationJoint);
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
@@ -170,7 +170,7 @@ void mtsPIDQtWidget::SlotPositionChanged(void)
     QVWDesiredPosition->GetValue(DesiredPosition);
     DesiredPositionParam.SetGoal(DesiredPosition);
     DesiredPositionParam.Goal().ElementwiseDivide(UnitFactor);
-    PID.SetPositionJoint(DesiredPositionParam);
+    PID.servo_jp(DesiredPositionParam);
 }
 
 void mtsPIDQtWidget::SlotPGainChanged(void)
@@ -262,10 +262,10 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 
     // get data from the PID
     PID.JointsEnabled(JointsEnabled);
-    PID.GetStateJoint(PID.StateJoint);
+    PID.measured_js(PID.StateJoint);
     PID.StateJoint.Position().ElementwiseMultiply(UnitFactor);
     PID.StateJoint.Velocity().ElementwiseMultiply(UnitFactor);
-    PID.GetStateJointDesired(PID.StateJointDesired);
+    PID.setpoint_js(PID.StateJointDesired);
     PID.StateJointDesired.Position().ElementwiseMultiply(UnitFactor);
     bool trackingErrorEnabled;
     PID.TrackingErrorEnabled(trackingErrorEnabled);
