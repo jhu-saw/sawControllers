@@ -63,7 +63,7 @@ void mtsPID::SetupInterfaces(void)
         requiredInterface->AddFunction("servo_jf", Robot.SetEffort);
         // event handlers
         requiredInterface->AddEventHandlerWrite(&mtsPID::CouplingEventHandler, this, "Coupling");
-        requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "Error");
+        requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "error");
     }
 
     // this should go in "write" state table

@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2018 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2020 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -69,8 +69,7 @@ if (cisst_FOUND)
        ${sawControllers_HEADER_DIR}/mtsController.h
        ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
        ${sawControllers_HEADER_DIR}/mtsPDGC.h
-       ${sawControllers_HEADER_DIR}/mtsPID.h
-       ${sawControllers_HEADER_DIR}/mtsTeleOperation.h)
+       ${sawControllers_HEADER_DIR}/mtsPID.h)
 
   set (SOURCE_FILES
        code/osaGravityCompensation.cpp
@@ -81,8 +80,7 @@ if (cisst_FOUND)
        code/mtsController.cpp
        code/mtsGravityCompensation.cpp
        code/mtsPDGC.cpp
-       code/mtsPID.cpp
-       code/mtsTeleOperation.cpp)
+       code/mtsPID.cpp)
 
   add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES})
   cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})

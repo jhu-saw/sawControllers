@@ -1,7 +1,5 @@
 #
-#
-# (C) Copyright 2013-2014 Johns Hopkins University (JHU), All Rights
-# Reserved.
+# (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -35,17 +33,14 @@ if (cisst_FOUND_AS_REQUIRED)
   include_directories (${CMAKE_CURRENT_BINARY_DIR})
   if (CISST_HAS_QT4)
     qt4_wrap_cpp (SAW_CONTROLLERS_QT_WRAP_CPP
-                  ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
-                  ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h)
+                  ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h)
   else (CISST_HAS_QT4)
     set (CMAKE_AUTOMOC ON)
   endif (CISST_HAS_QT4)
 
   add_library (sawControllersQt
                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
-               ${sawControllers_HEADER_DIR}/mtsTeleOperationQtWidget.h
                mtsPIDQtWidget.cpp
-               mtsTeleOperationQtWidget.cpp
                ${SAW_CONTROLLERS_QT_WRAP_CPP})
   set_property (TARGET sawControllersQt PROPERTY FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})

@@ -94,7 +94,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("SetDGain", PID.SetDGain);
         interfaceRequired->AddFunction("SetIGain", PID.SetIGain);
         // Events
-        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "Error");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "error");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
     }
     setupUi();
