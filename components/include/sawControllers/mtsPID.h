@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2019 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -31,9 +31,6 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstMultiTask/mtsTaskPeriodic.h>
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
-#include <cisstParameterTypes/prmPositionJointGet.h>
-#include <cisstParameterTypes/prmPositionJointSet.h>
-#include <cisstParameterTypes/prmVelocityJointGet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmActuatorJointCoupling.h>
@@ -49,20 +46,20 @@ class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 
 protected:
     // Required interface
-    struct InterfaceRobotTorque {
+    struct {
         //! Set actuator/joint coupling
         mtsFunctionWrite SetCoupling;
-        //! Read joint type form robot
-        mtsFunctionRead GetJointType;
-        //! Read joint position from robot
-        mtsFunctionRead GetFeedbackPosition;
-        //! Read joint velocity from robot
-        mtsFunctionRead GetFeedbackVelocity;
-        //! Read joint effort from robot
-        mtsFunctionRead GetFeedbackEffort;
+
+        //! Read joint type from robot
+        mtsFunctionRead configuration_js;
+        mtsFunctionWrite configure_js;
+
+        //! Read joint state from robot
+        mtsFunctionRead measured_js;
+
         //! Write the joint efforts
-        mtsFunctionWrite SetEffort;
-    } Robot;
+        mtsFunctionWrite servo_jf;
+    } IO;
 
 
     //! Number of joints, set from the XML file used in Configure method
@@ -80,7 +77,7 @@ protected:
     } mGains;
 
     //! Joint configuration
-    prmConfigurationJoint mConfigurationJoint;
+    prmConfigurationJoint m_configuration_js;
 
     //! Flag whether check joint limit
     bool mCheckPositionLimit = true;
@@ -98,13 +95,11 @@ protected:
     //! Desired joint efforts when bypassing PID
     prmForceTorqueJointSet mEffortUserCommand;
 
-    //! prm type feedback positoin
-    prmPositionJointGet mPositionMeasure;
-    prmPositionJointGet mPositionMeasurePrevious;
-    //! prm type feedback velocity
-    prmVelocityJointGet mVelocityMeasure;
     //! prm type joint state
-    prmStateJoint mStateJointMeasure, mStateJointCommand;
+    prmStateJoint
+        m_measured_js,
+        m_measured_js_previous,
+        m_setpoint_js;
 
     //! Error
     vctDoubleVec mError;
@@ -139,9 +134,6 @@ protected:
     // simulated
     bool mIsSimulated = false;
     double mCommandTime, mPreviousCommandTime;
-
-    // Counter of active joints
-    size_t mNumberOfActiveJoints = 0;
 
     //! Configuration state table
     mtsStateTable mConfigurationStateTable;
