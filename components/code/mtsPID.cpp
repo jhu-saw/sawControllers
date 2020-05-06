@@ -840,7 +840,7 @@ void mtsPID::GetIOData(const bool computeVelocity)
             }
         }
         // timestamp using last know position
-        m_measured_js_previous.Position().Assign(m_setpoint_js.Position());
+        m_measured_js_previous = m_setpoint_js;
         mPreviousCommandTime = mCommandTime;
     }
 
