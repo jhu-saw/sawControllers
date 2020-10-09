@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2019 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -241,7 +241,6 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     }
     QCBEnableDirectControl->setChecked(toggle);
     DirectControl = toggle;
-    // if checked in DIRECT_CONTROL mode
     QVWJointsEnabled->setEnabled(toggle);
     QVWDesiredPosition->setEnabled(toggle);
     QVWPGain->setEnabled(toggle);
@@ -447,13 +446,15 @@ void mtsPIDQtWidget::setupUi(void)
     QPBMaintainPosition = new QPushButton("Maintain position");
     QPBResetPIDGain = new QPushButton("Reset PID gains");
     QHBoxLayout * controlLayout = new QHBoxLayout;
+    controlLayout->setContentsMargins(1, 1, 1, 1);
     controlLayout->addWidget(QCBEnableDirectControl);
     controlLayout->addWidget(QCBEnable);
     controlLayout->addWidget(QCBEnableTrackingError);
     controlLayout->addWidget(QPBMaintainPosition);
     controlLayout->addWidget(QPBResetPIDGain);
-    QGroupBox * controlGroupBox = new QGroupBox("Control");
-    controlGroupBox->setLayout(controlLayout);
+    QFrame * controlFrame = new QFrame();
+    controlFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    controlFrame->setLayout(controlLayout);
 
     connect(QCBEnableDirectControl, SIGNAL(toggled(bool)), this, SLOT(SlotEnableDirectControl(bool)));
     connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnable(bool)));
@@ -467,7 +468,7 @@ void mtsPIDQtWidget::setupUi(void)
     QVBoxLayout * mainLayout = new QVBoxLayout;
     mainLayout->addLayout(gridLayout);
     mainLayout->addLayout(plotLayout);
-    mainLayout->addWidget(controlGroupBox);
+    mainLayout->addWidget(controlFrame);
 
     setLayout(mainLayout);
 
