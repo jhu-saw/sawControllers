@@ -160,7 +160,7 @@ protected:
     /*! Set the desired position, i.e. goal used in the PID
       controller.  See also EnableEffortMode to control with joints
       are controlled in position or effort mode. */
-    void SetDesiredPosition(const prmPositionJointSet & command);
+    void servo_jp(const prmPositionJointSet & command);
 
     /*! Set the effort feed forward for the PID controller.  The
       effort are added to the output of the PID controller.  These
@@ -171,7 +171,7 @@ protected:
       except for the effort limits.  See also EnableEffortMode to
       control with joints are controlled in position or effort
       mode. */
-    void SetDesiredEffort(const prmForceTorqueJointSet & command);
+    void servo_jf(const prmForceTorqueJointSet & command);
 
     void Init(void);
 

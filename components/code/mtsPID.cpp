@@ -99,9 +99,9 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(StateTable, mJointsEnabled, "JointsEnabled");
 
         // set goals
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredPosition, this, "servo_jp", prmPositionJointSet());
+        mInterface->AddCommandWrite(&mtsPID::servo_jp, this, "servo_jp", prmPositionJointSet());
         mInterface->AddCommandWrite(&mtsPID::SetFeedForward, this, "SetFeedForwardJoint", prmForceTorqueJointSet());
-        mInterface->AddCommandWrite(&mtsPID::SetDesiredEffort, this, "servo_jf", prmForceTorqueJointSet());
+        mInterface->AddCommandWrite(&mtsPID::servo_jf, this, "servo_jf", prmForceTorqueJointSet());
 
         // ROS compatible joint state
         mInterface->AddCommandReadState(StateTable, m_measured_js, "measured_js");
@@ -685,9 +685,9 @@ void mtsPID::ResetController(void)
     Enable(false);
 }
 
-void mtsPID::SetDesiredPosition(const prmPositionJointSet & command)
+void mtsPID::servo_jp(const prmPositionJointSet & command)
 {
-    if (SizeMismatch(command.Goal().size(), "SetDesiredPosition")) {
+    if (SizeMismatch(command.Goal().size(), "servo_jp")) {
         return;
     }
 
@@ -741,9 +741,9 @@ void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
 }
 
 
-void mtsPID::SetDesiredEffort(const prmForceTorqueJointSet & command)
+void mtsPID::servo_jf(const prmForceTorqueJointSet & command)
 {
-    if (SizeMismatch(command.ForceTorque().size(), "SetDesiredEffort")) {
+    if (SizeMismatch(command.ForceTorque().size(), "servo_jf")) {
         return;
     }
     mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
@@ -933,7 +933,7 @@ bool mtsPID::SizeMismatch(const size_t size, const std::string & methodName)
                                  << mNumberOfJoints << ", received "
                                  << size << std::endl;
         Enable(false);
-        mInterface->SendError(this->GetName() + "::" + methodName + ": size mismatch");
+        mInterface->SendError(this->GetName() + "::" + methodName + ": size mismatch (check cisstLog)");
         return true;
     }
     return false;
