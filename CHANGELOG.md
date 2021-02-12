@@ -1,6 +1,20 @@
 Change log
 ==========
 
+2.0.0 (2021-02-xx)
+==================
+
+* API changes:
+  * mtsPID: use CRTK naming convention
+  * mtsPID: IO level needs to provide prmStateJoint instead of separate position/velocity/effort
+* Deprecated features:
+  * Removed mtsTeleoperation, use sawIntuitiveResearchKit mtsTeleopPSM instead
+* New features:
+  * mtsPID: added feed forward for arms with gravity compensation
+  * mtsPID: support prmConfigurationJoint
+* Bug fixes:
+  * mtsPID: better velocity estimation when in simulation mode
+
 1.7.0 (2019-04-09)
 ==================
 
