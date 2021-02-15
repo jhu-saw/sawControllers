@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -90,7 +90,7 @@ protected:
     vctDoubleVec mEffortMeasure;
     prmForceTorqueJointSet mEffortPIDCommand;
     //! Feedforward, i.e. effort added to the PID output in position mode
-    prmForceTorqueJointSet mFeedForward;
+    prmForceTorqueJointSet m_feed_forward_jf;
 
     //! Desired joint efforts when bypassing PID
     prmForceTorqueJointSet mEffortUserCommand;
@@ -165,7 +165,7 @@ protected:
     /*! Set the effort feed forward for the PID controller.  The
       effort are added to the output of the PID controller.  These
       values are ignored for joints controlled in effort mode. */
-    void SetFeedForward(const prmForceTorqueJointSet & feedForward);
+    void feed_forward_jf(const prmForceTorqueJointSet & feedForward);
 
     /*! Set the effort directly, this by-passes the PID controller
       except for the effort limits.  See also EnableEffortMode to

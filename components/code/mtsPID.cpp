@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -100,7 +100,7 @@ void mtsPID::SetupInterfaces(void)
 
         // set goals
         mInterface->AddCommandWrite(&mtsPID::servo_jp, this, "servo_jp", prmPositionJointSet());
-        mInterface->AddCommandWrite(&mtsPID::SetFeedForward, this, "SetFeedForwardJoint", prmForceTorqueJointSet());
+        mInterface->AddCommandWrite(&mtsPID::feed_forward_jf, this, "feed_forward_jf", prmForceTorqueJointSet());
         mInterface->AddCommandWrite(&mtsPID::servo_jf, this, "servo_jf", prmForceTorqueJointSet());
 
         // ROS compatible joint state
@@ -170,7 +170,7 @@ void mtsPID::Configure(const std::string & filename)
 
     // feedback
     mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
-    mFeedForward.ForceTorque().SetSize(mNumberOfJoints, 0.0);
+    m_feed_forward_jf.ForceTorque().SetSize(mNumberOfJoints, 0.0);
     mEffortUserCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
 
     // size all vectors
@@ -393,7 +393,7 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator kI = mGains.Ki.begin();
     vctDoubleVec::const_iterator kD = mGains.Kd.begin();
     vctDoubleVec::const_iterator offset = mGains.Offset.begin();
-    vctDoubleVec::const_iterator feedForward = mFeedForward.ForceTorque().begin();
+    vctDoubleVec::const_iterator feedForward = m_feed_forward_jf.ForceTorque().begin();
     vctDoubleVec::const_iterator nonLinear = mNonLinear.begin();
     vctDoubleVec::const_iterator effortLowerLimit = m_configuration_js.EffortMin().begin();
     vctDoubleVec::const_iterator effortUpperLimit = m_configuration_js.EffortMax().begin();
@@ -732,12 +732,12 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
 }
 
 
-void mtsPID::SetFeedForward(const prmForceTorqueJointSet & feedForward)
+void mtsPID::feed_forward_jf(const prmForceTorqueJointSet & feedForward)
 {
     if (SizeMismatch(feedForward.ForceTorque().size(), "SetFeedForward")) {
         return;
     }
-    mFeedForward.ForceTorque().Assign(feedForward.ForceTorque());
+    m_feed_forward_jf.ForceTorque().Assign(feedForward.ForceTorque());
 }
 
 
@@ -771,7 +771,7 @@ void mtsPID::Enable(const bool & enable)
         mPositionLimitFlagPrevious.SetAll(false);
         mPositionLimitFlag.SetAll(false);
         mPreviousCommandTime = 0.0;
-        mFeedForward.ForceTorque().SetAll(0.0);
+        m_feed_forward_jf.ForceTorque().SetAll(0.0);
     }
     // trigger Enabled
     Events.Enabled(mEnabled);
@@ -797,7 +797,7 @@ void mtsPID::EnableEffortMode(const vctBoolVec & enable)
     mEffortMode.Assign(enable);
     // reset effort to 0
     m_setpoint_js.Effort().SetAll(0.0);
-    mFeedForward.ForceTorque().SetAll(0.0);
+    m_feed_forward_jf.ForceTorque().SetAll(0.0);
 }
 
 void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
