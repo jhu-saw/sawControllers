@@ -361,11 +361,15 @@ void mtsPID::Startup(void)
 
 void mtsPID::Run(void)
 {
+    // first process events from IO (likely errors)
     ProcessQueuedEvents();
-    ProcessQueuedCommands();
 
     // get data from IO if not in simulated mode
     GetIOData(true); // compute velocity if needed
+
+    // now that we have recent data (e.g. position after
+    // calibration/coupling...), deal with user commands
+    ProcessQueuedCommands();
 
     // initialize variables
     bool anyTrackingError = false;
