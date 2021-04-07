@@ -1,7 +1,7 @@
 Change log
 ==========
 
-2.0.0 (2021-02-xx)
+2.0.0 (2021-04-08)
 ==================
 
 * API changes:
@@ -56,7 +56,7 @@ Change log
   * Added osaCartesianImpedanceController!
 * Bug fixes:
   * mtsPID: desired position properly set when PID is not active on any joint (PID off or in torque mode)
-  * mtsPID Widget:
+  * mtsPID Widget:https://github.com/jhu-saw/sawRobotIO1394/blob/devel/CHANGELOG.md
     * only sends desired position if in direct mode!
     * added confirmation message when switching to direct mode
 
@@ -74,7 +74,7 @@ Change log
 
 1.3.0 (2016-01-08)
 ==================
-
+https://github.com/jhu-saw/sawRobotIO1394/blob/devel/CHANGELOG.md
 * API changes:
   * None
 * Deprecated features:
