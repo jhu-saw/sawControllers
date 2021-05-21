@@ -254,10 +254,10 @@ void mtsPID::Configure(const std::string & filename)
             m_configuration_js.Type().at(i) = PRM_JOINT_REVOLUTE;
         } else if (type == "Prismatic") {
             m_configuration_js.Type().at(i) = PRM_JOINT_PRISMATIC;
-        } else if (type == "Inactive") {
+        } else {
             CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Configure: joint " << i << " in file: "
                                      << filename
-                                     << " needs a \"type\", either \"Revolute\" or \"Prismatic\".  Type \"Inactive\" is not supported anymore."
+                                     << " needs a \"type\", either \"Revolute\" or \"Prismatic\".  Note: type \"Inactive\" is not supported anymore."
                                      << std::endl;
             exit(EXIT_FAILURE);
         }
