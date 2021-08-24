@@ -100,7 +100,7 @@ if (cisst_FOUND)
 
   cisst_add_config_version ("${sawControllers_CONFIG_FILE_DIR}/sawControllersConfigVersion.cmake"
                             VERSION ${sawControllers_VERSION}
-                            DESTINATION ${CISST_CMAKE_INSTALL_SUFFIX}/saw
+                            DESTINATION "share/sawControllers"
                             COMPONENT sawControllers)
 
   # Install targets for headers and library

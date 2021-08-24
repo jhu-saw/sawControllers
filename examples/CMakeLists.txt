@@ -49,14 +49,13 @@ if (cisst_FOUND_AS_REQUIRED)
       target_link_libraries (${_example} ${sawControllers_LIBRARIES})
       cisst_target_link_libraries (${_example} ${REQUIRED_CISST_LIBRARIES})
       set_target_properties (${_example} PROPERTIES
-                             COMPONENT sawControllersExamples
                              FOLDER "sawControllers")
     endforeach ()
 
     # examples that also need sawKeyboard
     target_link_libraries (mtsGCExample ${sawKeyboard_LIBRARIES})
 
-    install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllersExamples
+    install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
              RUNTIME DESTINATION bin
              LIBRARY DESTINATION lib
              ARCHIVE DESTINATION lib)

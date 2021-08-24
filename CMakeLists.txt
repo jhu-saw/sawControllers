@@ -29,5 +29,5 @@ add_subdirectory (examples)
 
 include (CPack)
 cpack_add_component (sawControllers)
-cpack_add_component (sawControllersExamples
-                     DEPENDS sawControllers)
+cpack_add_component (sawControllers-Examples
+                     DEPENDS sawControllers sawControllers-Qt)
