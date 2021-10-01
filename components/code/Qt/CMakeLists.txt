@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -42,11 +42,18 @@ if (cisst_FOUND_AS_REQUIRED)
                ${sawControllers_HEADER_DIR}/mtsPIDQtWidget.h
                mtsPIDQtWidget.cpp
                ${SAW_CONTROLLERS_QT_WRAP_CPP})
-  set_property (TARGET sawControllersQt PROPERTY FOLDER "sawControllers")
+  set_target_properties (sawControllersQt PROPERTIES
+                         VERSION ${sawControllers_VERSION}
+                         FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})
 
   # make sure the new library is known by the parent folder to add to the config file
   set (sawControllersQt_LIBRARIES sawControllersQt PARENT_SCOPE)
+
+  install (TARGETS sawControllersQt COMPONENT sawControllers-Qt
+           RUNTIME DESTINATION bin
+           LIBRARY DESTINATION lib
+           ARCHIVE DESTINATION lib)
 
 else (cisst_FOUND_AS_REQUIRED)
   message ("Information: code will not be compiled, it requires ${REQUIRED_CISST_LIBRARIES}")

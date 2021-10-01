@@ -9,9 +9,8 @@
 #
 # --- end cisst license ---
 
-cmake_minimum_required (VERSION 2.8)
-
-project (sawControllers)
+cmake_minimum_required (VERSION 3.10)
+project (sawControllers VERSION 2.0.0)
 
 set (CMAKE_CXX_STANDARD 14)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,12 +50,6 @@ if (cisst_FOUND)
   set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
   set (sawControllers_LIBRARIES sawControllers)
 
-  # Set the version number
-  set (sawControllers_VERSION_MAJOR "2")
-  set (sawControllers_VERSION_MINOR "0")
-  set (sawControllers_VERSION_PATCH "0")
-  set (sawControllers_VERSION "${sawControllers_VERSION_MAJOR}.${sawControllers_VERSION_MINOR}.${sawControllers_VERSION_PATCH}")
-
   # Generate sawControllersRevision.h
   configure_file ("${sawControllers_SOURCE_DIR}/code/sawControllersRevision.h.in"
                   "${sawControllers_BINARY_DIR}/include/sawControllers/sawControllersRevision.h")
@@ -87,8 +80,12 @@ if (cisst_FOUND)
        code/mtsPID.cpp)
 
   add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES})
+
+  set_target_properties (sawControllers PROPERTIES
+                         VERSION ${sawControllers_VERSION}
+                         FOLDER "sawControllers")
+
   cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})
-  set_property (TARGET sawControllers PROPERTY FOLDER "sawControllers")
 
   # add Qt code
   add_subdirectory (code/Qt)
@@ -103,7 +100,7 @@ if (cisst_FOUND)
 
   cisst_add_config_version ("${sawControllers_CONFIG_FILE_DIR}/sawControllersConfigVersion.cmake"
                             VERSION ${sawControllers_VERSION}
-                            DESTINATION ${CISST_CMAKE_INSTALL_SUFFIX}/saw
+                            DESTINATION "share/sawControllers"
                             COMPONENT sawControllers)
 
   # Install targets for headers and library
@@ -111,14 +108,16 @@ if (cisst_FOUND)
            ${sawControllers_SOURCE_DIR}/include/sawControllers
            ${sawControllers_BINARY_DIR}/include/sawControllers
            DESTINATION include
+           COMPONENT sawControllers-dev
            PATTERN .svn EXCLUDE)
 
-  install (TARGETS sawControllers
+  install (TARGETS sawControllers COMPONENT sawControllers
            RUNTIME DESTINATION bin
            LIBRARY DESTINATION lib
            ARCHIVE DESTINATION lib)
 
   install (FILES "${sawControllers_CMAKE_CONFIG_FILE}"
-           DESTINATION "share/sawControllers")
+           DESTINATION "share/sawControllers"
+           COMPONENT sawControllers)
 
 endif( cisst_FOUND )
