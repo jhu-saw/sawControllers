@@ -57,6 +57,10 @@ void mtsPID::SetupInterfaces(void)
     mtsInterfaceRequired * requiredInterface = AddInterfaceRequired("RobotJointTorqueInterface");
     if (requiredInterface) {
         requiredInterface->AddFunction("SetCoupling", IO.SetCoupling);
+        requiredInterface->AddFunction("ActuatorToJointPosition", IO.ActuatorToJointPosition);
+        requiredInterface->AddFunction("JointToActuatorPosition", IO.JointToActuatorPosition);
+        requiredInterface->AddFunction("ActuatorToJointEffort", IO.ActuatorToJointEffort);
+        requiredInterface->AddFunction("JointToActuatorEffort", IO.JointToActuatorEffort);
         requiredInterface->AddFunction("configuration_js", IO.configuration_js);
         requiredInterface->AddFunction("configure_js", IO.configure_js);
         requiredInterface->AddFunction("measured_js", IO.measured_js);
@@ -167,6 +171,10 @@ void mtsPID::Configure(const std::string & filename)
         exit(EXIT_FAILURE);
     }
     mNumberOfJoints = static_cast<size_t>(numberOfJoints);
+
+    // actuator setpoint
+    m_pre_coupling_setpoint_ap.SetSize(mNumberOfJoints);
+    m_pre_coupling_setpoint_af.SetSize(mNumberOfJoints);
 
     // feedback
     mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
@@ -808,6 +816,12 @@ void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
 {
     // we assume the user has disabled whatever joints needed to be
     // disabled so we just past the request to IO level
+
+    // first save the setpoint in actuator space
+    IO.JointToActuatorPosition(m_setpoint_js.Position(), m_pre_coupling_setpoint_ap);
+    IO.JointToActuatorEffort(m_setpoint_js.Effort(), m_pre_coupling_setpoint_af);
+
+    // then request coupling
     IO.SetCoupling(coupling);
 }
 
@@ -903,8 +917,8 @@ void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
                           // position since that position might not be
                           // computed using same coupling
         // reset commanded based on measured to have reasonable defaults
-        m_setpoint_js.Position().Assign(m_measured_js.Position());
-        m_setpoint_js.Effort().Assign(m_measured_js.Effort());
+        IO.ActuatorToJointPosition(m_pre_coupling_setpoint_ap, m_setpoint_js.Position());
+        IO.ActuatorToJointEffort(m_pre_coupling_setpoint_af, m_setpoint_js.Effort());
     } StateTable.Advance();
 
     Events.Coupling(coupling);

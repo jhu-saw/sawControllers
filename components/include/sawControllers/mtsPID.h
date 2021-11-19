@@ -49,6 +49,10 @@ protected:
     struct {
         //! Set actuator/joint coupling
         mtsFunctionWrite SetCoupling;
+        mtsFunctionQualifiedRead ActuatorToJointPosition;
+        mtsFunctionQualifiedRead JointToActuatorPosition;
+        mtsFunctionQualifiedRead ActuatorToJointEffort;
+        mtsFunctionQualifiedRead JointToActuatorEffort;
 
         //! Read joint type from robot
         mtsFunctionRead configuration_js;
@@ -78,6 +82,9 @@ protected:
 
     //! Joint configuration
     prmConfigurationJoint m_configuration_js;
+
+    //! Saved actuator position/effort setpoint before changing coupling
+    vctDoubleVec m_pre_coupling_setpoint_ap, m_pre_coupling_setpoint_af;
 
     //! Flag whether check joint limit
     bool mCheckPositionLimit = true;
