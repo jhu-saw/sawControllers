@@ -34,28 +34,23 @@ if (cisst_FOUND)
   include (${CISST_USE_FILE})
 
   # catkin/ROS paths
-  cisst_is_catkin_build (sawControllers_IS_CATKIN_BUILT)
-  if (sawControllers_IS_CATKIN_BUILT)
-    set (sawControllers_CONFIG_FILE_DIR
-         "${CATKIN_DEVEL_PREFIX}/share/sawControllers/cmake")
-    set (LIBRARY_OUTPUT_PATH "${sawControllers_BINARY_DIR}/lib")
-    set (EXECUTABLE_OUTPUT_PATH "${CATKIN_DEVEL_PREFIX}/bin")
-  else ()
-    set (sawControllers_CONFIG_FILE_DIR "${sawControllers_BINARY_DIR}")
-  endif ()
+  cisst_set_output_path ()
 
   # create/configure file for find_package (sawControllers)
   set (sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include"
                                   "${sawControllers_BINARY_DIR}/include")
+  set (sawControllers_HEADER_DIR "${sawControllers_SOURCE_DIR}/include/sawControllers")
   set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
   set (sawControllers_LIBRARIES sawControllers)
 
-  # Generate sawControllersRevision.h
-  configure_file ("${sawControllers_SOURCE_DIR}/code/sawControllersRevision.h.in"
-                  "${sawControllers_BINARY_DIR}/include/sawControllers/sawControllersRevision.h")
-
   include_directories (${sawControllers_INCLUDE_DIR})
-  set (sawControllers_HEADER_DIR "${sawControllers_SOURCE_DIR}/include/sawControllers")
+
+  if (CISST_HAS_QT)
+    add_subdirectory (code/Qt)
+    set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} sawControllersQt)
+  endif ()
+
+  cisst_add_config_files (sawControllers)
 
   set (HEADER_FILES
        ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
@@ -87,22 +82,6 @@ if (cisst_FOUND)
 
   cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})
 
-  # add Qt code
-  add_subdirectory (code/Qt)
-  set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} ${sawControllersQt_LIBRARIES})
-
-  set (sawControllers_CMAKE_CONFIG_FILE
-       "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake")
-
-  configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/cmake/sawControllersConfig.cmake.in"
-                  "${sawControllers_CONFIG_FILE_DIR}/sawControllersConfig.cmake"
-                  @ONLY)
-
-  cisst_add_config_version ("${sawControllers_CONFIG_FILE_DIR}/sawControllersConfigVersion.cmake"
-                            VERSION ${sawControllers_VERSION}
-                            DESTINATION "share/sawControllers"
-                            COMPONENT sawControllers)
-
   # Install targets for headers and library
   install (DIRECTORY
            ${sawControllers_SOURCE_DIR}/include/sawControllers
@@ -115,9 +94,5 @@ if (cisst_FOUND)
            RUNTIME DESTINATION bin
            LIBRARY DESTINATION lib
            ARCHIVE DESTINATION lib)
-
-  install (FILES "${sawControllers_CMAKE_CONFIG_FILE}"
-           DESTINATION "share/sawControllers"
-           COMPONENT sawControllers)
 
 endif( cisst_FOUND )

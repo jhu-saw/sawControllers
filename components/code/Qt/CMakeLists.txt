@@ -47,9 +47,6 @@ if (cisst_FOUND_AS_REQUIRED)
                          FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})
 
-  # make sure the new library is known by the parent folder to add to the config file
-  set (sawControllersQt_LIBRARIES sawControllersQt PARENT_SCOPE)
-
   install (TARGETS sawControllersQt COMPONENT sawControllers-Qt
            RUNTIME DESTINATION bin
            LIBRARY DESTINATION lib
