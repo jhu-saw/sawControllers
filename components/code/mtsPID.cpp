@@ -243,9 +243,9 @@ void mtsPID::Configure(const std::string & filename)
     char context[128];
 
     // loop to get configuration data except type
-    for (int i = 0; i < mNumberOfJoints; i++) {
+    for (size_t i = 0; i < mNumberOfJoints; i++) {
         // joint
-        sprintf(context, "controller/joints/joint[%d]", i + 1);
+        sprintf(context, "controller/joints/joint[%zu]", i + 1);
 
         // name
         std::string name;
