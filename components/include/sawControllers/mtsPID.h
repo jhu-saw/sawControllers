@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -118,8 +118,11 @@ protected:
     //! iError forgetting factor (0 < factor <= 1.0)
     vctDoubleVec mIErrorForgetFactor;
 
-    //! If 0, use regular PID, else use as nonlinear factor
-    vctDoubleVec mNonLinear;
+    //! If 1, unfiltered
+    vctDoubleVec
+        m_low_pass_cutoff,
+        m_measured_filtered_v,
+        m_measured_filtered_v_previous;
 
     //! Deadband (errors less than this are set to 0)
     vctDoubleVec mDeadBand;
@@ -259,6 +262,11 @@ protected:
      * @param igain  new I gains
      */
     void SetIGain(const vctDoubleVec & igain);
+
+    /**
+     * @brief Set controller cutoff
+     */
+    void SetCutoff(const vctDoubleVec & cutoff);
 
     /**
      * @brief Set joint configuration.  Size of vector of names must

@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2020 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -90,9 +90,11 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("GetPGain", PID.GetPGain);
         interfaceRequired->AddFunction("GetDGain", PID.GetDGain);
         interfaceRequired->AddFunction("GetIGain", PID.GetIGain);
+        interfaceRequired->AddFunction("GetCutoff", PID.GetCutoff);
         interfaceRequired->AddFunction("SetPGain", PID.SetPGain);
         interfaceRequired->AddFunction("SetDGain", PID.SetDGain);
         interfaceRequired->AddFunction("SetIGain", PID.SetIGain);
+        interfaceRequired->AddFunction("SetCutoff", PID.SetCutoff);
         // Events
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "error");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
@@ -194,6 +196,13 @@ void mtsPIDQtWidget::SlotIGainChanged(void)
     PID.SetIGain(igain);
 }
 
+void mtsPIDQtWidget::SlotCutoffChanged(void)
+{
+    vctDoubleVec cutoff(NumberOfAxis, 0.0);
+    QVWCutoff->GetValue(cutoff);
+    PID.SetCutoff(cutoff);
+}
+
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset desired position
@@ -216,6 +225,9 @@ void mtsPIDQtWidget::SlotResetPIDGain(void)
     // IGain
     PID.GetIGain(gain);
     QVWIGain->SetValue(gain);
+    // Cutoff
+    PID.GetCutoff(gain);
+    QVWCutoff->SetValue(gain);
 }
 
 void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
@@ -244,8 +256,9 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QVWJointsEnabled->setEnabled(toggle);
     QVWDesiredPosition->setEnabled(toggle);
     QVWPGain->setEnabled(toggle);
-    QVWIGain->setEnabled(toggle);
     QVWDGain->setEnabled(toggle);
+    QVWIGain->setEnabled(toggle);
+    QVWCutoff->setEnabled(toggle);
     QCBEnable->setEnabled(toggle);
     QCBEnableTrackingError->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
@@ -380,6 +393,16 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(QVWIGain, row, 1);
     row++;
 
+    QLabel * cLabel = new QLabel("Cutoff");
+    cLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(cLabel);
+    QVWCutoff = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWCutoff->SetStep(0.000001);
+    QVWCutoff->SetPrecision(7);
+    QVWCutoff->SetRange(-maximum, maximum);
+    gridLayout->addWidget(QVWCutoff, row, 1);
+    row++;
+
     // plot
     QHBoxLayout * plotLayout = new QHBoxLayout;
     // plot control
@@ -481,6 +504,7 @@ void mtsPIDQtWidget::setupUi(void)
     connect(QVWPGain, SIGNAL(valueChanged()), this, SLOT(SlotPGainChanged()));
     connect(QVWDGain, SIGNAL(valueChanged()), this, SLOT(SlotDGainChanged()));
     connect(QVWIGain, SIGNAL(valueChanged()), this, SLOT(SlotIGainChanged()));
+    connect(QVWCutoff, SIGNAL(valueChanged()), this, SLOT(SlotCutoffChanged()));
 
     // set initial values
     QCBEnableDirectControl->setChecked(DirectControl);

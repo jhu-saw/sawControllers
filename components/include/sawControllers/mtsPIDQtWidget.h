@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -66,6 +66,7 @@ private slots:
     void SlotPGainChanged(void);
     void SlotDGainChanged(void);
     void SlotIGainChanged(void);
+    void SlotCutoffChanged(void);
     //! slot reset desired pos to current pos
     void SlotMaintainPosition(void);
     //! slot reset pid gain to current gain
@@ -108,10 +109,12 @@ protected:
         mtsFunctionRead  GetPGain;
         mtsFunctionRead  GetDGain;
         mtsFunctionRead  GetIGain;
+        mtsFunctionRead  GetCutoff;
 
         mtsFunctionWrite SetPGain;
         mtsFunctionWrite SetDGain;
         mtsFunctionWrite SetIGain;
+        mtsFunctionWrite SetCutoff;
     } PID;
 
 private:
@@ -139,6 +142,7 @@ private:
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWIGain;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWCutoff;
 
     // GUI: plot
     vctPlot2DOpenGLQtWidget * QVPlot;

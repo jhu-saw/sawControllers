@@ -88,6 +88,7 @@ void mtsPID::SetupInterfaces(void)
     mConfigurationStateTable.AddData(mGains.Kp, "Kp");
     mConfigurationStateTable.AddData(mGains.Kd, "Kd");
     mConfigurationStateTable.AddData(mGains.Ki, "Ki");
+    mConfigurationStateTable.AddData(m_low_pass_cutoff, "cutoff");
     mConfigurationStateTable.AddData(m_configuration_js, "configuration_js");
     StateTable.AddData(mTrackingErrorEnabled, "EnableTrackingError"); // that table advances automatically
     mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
@@ -123,6 +124,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Kp, "GetPGain");
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Kd, "GetDGain");
         mInterface->AddCommandReadState(mConfigurationStateTable, mGains.Ki, "GetIGain");
+        mInterface->AddCommandReadState(mConfigurationStateTable, m_low_pass_cutoff, "GetCutoff");
 
         // Get joint configuration
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
@@ -136,6 +138,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandWrite(&mtsPID::SetPGain, this, "SetPGain", mGains.Kp);
         mInterface->AddCommandWrite(&mtsPID::SetDGain, this, "SetDGain", mGains.Kd);
         mInterface->AddCommandWrite(&mtsPID::SetIGain, this, "SetIGain", mGains.Ki);
+        mInterface->AddCommandWrite(&mtsPID::SetCutoff, this, "SetCutoff", m_low_pass_cutoff);
 
         // Set joint configuration
         mInterface->AddCommandWrite(&mtsPID::configure_js, this, "configure_js", m_configuration_js);
@@ -201,7 +204,7 @@ void mtsPID::Configure(const std::string & filename)
 
     m_setpoint_js.Name().SetSize(mNumberOfJoints);
     m_setpoint_js.Position().SetSize(mNumberOfJoints, 0.0);
-    m_setpoint_js.Velocity().SetSize(0); // we don't support desired velocity
+    m_setpoint_js.Velocity().SetSize(mNumberOfJoints, 0.0); // we use this to expose filtered velocity
     m_setpoint_js.Effort().SetSize(mNumberOfJoints, 0.0);
 
     mPositionLimitFlag.SetSize(mNumberOfJoints);
@@ -222,12 +225,13 @@ void mtsPID::Configure(const std::string & filename)
     mIErrorForgetFactor.SetSize(mNumberOfJoints);
     mIErrorForgetFactor.SetAll(1.0);
 
-    // default: use regular PID
-    mNonLinear.SetSize(mNumberOfJoints);
-    mNonLinear.SetAll(0.0);
-
-    mDeadBand.SetSize(mNumberOfJoints);
-    mDeadBand.SetAll(0.0);
+    // default: 1 so there's no filtering
+    m_low_pass_cutoff.SetSize(mNumberOfJoints);
+    m_low_pass_cutoff.SetAll(1.0);
+    m_measured_filtered_v.SetSize(mNumberOfJoints);
+    m_measured_filtered_v.SetAll(0.0);
+    m_measured_filtered_v_previous.SetSize(mNumberOfJoints);
+    m_measured_filtered_v_previous.SetAll(0.0);
 
     // effort mode
     mEffortMode.SetSize(mNumberOfJoints);
@@ -276,13 +280,12 @@ void mtsPID::Configure(const std::string & filename)
         config.GetXMLValue(context, "pid/@IGain", mGains.Ki.at(i));
         config.GetXMLValue(context, "pid/@OffsetTorque", mGains.Offset.at(i));
         config.GetXMLValue(context, "pid/@Forget", mIErrorForgetFactor.at(i));
-        config.GetXMLValue(context, "pid/@Nonlinear", mNonLinear.at(i));
+        config.GetXMLValue(context, "pid/@LowPassCutoff", m_low_pass_cutoff.at(i));
 
         // limit
         config.GetXMLValue(context, "limit/@MinILimit", mIErrorLimitMin.at(i));
         config.GetXMLValue(context, "limit/@MaxILimit", mIErrorLimitMax.at(i));
         config.GetXMLValue(context, "limit/@ErrorLimit", mTrackingErrorTolerances.at(i));
-        config.GetXMLValue(context, "limit/@Deadband", mDeadBand.at(i));
 
         // joint limit
         mCheckPositionLimit = true;
@@ -306,9 +309,8 @@ void mtsPID::Configure(const std::string & filename)
 
     // Convert from degrees to radians
     // TODO: Decide whether to use degrees or radians in XML file
-    // TODO: Also do this for other parameters (not just Deadband)
+    // TODO: Also do this for other parameters
     // TODO: Only do this for revolute joints
-    mDeadBand.Multiply(cmnPI_180);
 
     CMN_LOG_CLASS_INIT_VERBOSE << "Kp: " << mGains.Kp << std::endl
                                << "Kd: " << mGains.Kd << std::endl
@@ -316,7 +318,6 @@ void mtsPID::Configure(const std::string & filename)
                                << "Offset: " << mGains.Offset << std::endl
                                << "JntLowerLimit" << m_configuration_js.PositionMin() << std::endl
                                << "JntUpperLimit" << m_configuration_js.PositionMax() << std::endl
-                               << "Deadband: " << mDeadBand << std::endl
                                << "minILimit: " << mIErrorLimitMin << std::endl
                                << "maxILimit: " << mIErrorLimitMax << std::endl
                                << "elimit: " << mTrackingErrorTolerances << std::endl
@@ -385,14 +386,14 @@ void mtsPID::Run(void)
 
     // loop on all joints
     vctBoolVec::const_iterator enabled = mJointsEnabled.begin();
-    vctDoubleVec::const_iterator measurePosition = m_measured_js.Position().begin();
-    vctDoubleVec::const_iterator measureVelocity = m_measured_js.Velocity().begin();
+    vctDoubleVec::const_iterator measuredPosition = m_measured_js.Position().begin();
+    vctDoubleVec::const_iterator measuredVelocity = m_measured_js.Velocity().begin();
     vctDoubleVec::iterator commandPosition = m_setpoint_js.Position().begin();
+    vctDoubleVec::iterator commandVelocity = m_setpoint_js.Velocity().begin();
     vctDoubleVec::iterator commandEffort = m_setpoint_js.Effort().begin();
     vctBoolVec::const_iterator effortMode = mEffortMode.begin();
     vctDoubleVec::const_iterator effortUserCommand = mEffortUserCommand.ForceTorque().begin();
     vctDoubleVec::iterator error = mError.begin();
-    vctDoubleVec::const_iterator deadBand = mDeadBand.begin();
     vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
     vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
     vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
@@ -406,7 +407,9 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator kD = mGains.Kd.begin();
     vctDoubleVec::const_iterator offset = mGains.Offset.begin();
     vctDoubleVec::const_iterator feedForward = m_feed_forward_jf.ForceTorque().begin();
-    vctDoubleVec::const_iterator nonLinear = mNonLinear.begin();
+    vctDoubleVec::const_iterator cutoff = m_low_pass_cutoff.begin();
+    vctDoubleVec::iterator filtered_v = m_measured_filtered_v.begin();
+    vctDoubleVec::iterator filtered_v_previous = m_measured_filtered_v_previous.begin();
     vctDoubleVec::const_iterator effortLowerLimit = m_configuration_js.EffortMin().begin();
     vctDoubleVec::const_iterator effortUpperLimit = m_configuration_js.EffortMax().begin();
 
@@ -414,11 +417,14 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_measured_js.Position().size() == mNumberOfJoints);
     CMN_ASSERT(m_measured_js.Velocity().size() == mNumberOfJoints);
     CMN_ASSERT(m_setpoint_js.Position().size() == mNumberOfJoints);
+    CMN_ASSERT(m_setpoint_js.Velocity().size() == mNumberOfJoints);
     CMN_ASSERT(m_setpoint_js.Effort().size() == mNumberOfJoints);
+    CMN_ASSERT(m_low_pass_cutoff.size() == mNumberOfJoints);
+    CMN_ASSERT(m_measured_filtered_v.size() == mNumberOfJoints);
+    CMN_ASSERT(m_measured_filtered_v_previous.size() == mNumberOfJoints);
     CMN_ASSERT(mEffortMode.size() == mNumberOfJoints);
     CMN_ASSERT(mEffortUserCommand.ForceTorque().size() == mNumberOfJoints);
     CMN_ASSERT(mError.size() == mNumberOfJoints);
-    CMN_ASSERT(mDeadBand.size() == mNumberOfJoints);
     CMN_ASSERT(mTrackingErrorTolerances.size() == mNumberOfJoints);
     CMN_ASSERT(mPositionLimitFlag.size() == mNumberOfJoints);
     CMN_ASSERT(mTrackingErrorFlag.size() == mNumberOfJoints);
@@ -431,7 +437,6 @@ void mtsPID::Run(void)
     CMN_ASSERT(mGains.Ki.size() == mNumberOfJoints);
     CMN_ASSERT(mGains.Kd.size() == mNumberOfJoints);
     CMN_ASSERT(mGains.Offset.size() == mNumberOfJoints);
-    CMN_ASSERT(mNonLinear.size() == mNumberOfJoints);
     CMN_ASSERT(m_configuration_js.EffortMin().size() == mNumberOfJoints);
     CMN_ASSERT(m_configuration_js.EffortMax().size() == mNumberOfJoints);
 
@@ -441,14 +446,14 @@ void mtsPID::Run(void)
          ++i,
              // make sure you increment all iterators declared above!
              ++enabled,
-             ++measurePosition,
-             ++measureVelocity,
+             ++measuredPosition,
+             ++measuredVelocity,
              ++commandPosition,
+             ++commandVelocity,
              ++commandEffort,
              ++effortMode,
              ++effortUserCommand,
              ++error,
-             ++deadBand,
              ++tolerance,
              ++limitFlag,
              ++trackingErrorFlag,
@@ -462,7 +467,9 @@ void mtsPID::Run(void)
              ++kD,
              ++offset,
              ++feedForward,
-             ++nonLinear,
+             ++cutoff,
+             ++filtered_v,
+             ++filtered_v_previous,
              ++effortLowerLimit,
              ++effortUpperLimit
          ) {
@@ -470,20 +477,16 @@ void mtsPID::Run(void)
         // first check if the controller and this joint is enabled
         if (!mEnabled || !(*enabled)) {
             *commandEffort = 0.0;
-            *commandPosition = *measurePosition;
+            *commandPosition = *measuredPosition;
         } else {
             // the PID controller is enabled and this joint is actively controlled
             // check the mode, i.e. position or effort pass-through
             if (*effortMode) {
                 *commandEffort = *effortUserCommand;
-                *commandPosition = *measurePosition;
+                *commandPosition = *measuredPosition;
             } else {
                 // PID mode
-                *error = *commandPosition - *measurePosition;
-                // apply dead band
-                if ((*error <= *deadBand) && (*error >= -(*deadBand))) {
-                    *error = 0.0;
-                }
+                *error = *commandPosition - *measuredPosition;
                 // check for tracking errors
                 if (mTrackingErrorEnabled) {
                     double errorAbsolute = fabs(*error);
@@ -502,7 +505,10 @@ void mtsPID::Run(void)
                 } // end of tracking error
 
                 // compute error derivative
-                double dError =  -1.0 * (*measureVelocity);
+                *filtered_v = (1.0 - *cutoff) * *filtered_v_previous + *cutoff * *measuredVelocity;
+                double dError =  -1.0 * (*filtered_v);
+                *commandVelocity = *filtered_v;
+                *filtered_v_previous = * filtered_v;
 
                 // compute error integral
                 *iError *= *iErrorForgetFactor;
@@ -517,14 +523,6 @@ void mtsPID::Run(void)
                 // compute effort
                 *commandEffort =
                     *kP * (*error) + *kD * dError + *kI * (*iError);
-
-                // nonlinear control mode
-                if (*nonLinear > 0.0) {
-                    const double absError = fabs(*error);
-                    if (absError < *nonLinear) {
-                        *commandEffort *= (absError / *nonLinear);
-                    }
-                }
 
                 // add constant offsets in PID mode only and after non-linear scaling
                 *commandEffort += *offset;
@@ -615,6 +613,17 @@ void mtsPID::SetIGain(const vctDoubleVec & gain)
     }
     mConfigurationStateTable.Start();
     mGains.Ki.Assign(gain);
+    mConfigurationStateTable.Advance();
+}
+
+void mtsPID::SetCutoff(const vctDoubleVec & cutoff)
+{
+    if (SizeMismatch(cutoff.size(), "SetCutoff")) {
+        return;
+    }
+    mConfigurationStateTable.Start();
+    m_low_pass_cutoff.Assign(cutoff);
+    std::cerr << "New cutoff: " << cutoff << std::endl;
     mConfigurationStateTable.Advance();
 }
 
@@ -784,6 +793,7 @@ void mtsPID::Enable(const bool & enable)
         mPositionLimitFlag.SetAll(false);
         mPreviousCommandTime = 0.0;
         m_feed_forward_jf.ForceTorque().SetAll(0.0);
+        m_measured_filtered_v_previous.SetAll(0.0);
     }
     // trigger Enabled
     Events.Enabled(mEnabled);
