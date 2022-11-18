@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -56,17 +56,11 @@ void mtsPID::SetupInterfaces(void)
     // require RobotJointTorque interface
     mtsInterfaceRequired * requiredInterface = AddInterfaceRequired("RobotJointTorqueInterface");
     if (requiredInterface) {
-        requiredInterface->AddFunction("SetCoupling", IO.SetCoupling);
-        requiredInterface->AddFunction("ActuatorToJointPosition", IO.ActuatorToJointPosition);
-        requiredInterface->AddFunction("JointToActuatorPosition", IO.JointToActuatorPosition);
-        requiredInterface->AddFunction("ActuatorToJointEffort", IO.ActuatorToJointEffort);
-        requiredInterface->AddFunction("JointToActuatorEffort", IO.JointToActuatorEffort);
         requiredInterface->AddFunction("configuration_js", IO.configuration_js);
         requiredInterface->AddFunction("configure_js", IO.configure_js);
         requiredInterface->AddFunction("measured_js", IO.measured_js);
         requiredInterface->AddFunction("servo_jf", IO.servo_jf);
         // event handlers
-        requiredInterface->AddEventHandlerWrite(&mtsPID::CouplingEventHandler, this, "Coupling");
         requiredInterface->AddEventHandlerWrite(&mtsPID::ErrorEventHandler, this, "error");
     }
 
@@ -111,10 +105,6 @@ void mtsPID::SetupInterfaces(void)
         // ROS compatible joint state
         mInterface->AddCommandReadState(StateTable, m_measured_js, "measured_js");
         mInterface->AddCommandReadState(StateTable, m_setpoint_js, "setpoint_js");
-
-        // coupling
-        mInterface->AddCommandWrite(&mtsPID::SetCoupling, this, "SetCoupling", prmActuatorJointCoupling());
-        mInterface->AddEventWrite(Events.Coupling, "Coupling", prmActuatorJointCoupling());
 
         // Set check limits
         mInterface->AddCommandWriteState(StateTable, mCheckPositionLimit, "SetCheckPositionLimit");
@@ -174,10 +164,6 @@ void mtsPID::Configure(const std::string & filename)
         exit(EXIT_FAILURE);
     }
     mNumberOfJoints = static_cast<size_t>(numberOfJoints);
-
-    // actuator setpoint
-    m_pre_coupling_setpoint_ap.SetSize(mNumberOfJoints);
-    m_pre_coupling_setpoint_af.SetSize(mNumberOfJoints);
 
     // feedback
     mEffortPIDCommand.ForceTorque().SetSize(mNumberOfJoints, 0.0);
@@ -374,10 +360,9 @@ void mtsPID::Run(void)
     ProcessQueuedEvents();
 
     // get data from IO if not in simulated mode
-    GetIOData(true); // compute velocity if needed
+    GetIOData();
 
-    // now that we have recent data (e.g. position after
-    // calibration/coupling...), deal with user commands
+    // now that we have recent data, deal with user commands
     ProcessQueuedCommands();
 
     // initialize variables
@@ -822,20 +807,8 @@ void mtsPID::EnableEffortMode(const vctBoolVec & enable)
     m_feed_forward_jf.ForceTorque().SetAll(0.0);
 }
 
-void mtsPID::SetCoupling(const prmActuatorJointCoupling & coupling)
-{
-    // we assume the user has disabled whatever joints needed to be
-    // disabled so we just past the request to IO level
 
-    // first save the setpoint in actuator space
-    IO.JointToActuatorPosition(m_setpoint_js.Position(), m_pre_coupling_setpoint_ap);
-    IO.JointToActuatorEffort(m_setpoint_js.Effort(), m_pre_coupling_setpoint_af);
-
-    // then request coupling
-    IO.SetCoupling(coupling);
-}
-
-void mtsPID::GetIOData(const bool computeVelocity)
+void mtsPID::GetIOData(void)
 {
     // get data from IO if not in simulated mode.  When is simulation
     // mode, position come from the user/client and is found in
@@ -875,35 +848,28 @@ void mtsPID::GetIOData(const bool computeVelocity)
     // talking to actual robot
     else {
         IO.measured_js(m_measured_js);
-        if (computeVelocity) {
-            // velocities are not provided by the robot
-            if (m_measured_js.Velocity().size() == 0) {
-                // IO level doesn't provide velocities
-                // so estimate it from measured positions.  this
-                // estimation is very simple and likely noisy so try to
-                // avoid this case as much as possible
-                const double dt = m_measured_js.Timestamp() - m_measured_js_previous.Timestamp();
-                if (dt > 0) {
-                    vctDoubleVec::const_iterator currentPosition = m_measured_js.Position().begin();
-                    vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
-                    vctDoubleVec::iterator velocity;
-                    const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
-                    for (velocity = m_measured_js.Velocity().begin();
-                         velocity != end;
-                         ++currentPosition,
-                             ++previousPosition,
-                             ++velocity) {
-                        *velocity = (*currentPosition - *previousPosition) / dt;
-                    }
+        // velocities are not provided by the robot
+        if (m_measured_js.Velocity().size() == 0) {
+            // IO level doesn't provide velocities
+            // so estimate it from measured positions.  this
+            // estimation is very simple and likely noisy so try to
+            // avoid this case as much as possible
+            const double dt = m_measured_js.Timestamp() - m_measured_js_previous.Timestamp();
+            if (dt > 0) {
+                vctDoubleVec::const_iterator currentPosition = m_measured_js.Position().begin();
+                vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
+                vctDoubleVec::iterator velocity;
+                const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
+                for (velocity = m_measured_js.Velocity().begin();
+                     velocity != end;
+                     ++currentPosition,
+                         ++previousPosition,
+                         ++velocity) {
+                    *velocity = (*currentPosition - *previousPosition) / dt;
                 }
-            } // end of software base velocity estimation based on
-            // measured positions
-        } else {
-            // user requested to not compute velocities, likely
-            // because previousPosition can't be trusted
-            // (e.g. after coupling change)
-            m_measured_js.Velocity().SetAll(0.0);
-        }
+            }
+        } // end of software base velocity estimation based on
+        // measured positions
 
         // save previous position with timestamp
         m_measured_js_previous = m_measured_js;
@@ -916,22 +882,6 @@ void mtsPID::SetEffortLocal(const vctDoubleVec & effort)
         mEffortPIDCommand.ForceTorque().Assign(effort);
         IO.servo_jf(mEffortPIDCommand);
     }
-}
-
-void mtsPID::CouplingEventHandler(const prmActuatorJointCoupling & coupling)
-{
-    // force recalculating everything based on new IO data
-    // update states
-    StateTable.Start(); {
-        GetIOData(false); // don't estimate velocity based on previous
-                          // position since that position might not be
-                          // computed using same coupling
-        // reset commanded based on measured to have reasonable defaults
-        IO.ActuatorToJointPosition(m_pre_coupling_setpoint_ap, m_setpoint_js.Position());
-        IO.ActuatorToJointEffort(m_pre_coupling_setpoint_af, m_setpoint_js.Effort());
-    } StateTable.Advance();
-
-    Events.Coupling(coupling);
 }
 
 void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)

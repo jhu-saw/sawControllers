@@ -33,7 +33,6 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
-#include <cisstParameterTypes/prmActuatorJointCoupling.h>
 
 #include <sawControllers/sawControllersRevision.h>
 
@@ -47,13 +46,6 @@ class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 protected:
     // Required interface
     struct {
-        //! Set actuator/joint coupling
-        mtsFunctionWrite SetCoupling;
-        mtsFunctionQualifiedRead ActuatorToJointPosition;
-        mtsFunctionQualifiedRead JointToActuatorPosition;
-        mtsFunctionQualifiedRead ActuatorToJointEffort;
-        mtsFunctionQualifiedRead JointToActuatorEffort;
-
         //! Read joint type from robot
         mtsFunctionRead configuration_js;
         mtsFunctionWrite configure_js;
@@ -82,9 +74,6 @@ protected:
 
     //! Joint configuration
     prmConfigurationJoint m_configuration_js;
-
-    //! Saved actuator position/effort setpoint before changing coupling
-    vctDoubleVec m_pre_coupling_setpoint_ap, m_pre_coupling_setpoint_af;
 
     //! Flag whether check joint limit
     bool mCheckPositionLimit = true;
@@ -118,7 +107,7 @@ protected:
     //! iError forgetting factor (0 < factor <= 1.0)
     vctDoubleVec mIErrorForgetFactor;
 
-    //! If 1, unfiltered
+    //! If cutoff set to 1.0, unfiltered
     vctDoubleVec
         m_low_pass_cutoff,
         m_measured_filtered_v,
@@ -155,8 +144,6 @@ protected:
         mtsFunctionWrite PositionLimit;
         //! Enabled joints event
         mtsFunctionWrite EnabledJoints;
-        //! Coupling changed event
-        mtsFunctionWrite Coupling;
     } Events;
 
     mtsInterfaceProvided * mInterface;
@@ -195,24 +182,18 @@ protected:
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
-    void SetCoupling(const prmActuatorJointCoupling & coupling);
-
     /*! Retrieve data from the IO component.  This method checks for
       the simulated flag and sets position/effort based on user
       commands if it is simulated.  If the IO component doesn't
       provide the velocity, the method estimates the velocity based on
-      the previous measured position.  When changing coupling, the
-      previous position might be irrelevant so the user can skip
-      velocity computation.  In this case, velocity is set to 0. */
-    void GetIOData(const bool computeVelocity);
+      the previous measured position. */
+    void GetIOData(void);
 
     /*! Utility method to convert vector of doubles
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
       requested efforts to the IO component. */
     void SetEffortLocal(const vctDoubleVec & effort);
-
-    void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
 
     void ErrorEventHandler(const mtsMessage & message);
 
