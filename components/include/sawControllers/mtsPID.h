@@ -35,6 +35,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 
 #include <sawControllers/sawControllersRevision.h>
+#include <sawControllers/mtsPIDConfiguration.h>
 
 //! Always include last
 #include <sawControllers/sawControllersExport.h>
@@ -59,18 +60,10 @@ protected:
 
 
     //! Number of joints, set from the XML file used in Configure method
-    size_t mNumberOfJoints;
+    size_t m_number_of_joints;
 
-    struct {
-        //! Proportional gains
-        vctDoubleVec Kp;
-        //! Derivative gains
-        vctDoubleVec Kd;
-        //! Integral gains
-        vctDoubleVec Ki;
-        //! Offset
-        vctDoubleVec Offset;
-    } mGains;
+    //! PID Configuration
+    mtsPIDConfiguration m_configuration;
 
     //! Joint configuration
     prmConfigurationJoint m_configuration_js;
@@ -84,7 +77,7 @@ protected:
 
     //! Commanded joint efforts sent to IO level
     vctDoubleVec mEffortMeasure;
-    prmForceTorqueJointSet mEffortPIDCommand;
+    prmForceTorqueJointSet m_pid_setpoint_jf;
     //! Feedforward, i.e. effort added to the PID output in position mode
     prmForceTorqueJointSet m_feed_forward_jf;
 
@@ -98,32 +91,21 @@ protected:
         m_setpoint_js;
 
     //! Error
-    vctDoubleVec mError;
-    vctDoubleVec mIError;
-
-    //! Min/max iError
-    vctDoubleVec mIErrorLimitMin;
-    vctDoubleVec mIErrorLimitMax;
-    //! iError forgetting factor (0 < factor <= 1.0)
-    vctDoubleVec mIErrorForgetFactor;
+    vctDoubleVec m_p_error, m_i_error;
 
     //! If cutoff set to 1.0, unfiltered
     vctDoubleVec
-        m_low_pass_cutoff,
         m_measured_filtered_v,
         m_measured_filtered_v_previous;
-
-    //! Deadband (errors less than this are set to 0)
-    vctDoubleVec mDeadBand;
 
     //! Enable mtsPID controller
     bool mEnabled = false;
 
     //! Enable individal joints
-    vctBoolVec mJointsEnabled;
+    vctBoolVec m_joints_enabled;
 
     //! Enable mtsPID controller
-    vctBoolVec mEffortMode;
+    vctBoolVec m_effort_mode;
 
     bool mTrackingErrorEnabled;
     vctDoubleVec mTrackingErrorTolerances;
@@ -131,7 +113,7 @@ protected:
 
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
-    bool mIsSimulated = false;
+    bool m_simulated = false;
     double mCommandTime, mPreviousCommandTime;
 
     //! Configuration state table
@@ -224,30 +206,11 @@ public:
 
 protected:
     /**
-     * @brief Set controller P gains
+     * @brief Set configuration
      *
-     * @param pgain   new P gains
+     * @param configuration  new configuration
      */
-    void SetPGain(const vctDoubleVec & pgain);
-
-    /**
-     * @brief Set controller D gains
-     *
-     * @param dgain   new D gains
-     */
-    void SetDGain(const vctDoubleVec & dgain);
-
-    /**
-     * @brief Set controller I gains
-     *
-     * @param igain  new I gains
-     */
-    void SetIGain(const vctDoubleVec & igain);
-
-    /**
-     * @brief Set controller cutoff
-     */
-    void SetCutoff(const vctDoubleVec & cutoff);
+    void configure(const mtsPIDConfiguration & configuration);
 
     /**
      * @brief Set joint configuration.  Size of vector of names must
@@ -258,28 +221,6 @@ protected:
      * @param configuration
      */
     void configure_js(const prmConfigurationJoint & configuration);
-
-    /**
-     * @brief Set minimum iError limit
-     *
-     * @param iminlim  minmum iError limit
-     */
-    void SetMinIErrorLimit(const vctDoubleVec & iminlim);
-
-
-    /**
-     * @brief Set maximum iError limit
-     *
-     * @param imaxlim  maximum iError limit
-     */
-    void SetMaxIErrorLimit(const vctDoubleVec & imaxlim);
-
-    /**
-     * @brief Set error integral forgetting factor
-     *
-     * @param forget  iError forgetting factor
-     */
-    void SetForgetIError(const double & forget);
 
     /*! Return true is size mismatch.  Also sends error message and
       disables PID. */

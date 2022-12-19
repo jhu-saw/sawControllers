@@ -32,6 +32,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QPushButton>
+
+#include <sawControllers/mtsPIDConfiguration.h>
 #include <sawControllers/sawControllersQtExport.h>
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
@@ -51,6 +53,7 @@ public:
 
 protected:
     void Init(void);
+    void GetConfiguration(void);
     virtual void closeEvent(QCloseEvent * event);
 
 signals:
@@ -60,17 +63,12 @@ private slots:
     //! slot enable/disable mtsPID controller
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);
-    void SlotEnableTrackingError(bool toggle);
+    void SlotEnableTrackingError(bool toggle);    
+    void SlotConfigurationChanged(void);
     //! slot send desired pos when input changed
     void SlotPositionChanged(void);
-    void SlotPGainChanged(void);
-    void SlotDGainChanged(void);
-    void SlotIGainChanged(void);
-    void SlotCutoffChanged(void);
     //! slot reset desired pos to current pos
     void SlotMaintainPosition(void);
-    //! slot reset pid gain to current gain
-    void SlotResetPIDGain(void);
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
@@ -97,24 +95,17 @@ protected:
         mtsFunctionRead  JointsEnabled;
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
-        mtsFunctionWrite servo_jp;
+        mtsFunctionRead  configuration;
         mtsFunctionRead  configuration_js;
+        mtsFunctionWrite configure;
+        mtsFunctionWrite servo_jp;
         mtsFunctionRead  measured_js;
         mtsFunctionRead  setpoint_js;
 
-        prmConfigurationJoint ConfigurationJoint;
-        prmStateJoint    StateJoint;
-        prmStateJoint    StateJointDesired;
-
-        mtsFunctionRead  GetPGain;
-        mtsFunctionRead  GetDGain;
-        mtsFunctionRead  GetIGain;
-        mtsFunctionRead  GetCutoff;
-
-        mtsFunctionWrite SetPGain;
-        mtsFunctionWrite SetDGain;
-        mtsFunctionWrite SetIGain;
-        mtsFunctionWrite SetCutoff;
+        mtsPIDConfiguration m_configuration;
+        prmConfigurationJoint m_configuration_js;
+        prmStateJoint    m_measured_js;
+        prmStateJoint    m_setpoint_js;
     } PID;
 
 private:
@@ -126,14 +117,13 @@ private:
     prmPositionJointSet DesiredPositionParam;
     vctDoubleVec UnitFactor;
 
-    size_t NumberOfAxis;
+    size_t m_number_of_joints;
 
     // GUI: Commands
     QCheckBox * QCBEnableDirectControl;
     QCheckBox * QCBEnable;
     QCheckBox * QCBEnableTrackingError;
     QPushButton * QPBMaintainPosition;
-    QPushButton * QPBResetPIDGain;
     vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPosition;
     vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPosition;
