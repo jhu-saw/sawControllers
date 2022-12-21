@@ -44,7 +44,6 @@ mtsPID::mtsPID(const mtsTaskPeriodicConstructorArg & arg):
 
 void mtsPID::Init(void)
 {
-    mApplyEffortLimit = false;
     AddStateTable(&mConfigurationStateTable);
     mConfigurationStateTable.SetAutomaticAdvance(false);
 }
@@ -70,7 +69,7 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(m_joints_enabled, "JointsEnabled");
 
     // measures are timestamped by the IO level
-    StateTable.AddData(mCheckPositionLimit, "CheckPositionLimit");
+    StateTable.AddData(m_enforce_position_limits, "enforce_position_limits");
 
     m_measured_js.SetAutomaticTimestamp(false);
     StateTable.AddData(m_measured_js, "measured_js");
@@ -101,12 +100,13 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(StateTable, m_measured_js, "measured_js");
         mInterface->AddCommandReadState(StateTable, m_setpoint_js, "setpoint_js");
 
-        // Set check limits
-        mInterface->AddCommandWriteState(StateTable, mCheckPositionLimit, "SetCheckPositionLimit");
-
         // Get joint configuration
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration, "configuration");
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
+
+        // Set enforce position limits
+        mInterface->AddCommandWrite(&mtsPID::enforce_position_limits, this, "enforce_position_limits", m_enforce_position_limits);
+        mInterface->AddCommandReadState(StateTable, m_enforce_position_limits, "position_limits_enforced");
 
         // Error tracking
         mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
@@ -123,6 +123,23 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddEventWrite(Events.PositionLimit, "PositionLimit", vctBoolVec());
     }
 }
+
+
+void mtsPID::enforce_position_limits(const bool & enforce)
+{
+    // make sure we have proper joint limits
+    if (enforce) {
+        // if any value is different from 0, we assume we have proper limits
+        if (m_configuration_js.PositionMin().Any() || m_configuration_js.PositionMax().Any()) {
+            m_enforce_position_limits = enforce;
+            return;
+        } else {
+            mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
+        }
+    }
+    m_enforce_position_limits = false;
+}
+
 
 void mtsPID::Configure(const std::string & filename)
 {
@@ -400,6 +417,23 @@ void mtsPID::Run(void)
             } else {
                 // PID mode
                 *p_error = *setpoint_p - *measured_p;
+                // deadband
+                bool in_deadband = false;
+                if (*p_error > 0.0) {
+                    if (*p_error < c->p_deadband) {
+                        *p_error = 0.0;
+                        in_deadband = true;
+                    } else {
+                        *p_error -= c->p_deadband;
+                    }
+                } else if (*p_error < 0.0) {
+                    if (*p_error > -c->p_deadband) {
+                        *p_error = 0.0;
+                        in_deadband = true;
+                    } else {
+                        *p_error += c->p_deadband;
+                    }
+                }
                 // check for tracking errors
                 if (mTrackingErrorEnabled) {
                     double errorAbsolute = fabs(*p_error);
@@ -418,10 +452,13 @@ void mtsPID::Run(void)
                 } // end of tracking error
 
                 // compute error derivative
-                *filtered_v = (1.0 - c->v_low_pass_cutoff) * *filtered_v_previous + c->v_low_pass_cutoff * *measured_v;
-                double d_error =  -1.0 * (*filtered_v);
-                *setpoint_v = *filtered_v;
-                *filtered_v_previous = * filtered_v;
+                double d_error = 0.0;
+                if (!in_deadband) {
+                    *filtered_v = (1.0 - c->v_low_pass_cutoff) * *filtered_v_previous + c->v_low_pass_cutoff * *measured_v;
+                    d_error =  -1.0 * (*filtered_v);
+                    *setpoint_v = *filtered_v;
+                    *filtered_v_previous = * filtered_v;
+                }
 
                 // compute error integral
                 *i_error *= c->i_forget_rate;
@@ -446,7 +483,7 @@ void mtsPID::Run(void)
             } // end of PID mode
 
             // apply effort limits if needed
-            if (mApplyEffortLimit) {
+            if (*effortLowerLimit != *effortUpperLimit) {
                 if (*setpoint_f > *effortUpperLimit) {
                     *setpoint_f = *effortUpperLimit;
                 } else if (*setpoint_f < *effortLowerLimit) {
@@ -508,7 +545,6 @@ void mtsPID::configure(const mtsPIDConfiguration & configuration)
     }
     mConfigurationStateTable.Start();
     m_configuration = configuration;
-    std::cerr << configuration.at(0) << std::endl;
     mConfigurationStateTable.Advance();
 }
 
@@ -519,41 +555,41 @@ void mtsPID::configure_js(const prmConfigurationJoint & configuration)
         return;
     }
     mConfigurationStateTable.Start();
-    // min position
-    if (configuration.PositionMin().size() != 0) {
-        if (SizeMismatch(configuration.PositionMin().size(), "configure_js.PositionMin")) {
-            return;
-        }
-        m_configuration_js.PositionMin().Assign(configuration.PositionMin());
-    }
-    // max position
-    if (configuration.PositionMax().size() != 0) {
-        if (SizeMismatch(configuration.PositionMax().size(), "configure_js.PositionMax")) {
-            return;
-        }
-        m_configuration_js.PositionMax().Assign(configuration.PositionMax());
-    }
-    // min effort
-    if (configuration.EffortMin().size() != 0) {
-        if (SizeMismatch(configuration.EffortMin().size(), "configure_js.EffortMin")) {
-            return;
-        }
-        m_configuration_js.EffortMin().Assign(configuration.EffortMin());
-    }
-    // max effort
-    if (configuration.EffortMax().size() != 0) {
-        if (SizeMismatch(configuration.EffortMax().size(), "configure_js.EffortMax")) {
-            return;
-        }
-        m_configuration_js.EffortMax().Assign(configuration.EffortMax());
-    }
+    m_configuration_js = configuration;
+    std::cerr << m_configuration_js << std::endl;
+    // // min position
+    // if (configuration.PositionMin().size() != 0) {
+    //     if (SizeMismatch(configuration.PositionMin().size(), "configure_js.PositionMin")) {
+    //         return;
+    //     }
+    //     m_configuration_js.PositionMin().Assign(configuration.PositionMin());
+    // }
+    // // max position
+    // if (configuration.PositionMax().size() != 0) {
+    //     if (SizeMismatch(configuration.PositionMax().size(), "configure_js.PositionMax")) {
+    //         return;
+    //     }
+    //     m_configuration_js.PositionMax().Assign(configuration.PositionMax());
+    // }
+    // // min effort
+    // if (configuration.EffortMin().size() != 0) {
+    //     if (SizeMismatch(configuration.EffortMin().size(), "configure_js.EffortMin")) {
+    //         return;
+    //     }
+    //     m_configuration_js.EffortMin().Assign(configuration.EffortMin());
+    // }
+    // // max effort
+    // if (configuration.EffortMax().size() != 0) {
+    //     if (SizeMismatch(configuration.EffortMax().size(), "configure_js.EffortMax")) {
+    //         return;
+    //     }
+    //     m_configuration_js.EffortMax().Assign(configuration.EffortMax());
+    // }
     mConfigurationStateTable.Advance();
 
     // consistency checks
     CheckLowerUpper(m_configuration_js.PositionMin(), m_configuration_js.PositionMax(), "SetPositionLowerLimit");
     CheckLowerUpper(m_configuration_js.EffortMin(), m_configuration_js.EffortMax(), "SetEffortLowerLimit");
-    mApplyEffortLimit = m_configuration_js.EffortMin().Any() && m_configuration_js.EffortMax().Any();
-
 
     CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::configure_js: called with "
                                << configuration << std::endl;
@@ -578,7 +614,7 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
     m_setpoint_js.Position().Assign(command.Goal());
     mCommandTime = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
-    if (mCheckPositionLimit) {
+    if (m_enforce_position_limits) {
         bool limitReached = false;
         vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
         vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();

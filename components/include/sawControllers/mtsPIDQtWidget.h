@@ -63,12 +63,15 @@ private slots:
     //! slot enable/disable mtsPID controller
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);
-    void SlotEnableTrackingError(bool toggle);    
+    void SlotEnableTrackingError(bool toggle);
+    void SlotEnforcePositionLimits(bool toggle);    
     void SlotConfigurationChanged(void);
     //! slot send desired pos when input changed
     void SlotPositionChanged(void);
     //! slot reset desired pos to current pos
     void SlotMaintainPosition(void);
+    //! slot to save
+    void SlotSave(void);
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
@@ -95,6 +98,8 @@ protected:
         mtsFunctionRead  JointsEnabled;
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
+        mtsFunctionWrite enforce_position_limits;
+        mtsFunctionRead  position_limits_enforced;
         mtsFunctionRead  configuration;
         mtsFunctionRead  configuration_js;
         mtsFunctionWrite configure;
@@ -123,7 +128,9 @@ private:
     QCheckBox * QCBEnableDirectControl;
     QCheckBox * QCBEnable;
     QCheckBox * QCBEnableTrackingError;
+    QCheckBox * QCBEnforcePositionLimits;
     QPushButton * QPBMaintainPosition;
+    QPushButton * QPBSave;
     vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPosition;
     vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPosition;
@@ -132,15 +139,16 @@ private:
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWIGain;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDeadband;
     vctQtWidgetDynamicVectorDoubleWrite * QVWCutoff;
 
     // GUI: plot
     vctPlot2DOpenGLQtWidget * QVPlot;
-    vctPlot2DBase::Signal * CurrentPositionSignal;
-    vctPlot2DBase::Signal * DesiredPositionSignal;
-    vctPlot2DBase::Signal * CurrentVelocitySignal;
-    vctPlot2DBase::Signal * DesiredEffortSignal;
-    vctPlot2DBase::Signal * CurrentEffortSignal;
+    vctPlot2DBase::Signal * signal_measured_p;
+    vctPlot2DBase::Signal * signal_setpoint_p;
+    vctPlot2DBase::Signal * signal_measured_v;
+    vctPlot2DBase::Signal * signal_measured_f;
+    vctPlot2DBase::Signal * signal_setpoint_f;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };

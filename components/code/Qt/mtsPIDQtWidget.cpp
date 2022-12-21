@@ -29,6 +29,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <QGroupBox>
 #include <QCloseEvent>
 #include <QCoreApplication>
+#include <QFileDialog>
 
 // cisst
 #include <cisstMultiTask/mtsInterfaceRequired.h>
@@ -85,6 +86,8 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("JointsEnabled", PID.JointsEnabled);
         interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
         interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
+        interfaceRequired->AddFunction("enforce_position_limits", PID.enforce_position_limits);
+        interfaceRequired->AddFunction("position_limits_enforced", PID.position_limits_enforced);
         interfaceRequired->AddFunction("configuration", PID.configuration);
         interfaceRequired->AddFunction("configuration_js", PID.configuration_js);
         interfaceRequired->AddFunction("configure", PID.configure);
@@ -105,16 +108,18 @@ void mtsPIDQtWidget::GetConfiguration(void)
     // get configuration
     PID.configuration(PID.m_configuration);
     // convert to vectors
-    vctDoubleVec pg, ig, dg, co;
+    vctDoubleVec pg, ig, dg, db, co;
     pg.SetSize(m_number_of_joints);
     ig.SetSize(m_number_of_joints);
     dg.SetSize(m_number_of_joints);
+    db.SetSize(m_number_of_joints);
     co.SetSize(m_number_of_joints);
     size_t index = 0;
     for (const auto & v : PID.m_configuration) {
         pg.at(index) = v.p_gain;
         ig.at(index) = v.i_gain;
         dg.at(index) = v.d_gain;
+        db.at(index) = v.p_deadband;
         co.at(index) = v.v_low_pass_cutoff;
         ++index;
     }
@@ -122,6 +127,7 @@ void mtsPIDQtWidget::GetConfiguration(void)
     QVWPGain->SetValue(pg);
     QVWIGain->SetValue(ig);
     QVWDGain->SetValue(dg);
+    QVWDeadband->SetValue(db);
     QVWCutoff->SetValue(co);
 }
 
@@ -195,6 +201,12 @@ void mtsPIDQtWidget::SlotEnableTrackingError(bool toggle)
 }
 
 
+void mtsPIDQtWidget::SlotEnforcePositionLimits(bool toggle)
+{
+    PID.enforce_position_limits(toggle);
+}
+
+
 void mtsPIDQtWidget::SlotPositionChanged(void)
 {
     DesiredPosition.SetAll(0.0);
@@ -216,6 +228,8 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
     QVWDGain->GetValue(dg);
     vctDoubleVec ig(m_number_of_joints);
     QVWIGain->GetValue(ig);
+    vctDoubleVec db(m_number_of_joints);
+    QVWDeadband->GetValue(db);
     vctDoubleVec co(m_number_of_joints);
     QVWCutoff->GetValue(co);
     // copy to configuration
@@ -224,6 +238,7 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
         v.p_gain = pg.at(index);
         v.i_gain = ig.at(index);
         v.d_gain = dg.at(index);
+        v.p_deadband = db.at(index);
         v.v_low_pass_cutoff = co.at(index);
         ++index;
     }
@@ -238,6 +253,45 @@ void mtsPIDQtWidget::SlotMaintainPosition(void)
     vctDoubleVec goal(PID.m_measured_js.Position());
     QVWDesiredPosition->SetValue(goal);
     SlotPositionChanged();
+}
+
+
+void mtsPIDQtWidget::SlotSave(void)
+{
+    QString filename
+        = QFileDialog::getSaveFileName(this,
+                                       "Save PID configuration",
+                                       QDir::currentPath(),
+                                       "sawControllersPID JSON (sawControllersPID*.json)");
+    if (!filename.isNull()) {
+        // save
+        std::string message;
+        std::string actualFile = filename.toStdString();
+        try {
+            std::ofstream rawFile;
+            rawFile.open(actualFile);
+            if (rawFile.is_open()) {
+                Json::Value jsonValue;
+                cmnDataJSON<mtsPIDConfiguration>::SerializeText(PID.m_configuration, jsonValue);
+                rawFile << jsonValue;
+                rawFile.close();
+                message = "Configuration saved to:\n" + actualFile;
+            } else {
+                message = "Failed to open:\n" + actualFile;
+            }
+        } catch (const std::runtime_error & e) {
+            message = "Failed to save configuration to:\n" +  actualFile
+                + "\nException:\n" + e.what();
+        }
+        // confirmation message
+        QMessageBox * msgBox = new QMessageBox(this);
+        msgBox->setAttribute(Qt::WA_DeleteOnClose);
+        msgBox->setStandardButtons(QMessageBox::Ok);
+        msgBox->setWindowTitle("Information");
+        msgBox->setText(message.c_str());
+        msgBox->setModal(true);
+        msgBox->show();
+    }
 }
 
 
@@ -271,10 +325,13 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QVWPGain->setEnabled(toggle);
     QVWDGain->setEnabled(toggle);
     QVWIGain->setEnabled(toggle);
+    QVWDeadband->setEnabled(toggle);
     QVWCutoff->setEnabled(toggle);
     QCBEnable->setEnabled(toggle);
     QCBEnableTrackingError->setEnabled(toggle);
+    QCBEnforcePositionLimits->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
+    QPBSave->setEnabled(toggle);
 }
 
 
@@ -294,12 +351,15 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.m_setpoint_js.Position().ElementwiseMultiply(UnitFactor);
     bool trackingErrorEnabled;
     PID.TrackingErrorEnabled(trackingErrorEnabled);
+    bool positionLimitsEnforced;
+    PID.position_limits_enforced(positionLimitsEnforced);
 
     // update GUI
     QVWJointsEnabled->SetValue(JointsEnabled);
     QVRCurrentPosition->SetValue(PID.m_measured_js.Position());
     QVRCurrentEffort->SetValue(PID.m_measured_js.Effort());
     QCBEnableTrackingError->setChecked(trackingErrorEnabled);
+    QCBEnforcePositionLimits->setChecked(positionLimitsEnforced);
 
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
@@ -308,17 +368,17 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     }
 
     // plot
-    CurrentPositionSignal->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                                  PID.m_measured_js.Position().Element(PlotIndex)));
-    DesiredPositionSignal->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                                  PID.m_setpoint_js.Position().Element(PlotIndex)));
-    CurrentVelocitySignal->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                                  PID.m_measured_js.Velocity().Element(PlotIndex)));
+    signal_measured_p->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+                                              PID.m_measured_js.Position().Element(PlotIndex)));
+    signal_setpoint_p->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+                                              PID.m_setpoint_js.Position().Element(PlotIndex)));
+    signal_measured_v->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+                                              PID.m_measured_js.Velocity().Element(PlotIndex)));
     // negate effort to plot the same direction
-    CurrentEffortSignal->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                                -PID.m_measured_js.Effort().Element(PlotIndex)));
-    DesiredEffortSignal->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                                -PID.m_setpoint_js.Effort().Element(PlotIndex)));
+    signal_measured_f->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+                                              -PID.m_measured_js.Effort().Element(PlotIndex)));
+    signal_setpoint_f->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+                                              -PID.m_setpoint_js.Effort().Element(PlotIndex)));
     QVPlot->update();
 }
 
@@ -406,6 +466,16 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(QVWIGain, row, 1);
     row++;
 
+    QLabel * dbLabel = new QLabel("Deadband");
+    dbLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(dbLabel);
+    QVWDeadband = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWDeadband->SetStep(0.001);
+    QVWDeadband->SetPrecision(5);
+    QVWDeadband->SetRange(-maximum, maximum);
+    gridLayout->addWidget(QVWDeadband, row, 1);
+    row++;
+
     QLabel * cLabel = new QLabel("Cutoff");
     cLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(cLabel);
@@ -460,32 +530,36 @@ void mtsPIDQtWidget::setupUi(void)
     // plotting area
     QVPlot = new vctPlot2DOpenGLQtWidget();
     vctPlot2DBase::Scale * scalePosition = QVPlot->AddScale("positions");
-    CurrentPositionSignal = scalePosition->AddSignal("current");
-    CurrentPositionSignal->SetColor(vctDouble3(1.0, 0.0, 0.0));
-    DesiredPositionSignal = scalePosition->AddSignal("desired");
-    DesiredPositionSignal->SetColor(vctDouble3(0.0, 1.0, 0.0));
+    signal_measured_p = scalePosition->AddSignal("measured");
+    signal_measured_p->SetColor(vctDouble3(1.0, 0.0, 0.0));
+    signal_setpoint_p = scalePosition->AddSignal("setpoint");
+    signal_setpoint_p->SetColor(vctDouble3(0.0, 1.0, 0.0));
     vctPlot2DBase::Scale * scaleVelocity = QVPlot->AddScale("velocities");
-    CurrentVelocitySignal = scaleVelocity->AddSignal("current");
-    CurrentVelocitySignal->SetColor(vctDouble3(0.5, 0.5, 0.5));
+    signal_measured_v = scaleVelocity->AddSignal("measured");
+    signal_measured_v->SetColor(vctDouble3(0.5, 0.5, 0.5));
     vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
-    CurrentEffortSignal = scaleEffort->AddSignal("-current");
-    CurrentEffortSignal->SetColor(vctDouble3(0.0, 1.0, 1.0));
-    DesiredEffortSignal = scaleEffort->AddSignal("-desired");
-    DesiredEffortSignal->SetColor(vctDouble3(1.0, 1.0, 1.0));
+    signal_measured_f = scaleEffort->AddSignal("-measured");
+    signal_measured_f->SetColor(vctDouble3(0.0, 1.0, 1.0));
+    signal_setpoint_f = scaleEffort->AddSignal("-setpoint");
+    signal_setpoint_f->SetColor(vctDouble3(1.0, 1.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 
     // control
     QCBEnableDirectControl = new QCheckBox("Direct control");
     QCBEnable = new QCheckBox("Enable PID");
-    QCBEnableTrackingError = new QCheckBox("Enable tracking error");
+    QCBEnableTrackingError = new QCheckBox("Tracking error");
+    QCBEnforcePositionLimits = new QCheckBox("Position limits");
     QPBMaintainPosition = new QPushButton("Maintain position");
+    QPBSave = new QPushButton("Save configuration");
     QHBoxLayout * controlLayout = new QHBoxLayout;
     controlLayout->setContentsMargins(1, 1, 1, 1);
     controlLayout->addWidget(QCBEnableDirectControl);
     controlLayout->addWidget(QCBEnable);
     controlLayout->addWidget(QCBEnableTrackingError);
+    controlLayout->addWidget(QCBEnforcePositionLimits);
     controlLayout->addWidget(QPBMaintainPosition);
+    controlLayout->addWidget(QPBSave);
     QFrame * controlFrame = new QFrame();
     controlFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     controlFrame->setLayout(controlLayout);
@@ -494,7 +568,9 @@ void mtsPIDQtWidget::setupUi(void)
     connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnable(bool)));
     connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(QCBEnableTrackingError, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTrackingError(bool)));
+    connect(QCBEnforcePositionLimits, SIGNAL(clicked(bool)), this, SLOT(SlotEnforcePositionLimits(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
+    connect(QPBSave, SIGNAL(clicked()), this, SLOT(SlotSave()));
     connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
 
     // main layout
@@ -514,6 +590,7 @@ void mtsPIDQtWidget::setupUi(void)
     connect(QVWPGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
     connect(QVWDGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
     connect(QVWIGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
+    connect(QVWDeadband, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
     connect(QVWCutoff, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
 
     // set initial values

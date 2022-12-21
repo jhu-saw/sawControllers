@@ -69,11 +69,8 @@ protected:
     prmConfigurationJoint m_configuration_js;
 
     //! Flag whether check joint limit
-    bool mCheckPositionLimit = true;
+    bool m_enforce_position_limits = false;
     vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
-
-    //! Flag whether to apply effort limit
-    bool mApplyEffortLimit;
 
     //! Commanded joint efforts sent to IO level
     vctDoubleVec mEffortMeasure;
@@ -205,6 +202,9 @@ public:
     void SetSimulated(void);
 
 protected:
+
+    void enforce_position_limits(const bool & enforce);
+
     /**
      * @brief Set configuration
      *

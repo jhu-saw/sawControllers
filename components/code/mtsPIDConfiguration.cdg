@@ -58,11 +58,11 @@ class {
         description cap on error integral;
     }
     member {
-        name deadband;
+        name p_deadband;
         type double;
         default 0.0;
         visibility public;
-        description dead band around goal position;
+        description deadband around goal position;
     }
     member {
         name offset;
