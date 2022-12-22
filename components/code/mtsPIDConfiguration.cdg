@@ -54,6 +54,7 @@ class {
     member {
         name i_limit;
         type double;
+        default 0.0;
         visibility public;
         description cap on error integral;
     }
