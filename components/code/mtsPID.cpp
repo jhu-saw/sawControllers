@@ -367,7 +367,7 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_measured_filtered_v_previous.size() == m_number_of_joints);
     CMN_ASSERT(m_effort_mode.size() == m_number_of_joints);
     CMN_ASSERT(mEffortUserCommand.ForceTorque().size() == m_number_of_joints);
-    CMN_ASSERT(m_error.size() == m_number_of_joints);
+    CMN_ASSERT(m_configuration.size() == m_number_of_joints);
     CMN_ASSERT(mTrackingErrorTolerances.size() == m_number_of_joints);
     CMN_ASSERT(mPositionLimitFlag.size() == m_number_of_joints);
     CMN_ASSERT(mTrackingErrorFlag.size() == m_number_of_joints);
