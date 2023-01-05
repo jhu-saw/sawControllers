@@ -556,35 +556,6 @@ void mtsPID::configure_js(const prmConfigurationJoint & configuration)
     }
     mConfigurationStateTable.Start();
     m_configuration_js = configuration;
-    std::cerr << m_configuration_js << std::endl;
-    // // min position
-    // if (configuration.PositionMin().size() != 0) {
-    //     if (SizeMismatch(configuration.PositionMin().size(), "configure_js.PositionMin")) {
-    //         return;
-    //     }
-    //     m_configuration_js.PositionMin().Assign(configuration.PositionMin());
-    // }
-    // // max position
-    // if (configuration.PositionMax().size() != 0) {
-    //     if (SizeMismatch(configuration.PositionMax().size(), "configure_js.PositionMax")) {
-    //         return;
-    //     }
-    //     m_configuration_js.PositionMax().Assign(configuration.PositionMax());
-    // }
-    // // min effort
-    // if (configuration.EffortMin().size() != 0) {
-    //     if (SizeMismatch(configuration.EffortMin().size(), "configure_js.EffortMin")) {
-    //         return;
-    //     }
-    //     m_configuration_js.EffortMin().Assign(configuration.EffortMin());
-    // }
-    // // max effort
-    // if (configuration.EffortMax().size() != 0) {
-    //     if (SizeMismatch(configuration.EffortMax().size(), "configure_js.EffortMax")) {
-    //         return;
-    //     }
-    //     m_configuration_js.EffortMax().Assign(configuration.EffortMax());
-    // }
     mConfigurationStateTable.Advance();
 
     // consistency checks
