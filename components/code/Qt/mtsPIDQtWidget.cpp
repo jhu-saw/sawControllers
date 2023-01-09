@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -69,8 +69,8 @@ void mtsPIDQtWidget::Init(void)
     PID.m_setpoint_js.Velocity().SetSize(0);
     PID.m_setpoint_js.Effort().SetSize(m_number_of_joints);
 
-    DesiredPosition.SetSize(m_number_of_joints);
-    DesiredPosition.SetAll(0.0);
+    SetpointPosition.SetSize(m_number_of_joints);
+    SetpointPosition.SetAll(0.0);
     UnitFactor.SetSize(m_number_of_joints);
     UnitFactor.SetAll(1.0);
 
@@ -209,11 +209,11 @@ void mtsPIDQtWidget::SlotEnforcePositionLimits(bool toggle)
 
 void mtsPIDQtWidget::SlotPositionChanged(void)
 {
-    DesiredPosition.SetAll(0.0);
-    QVWDesiredPosition->GetValue(DesiredPosition);
-    DesiredPositionParam.SetGoal(DesiredPosition);
-    DesiredPositionParam.Goal().ElementwiseDivide(UnitFactor);
-    PID.servo_jp(DesiredPositionParam);
+    SetpointPosition.SetAll(0.0);
+    QVWSetpointPosition->GetValue(SetpointPosition);
+    SetpointPositionParam.SetGoal(SetpointPosition);
+    SetpointPositionParam.Goal().ElementwiseDivide(UnitFactor);
+    PID.servo_jp(SetpointPositionParam);
 }
 
 
@@ -249,9 +249,9 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
 
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
-    // reset desired position
+    // reset setpoint position
     vctDoubleVec goal(PID.m_measured_js.Position());
-    QVWDesiredPosition->SetValue(goal);
+    QVWSetpointPosition->SetValue(goal);
     SlotPositionChanged();
 }
 
@@ -321,7 +321,7 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QCBEnableDirectControl->setChecked(toggle);
     DirectControl = toggle;
     QVWJointsEnabled->setEnabled(toggle);
-    QVWDesiredPosition->setEnabled(toggle);
+    QVWSetpointPosition->setEnabled(toggle);
     QVWPGain->setEnabled(toggle);
     QVWDGain->setEnabled(toggle);
     QVWIGain->setEnabled(toggle);
@@ -356,15 +356,15 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 
     // update GUI
     QVWJointsEnabled->SetValue(JointsEnabled);
-    QVRCurrentPosition->SetValue(PID.m_measured_js.Position());
-    QVRCurrentEffort->SetValue(PID.m_measured_js.Effort());
+    QVRMeasuredPosition->SetValue(PID.m_measured_js.Position());
+    QVRMeasuredEffort->SetValue(PID.m_measured_js.Effort());
     QCBEnableTrackingError->setChecked(trackingErrorEnabled);
     QCBEnforcePositionLimits->setChecked(positionLimitsEnforced);
 
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
-        QVWDesiredPosition->SetValue(PID.m_setpoint_js.Position());
-        QVWDesiredEffort->SetValue(PID.m_setpoint_js.Effort());
+        QVWSetpointPosition->SetValue(PID.m_setpoint_js.Position());
+        QVWSetpointEffort->SetValue(PID.m_setpoint_js.Effort());
     }
 
     // plot
@@ -403,37 +403,37 @@ void mtsPIDQtWidget::setupUi(void)
     gridLayout->addWidget(QVWJointsEnabled, row, 1);
     row++;
 
-    QLabel * currentPosLabel = new QLabel("Current position (deg)");
-    currentPosLabel->setAlignment(Qt::AlignRight);
-    gridLayout->addWidget(currentPosLabel, row, 0);
-    QVRCurrentPosition = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRCurrentPosition->SetPrecision(3);
-    gridLayout->addWidget(QVRCurrentPosition, row, 1);
+    QLabel * measuredPosLabel = new QLabel("Measured position (deg)");
+    measuredPosLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(measuredPosLabel, row, 0);
+    QVRMeasuredPosition = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRMeasuredPosition->SetPrecision(3);
+    gridLayout->addWidget(QVRMeasuredPosition, row, 1);
     row++;
 
-    QLabel * desiredPosLabel = new QLabel("Desired position (deg)");
-    desiredPosLabel->setAlignment(Qt::AlignRight);
-    gridLayout->addWidget(desiredPosLabel, row, 0);
-    QVWDesiredPosition = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWDesiredPosition->SetStep(0.1);
-    QVWDesiredPosition->SetRange(-360.0, 360.0);
-    gridLayout->addWidget(QVWDesiredPosition, row, 1);
+    QLabel * setpointPosLabel = new QLabel("Setpoint position (deg)");
+    setpointPosLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(setpointPosLabel, row, 0);
+    QVWSetpointPosition = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
+    QVWSetpointPosition->SetStep(0.1);
+    QVWSetpointPosition->SetRange(-360.0, 360.0);
+    gridLayout->addWidget(QVWSetpointPosition, row, 1);
     row++;
 
-    QLabel * currentEffortLabel = new QLabel("Current effort (Nm)");
-    currentEffortLabel->setAlignment(Qt::AlignRight);
-    gridLayout->addWidget(currentEffortLabel, row, 0);
-    QVRCurrentEffort = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRCurrentEffort->SetPrecision(3);
-    gridLayout->addWidget(QVRCurrentEffort, row, 1);
+    QLabel * measuredEffortLabel = new QLabel("Measured effort (Nm)");
+    measuredEffortLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(measuredEffortLabel, row, 0);
+    QVRMeasuredEffort = new vctQtWidgetDynamicVectorDoubleRead();
+    QVRMeasuredEffort->SetPrecision(3);
+    gridLayout->addWidget(QVRMeasuredEffort, row, 1);
     row++;
 
-    QLabel * desiredEffortLabel = new QLabel("Desired effort (Nm)");
-    desiredEffortLabel->setAlignment(Qt::AlignRight);
-    gridLayout->addWidget(desiredEffortLabel, row, 0);
-    QVWDesiredEffort = new vctQtWidgetDynamicVectorDoubleRead();
-    QVWDesiredEffort->SetPrecision(3);
-    gridLayout->addWidget(QVWDesiredEffort, row, 1);
+    QLabel * setpointEffortLabel = new QLabel("Setpoint effort (Nm)");
+    setpointEffortLabel->setAlignment(Qt::AlignRight);
+    gridLayout->addWidget(setpointEffortLabel, row, 0);
+    QVWSetpointEffort = new vctQtWidgetDynamicVectorDoubleRead();
+    QVWSetpointEffort->SetPrecision(3);
+    gridLayout->addWidget(QVWSetpointEffort, row, 1);
     row++;
 
     QLabel * pLabel = new QLabel("PGain");
@@ -500,27 +500,27 @@ void mtsPIDQtWidget::setupUi(void)
     QLabel * label;
     QPalette palette;
     palette.setColor(QPalette::Window, Qt::black);
-    label = new QLabel("Current position");
+    label = new QLabel("Measured position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Desired position");
+    label = new QLabel("Setpoint position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Current velocity");
+    label = new QLabel("Measured velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::gray);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Current effort");
+    label = new QLabel("Measured effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::cyan);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Desired effort");
+    label = new QLabel("Setpoint effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
@@ -586,7 +586,7 @@ void mtsPIDQtWidget::setupUi(void)
 
     // connect signals & slots
     connect(QVWJointsEnabled, SIGNAL(valueChanged()), this, SLOT(SlotEnabledJointsChanged()));
-    connect(QVWDesiredPosition, SIGNAL(valueChanged()), this, SLOT(SlotPositionChanged()));
+    connect(QVWSetpointPosition, SIGNAL(valueChanged()), this, SLOT(SlotPositionChanged()));
     connect(QVWPGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
     connect(QVWDGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
     connect(QVWIGain, SIGNAL(valueChanged()), this, SLOT(SlotConfigurationChanged()));
