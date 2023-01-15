@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2021 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2022 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -18,7 +18,6 @@ set (CMAKE_CXX_EXTENSIONS OFF)
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
-     cisstCommonXML
      cisstVector
      cisstOSAbstraction
      cisstMultiTask
@@ -52,6 +51,11 @@ if (cisst_FOUND)
 
   cisst_add_config_files (sawControllers)
 
+  # create data type using the data generator
+  cisst_data_generator (sawControllers
+                        "${sawControllers_BINARY_DIR}/include" # where to save the file
+                        "sawControllers/"    # sub directory for include
+                        code/mtsPIDConfiguration.cdg)
   set (HEADER_FILES
        ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
        ${sawControllers_HEADER_DIR}/osaPDGC.h
@@ -74,7 +78,9 @@ if (cisst_FOUND)
        code/mtsPDGC.cpp
        code/mtsPID.cpp)
 
-  add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES})
+  add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES}
+               ${sawControllers_CISST_DG_SRCS}
+               ${sawControllers_CISST_DG_HDRS})
 
   set_target_properties (sawControllers PROPERTIES
                          VERSION ${sawControllers_VERSION}

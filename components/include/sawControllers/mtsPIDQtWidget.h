@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -32,6 +32,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QPushButton>
+
+#include <sawControllers/mtsPIDConfiguration.h>
 #include <sawControllers/sawControllersQtExport.h>
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
@@ -51,6 +53,7 @@ public:
 
 protected:
     void Init(void);
+    void GetConfiguration(void);
     virtual void closeEvent(QCloseEvent * event);
 
 signals:
@@ -61,15 +64,14 @@ private slots:
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);
     void SlotEnableTrackingError(bool toggle);
-    //! slot send desired pos when input changed
+    void SlotEnforcePositionLimits(bool toggle);    
+    void SlotConfigurationChanged(void);
+    //! slot send setpoint pos when input changed
     void SlotPositionChanged(void);
-    void SlotPGainChanged(void);
-    void SlotDGainChanged(void);
-    void SlotIGainChanged(void);
-    //! slot reset desired pos to current pos
+    //! slot reset setpoint pos to measured pos
     void SlotMaintainPosition(void);
-    //! slot reset pid gain to current gain
-    void SlotResetPIDGain(void);
+    //! slot to save
+    void SlotSave(void);
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
@@ -96,22 +98,19 @@ protected:
         mtsFunctionRead  JointsEnabled;
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
-        mtsFunctionWrite servo_jp;
+        mtsFunctionWrite enforce_position_limits;
+        mtsFunctionRead  position_limits_enforced;
+        mtsFunctionRead  configuration;
         mtsFunctionRead  configuration_js;
+        mtsFunctionWrite configure;
+        mtsFunctionWrite servo_jp;
         mtsFunctionRead  measured_js;
         mtsFunctionRead  setpoint_js;
 
-        prmConfigurationJoint ConfigurationJoint;
-        prmStateJoint    StateJoint;
-        prmStateJoint    StateJointDesired;
-
-        mtsFunctionRead  GetPGain;
-        mtsFunctionRead  GetDGain;
-        mtsFunctionRead  GetIGain;
-
-        mtsFunctionWrite SetPGain;
-        mtsFunctionWrite SetDGain;
-        mtsFunctionWrite SetIGain;
+        mtsPIDConfiguration m_configuration;
+        prmConfigurationJoint m_configuration_js;
+        prmStateJoint    m_measured_js;
+        prmStateJoint    m_setpoint_js;
     } PID;
 
 private:
@@ -119,34 +118,37 @@ private:
 
     //! SetPosition
     vctBoolVec JointsEnabled;
-    vctDoubleVec DesiredPosition;
-    prmPositionJointSet DesiredPositionParam;
+    vctDoubleVec SetpointPosition;
+    prmPositionJointSet SetpointPositionParam;
     vctDoubleVec UnitFactor;
 
-    size_t NumberOfAxis;
+    size_t m_number_of_joints;
 
     // GUI: Commands
     QCheckBox * QCBEnableDirectControl;
     QCheckBox * QCBEnable;
     QCheckBox * QCBEnableTrackingError;
+    QCheckBox * QCBEnforcePositionLimits;
     QPushButton * QPBMaintainPosition;
-    QPushButton * QPBResetPIDGain;
+    QPushButton * QPBSave;
     vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWDesiredPosition;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentPosition;
-    vctQtWidgetDynamicVectorDoubleRead * QVWDesiredEffort;
-    vctQtWidgetDynamicVectorDoubleRead * QVRCurrentEffort;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWSetpointPosition;
+    vctQtWidgetDynamicVectorDoubleRead * QVRMeasuredPosition;
+    vctQtWidgetDynamicVectorDoubleRead * QVWSetpointEffort;
+    vctQtWidgetDynamicVectorDoubleRead * QVRMeasuredEffort;
     vctQtWidgetDynamicVectorDoubleWrite * QVWPGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWDGain;
     vctQtWidgetDynamicVectorDoubleWrite * QVWIGain;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWDeadband;
+    vctQtWidgetDynamicVectorDoubleWrite * QVWCutoff;
 
     // GUI: plot
     vctPlot2DOpenGLQtWidget * QVPlot;
-    vctPlot2DBase::Signal * CurrentPositionSignal;
-    vctPlot2DBase::Signal * DesiredPositionSignal;
-    vctPlot2DBase::Signal * CurrentVelocitySignal;
-    vctPlot2DBase::Signal * DesiredEffortSignal;
-    vctPlot2DBase::Signal * CurrentEffortSignal;
+    vctPlot2DBase::Signal * signal_measured_p;
+    vctPlot2DBase::Signal * signal_setpoint_p;
+    vctPlot2DBase::Signal * signal_measured_v;
+    vctPlot2DBase::Signal * signal_measured_f;
+    vctPlot2DBase::Signal * signal_setpoint_f;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };
