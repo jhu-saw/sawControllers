@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2022 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -91,9 +91,10 @@ protected:
     vctDoubleVec m_p_error, m_i_error;
 
     //! If cutoff set to 1.0, unfiltered
+    bool m_has_setpoint_v = false;
     vctDoubleVec
-        m_measured_filtered_v,
-        m_measured_filtered_v_previous;
+        m_setpoint_filtered_v,
+        m_setpoint_filtered_v_previous;
 
     //! Enable mtsPID controller
     bool mEnabled = false;
