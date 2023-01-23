@@ -84,6 +84,8 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("Enable", PID.Enable);
         interfaceRequired->AddFunction("EnableJoints", PID.EnableJoints);
         interfaceRequired->AddFunction("JointsEnabled", PID.JointsEnabled);
+        interfaceRequired->AddFunction("use_setpoint_v", PID.UseSetpointV);
+        interfaceRequired->AddFunction("use_setpoint_v", PID.UsingSetpointV);
         interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
         interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
         interfaceRequired->AddFunction("enforce_position_limits", PID.enforce_position_limits);
@@ -97,6 +99,7 @@ void mtsPIDQtWidget::Init(void)
         // Events
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "error");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::UseSetpointVEventHandler, this, "use_setpoint_v");
     }
     setupUi();
     startTimer(TimerPeriodInMilliseconds); // ms
@@ -152,6 +155,11 @@ void mtsPIDQtWidget::Startup(void)
         // set unitFactor;
         prmJointTypeToFactor(PID.m_configuration_js.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
     }
+
+    // get other configuration from PID
+    bool flag;
+    PID.UsingSetpointV(flag);
+    QCBUseSetpointV->setChecked(flag);
 
     // Show the GUI
     if (!parent()) {
@@ -330,8 +338,21 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QCBEnable->setEnabled(toggle);
     QCBEnableTrackingError->setEnabled(toggle);
     QCBEnforcePositionLimits->setEnabled(toggle);
+    QCBUseSetpointV->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
     QPBSave->setEnabled(toggle);
+}
+
+
+void mtsPIDQtWidget::SlotUseSetpointV(bool use)
+{
+    PID.UseSetpointV(use);
+}
+
+
+void mtsPIDQtWidget::SlotUseSetpointVEventHandler(bool use)
+{
+    QCBUseSetpointV->setChecked(use);
 }
 
 
@@ -549,6 +570,7 @@ void mtsPIDQtWidget::setupUi(void)
     QCBEnableDirectControl = new QCheckBox("Direct control");
     QCBEnable = new QCheckBox("Enable PID");
     QCBEnableTrackingError = new QCheckBox("Tracking error");
+    QCBUseSetpointV = new QCheckBox("Use setpoint_v");
     QCBEnforcePositionLimits = new QCheckBox("Position limits");
     QPBMaintainPosition = new QPushButton("Maintain position");
     QPBSave = new QPushButton("Save configuration");
@@ -558,6 +580,7 @@ void mtsPIDQtWidget::setupUi(void)
     controlLayout->addWidget(QCBEnable);
     controlLayout->addWidget(QCBEnableTrackingError);
     controlLayout->addWidget(QCBEnforcePositionLimits);
+    controlLayout->addWidget(QCBUseSetpointV);
     controlLayout->addWidget(QPBMaintainPosition);
     controlLayout->addWidget(QPBSave);
     QFrame * controlFrame = new QFrame();
@@ -569,6 +592,8 @@ void mtsPIDQtWidget::setupUi(void)
     connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnableEventHandler(bool)));
     connect(QCBEnableTrackingError, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTrackingError(bool)));
     connect(QCBEnforcePositionLimits, SIGNAL(clicked(bool)), this, SLOT(SlotEnforcePositionLimits(bool)));
+    connect(QCBUseSetpointV, SIGNAL(clicked(bool)), this, SLOT(SlotUseSetpointV(bool)));
+    connect(this, SIGNAL(SignalUseSetpointV(bool)), this, SLOT(SlotUseSetpointVEventHandler(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(QPBSave, SIGNAL(clicked()), this, SLOT(SlotSave()));
     connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
@@ -608,4 +633,9 @@ void mtsPIDQtWidget::ErrorEventHandler(const mtsMessage & message)
 void mtsPIDQtWidget::EnableEventHandler(const bool & enable)
 {
     emit SignalEnable(enable);
+}
+
+void mtsPIDQtWidget::UseSetpointVEventHandler(const bool & use)
+{
+    emit SignalUseSetpointV(use);
 }

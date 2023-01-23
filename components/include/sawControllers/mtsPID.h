@@ -90,14 +90,15 @@ protected:
     //! Error
     vctDoubleVec m_p_error, m_i_error;
 
+    bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
+    bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities
     //! If cutoff set to 1.0, unfiltered
-    bool m_has_setpoint_v = false;
     vctDoubleVec
         m_setpoint_filtered_v,
         m_setpoint_filtered_v_previous;
 
     //! Enable mtsPID controller
-    bool mEnabled = false;
+    bool m_enabled = false;
 
     //! Enable individal joints
     vctBoolVec m_joints_enabled;
@@ -119,11 +120,13 @@ protected:
 
     struct {
         //! Enable event
-        mtsFunctionWrite Enabled;
+        mtsFunctionWrite enabled;
         //! Position limit event
-        mtsFunctionWrite PositionLimit;
+        mtsFunctionWrite position_limit;
         //! Enabled joints event
-        mtsFunctionWrite EnabledJoints;
+        mtsFunctionWrite enabled_joints;
+        //! Use setpoint_v
+        mtsFunctionWrite use_setpoint_v;
     } Events;
 
     mtsInterfaceProvided * mInterface;
@@ -154,9 +157,11 @@ protected:
 
     void SetupInterfaces(void);
 
-    void Enable(const bool & enable);
+    void enable(const bool & enable);
 
-    void EnableJoints(const vctBoolVec & enable);
+    void enable_joints(const vctBoolVec & enable);
+
+    void use_setpoint_v(const bool & use);
 
     void EnableEffortMode(const vctBoolVec & enable);
 
@@ -167,7 +172,7 @@ protected:
       commands if it is simulated.  If the IO component doesn't
       provide the velocity, the method estimates the velocity based on
       the previous measured position. */
-    void GetIOData(void);
+    void get_IO_data(void);
 
     /*! Utility method to convert vector of doubles
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
