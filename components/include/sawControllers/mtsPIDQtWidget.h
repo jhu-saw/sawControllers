@@ -58,6 +58,7 @@ protected:
 
 signals:
     void SignalEnable(bool enable);
+    void SignalUseSetpointV(bool use);
 
 private slots:
     //! slot enable/disable mtsPID controller
@@ -78,6 +79,9 @@ private slots:
     void SlotEnableEventHandler(bool enable);
     void SlotEnableDirectControl(bool toggle);
 
+    void SlotUseSetpointV(bool use);
+    void SlotUseSetpointVEventHandler(bool use);
+
     //! timer event to update GUI
     void timerEvent(QTimerEvent * event);
 
@@ -88,6 +92,7 @@ private:
 
     void ErrorEventHandler(const mtsMessage & message);
     void EnableEventHandler(const bool & enable);
+    void UseSetpointVEventHandler(const bool & use);
 
 protected:
 
@@ -96,6 +101,8 @@ protected:
         mtsFunctionWrite Enable;
         mtsFunctionWrite EnableJoints;
         mtsFunctionRead  JointsEnabled;
+        mtsFunctionWrite UseSetpointV;
+        mtsFunctionRead  UsingSetpointV;
         mtsFunctionWrite EnableTrackingError;
         mtsFunctionRead  TrackingErrorEnabled;
         mtsFunctionWrite enforce_position_limits;
@@ -129,6 +136,7 @@ private:
     QCheckBox * QCBEnable;
     QCheckBox * QCBEnableTrackingError;
     QCheckBox * QCBEnforcePositionLimits;
+    QCheckBox * QCBUseSetpointV;
     QPushButton * QPBMaintainPosition;
     QPushButton * QPBSave;
     vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
