@@ -75,6 +75,7 @@ void mtsPID::SetupInterfaces(void)
     m_measured_js.SetAutomaticTimestamp(false);
     StateTable.AddData(m_measured_js, "measured_js");
     StateTable.AddData(m_setpoint_js, "setpoint_js");
+    StateTable.AddData(m_error_state, "error_state");
 
     // configuration state table with occasional start/advance
     mConfigurationStateTable.AddData(m_configuration, "configuration");
@@ -103,6 +104,9 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(StateTable, m_measured_js, "measured_js");
         mInterface->AddCommandReadState(StateTable, m_setpoint_js, "setpoint_js");
 
+        // disturbance
+        mInterface->AddCommandReadState(StateTable, m_error_state, "error_state/measured_js");
+
         // Get joint configuration
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration, "configuration");
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
@@ -125,6 +129,15 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddEventWrite(Events.enabled_joints, "EnabledJoints", vctBoolVec());
         mInterface->AddEventWrite(Events.use_setpoint_v, "use_setpoint_v", m_use_setpoint_v);
         mInterface->AddEventWrite(Events.position_limit, "PositionLimit", vctBoolVec());
+    }
+
+    auto interfaceMonitoring = AddInterfaceProvided("Monitoring");
+    if (interfaceMonitoring) {
+        // ROS compatible joint state
+        interfaceMonitoring->AddCommandReadState(StateTable, m_measured_js, "measured_js");
+        interfaceMonitoring->AddCommandReadState(StateTable, m_setpoint_js, "setpoint_js");
+        // disturbance
+        interfaceMonitoring->AddCommandReadState(StateTable, m_error_state, "error_state/measured_js");
     }
 }
 
@@ -248,8 +261,14 @@ void mtsPID::Configure(const std::string & filename)
     m_joints_enabled.SetAll(true);
 
     // errors
-    m_p_error.SetSize(m_number_of_joints);
+    m_error_state.Name().SetSize(m_number_of_joints);
+    m_error_state.Position().SetSize(m_number_of_joints);
+    m_error_state.Velocity().SetSize(m_number_of_joints);
+    m_error_state.Effort().SetSize(m_number_of_joints); // disturbance
     m_i_error.SetSize(m_number_of_joints);
+    // disturbance observer
+    m_disturbance_state.SetSize(m_number_of_joints);
+    m_disturbance_state.SetAll(0.0);
     ResetController();
 
     // default: 1 so there's no filtering
@@ -273,6 +292,7 @@ void mtsPID::Configure(const std::string & filename)
         m_configuration_js.Type().at(index) = c.type;
         m_measured_js.Name().at(index) = c.name;
         m_setpoint_js.Name().at(index) = c.name;
+        m_error_state.Name().at(index) = c.name;
         ++index;
     }
     mConfigurationStateTable.Advance();
@@ -345,12 +365,15 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
     vctBoolVec::const_iterator effortMode = m_effort_mode.begin();
     vctDoubleVec::const_iterator effortUserCommand = mEffortUserCommand.ForceTorque().begin();
-    vctDoubleVec::iterator p_error = m_p_error.begin();
+    vctDoubleVec::iterator p_error = m_error_state.Position().begin();
+    vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
     vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
     vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
     vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
     vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
     vctDoubleVec::iterator i_error = m_i_error.begin();
+    vctDoubleVec::iterator disturbance = m_error_state.Effort().begin();
+    vctDoubleVec::iterator disturbance_state = m_disturbance_state.begin();
     auto c = m_configuration.cbegin();
     vctDoubleVec::const_iterator feed_forward = m_feed_forward_jf.ForceTorque().begin();
     vctDoubleVec::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
@@ -379,6 +402,8 @@ void mtsPID::Run(void)
     CMN_ASSERT(mTrackingErrorFlag.size() == m_number_of_joints);
     CMN_ASSERT(mPreviousTrackingErrorFlag.size() == m_number_of_joints);
     CMN_ASSERT(m_i_error.size() == m_number_of_joints);
+    CMN_ASSERT(m_disturbance.size() == m_number_of_joints);
+    CMN_ASSERT(m_disturbance_state.size() == m_number_of_joints);
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
     CMN_ASSERT(m_configuration_js.EffortMin().size() == m_number_of_joints);
     CMN_ASSERT(m_configuration_js.EffortMax().size() == m_number_of_joints);
@@ -396,11 +421,14 @@ void mtsPID::Run(void)
              ++effortMode,
              ++effortUserCommand,
              ++p_error,
+             ++v_error,
              ++tolerance,
              ++limitFlag,
              ++trackingErrorFlag,
              ++previousTrackingErrorFlag,
              ++i_error,
+             ++disturbance,
+             ++disturbance_state,
              ++c,
              ++feed_forward,
              ++filtered_setpoint_v,
@@ -457,7 +485,7 @@ void mtsPID::Run(void)
                 } // end of tracking error
 
                 // compute error derivative
-                double d_error = 0.0;
+                *v_error = 0.0;
                 if (!in_deadband) {
                     double _setpoint_v = 0.0;
                     if (m_has_setpoint_v && m_use_setpoint_v) {
@@ -466,7 +494,7 @@ void mtsPID::Run(void)
                         _setpoint_v = *filtered_setpoint_v;
                         *filtered_setpoint_v_previous = *filtered_setpoint_v;
                     }
-                    d_error = _setpoint_v - (*measured_v);
+                    *v_error = _setpoint_v - (*measured_v);
                 }
 
                 // compute error integral
@@ -479,14 +507,29 @@ void mtsPID::Run(void)
                     *i_error = -c->i_limit;
                 }
 
-                // compute effort
-                *setpoint_f =
-                    c->p_gain * (*p_error) + c->d_gain * d_error + c->i_gain * (*i_error);
+
+                // compute disturbance observer before setpoint_f is changed
+                if (c->use_disturbance_observer) {
+                    const double d_t = this->GetPeriodicity();
+                    const double dis_tmp = *setpoint_f
+                        + c->nominal_mass * c->disturbance_cutoff * *measured_v;
+                    *disturbance_state += (dis_tmp - *disturbance_state)
+                        * c->disturbance_cutoff * d_t;
+                    *disturbance = *disturbance_state
+                        - c->nominal_mass * c->disturbance_cutoff * *measured_v;
+                    *setpoint_f = *disturbance;
+                } else {
+                    *setpoint_f = 0.0;
+                }
+
+                // compute PID effort
+                *setpoint_f +=
+                    c->p_gain * (*p_error) + c->d_gain * (*v_error) + c->i_gain * (*i_error);
 
                 // add constant offsets in PID mode only and after non-linear scaling
                 *setpoint_f += c->offset;
 
-                // finally, add feedForward
+                // add feedForward
                 *setpoint_f += *feed_forward;
 
             } // end of PID mode
@@ -515,7 +558,7 @@ void mtsPID::Run(void)
             message.append(mTrackingErrorFlag.ToString());
             mInterface->SendError(message);
             CMN_LOG_CLASS_RUN_ERROR << message << std::endl
-                                    << "errors:     " << m_p_error << std::endl
+                                    << "errors:     " << m_error_state.Position() << std::endl
                                     << "tolerances: " << mTrackingErrorTolerances << std::endl
                                     << "measured:   " << m_measured_js.Position() << std::endl
                                     << "setpoint:   " << m_setpoint_js.Position() << std::endl;
@@ -587,8 +630,10 @@ void mtsPID::configure_js(const prmConfigurationJoint & configuration)
 void mtsPID::ResetController(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " Reset Controller" << std::endl;
-    m_p_error.Zeros();
-    m_i_error.Zeros();
+    m_error_state.Position().SetAll(0.0);
+    m_error_state.Velocity().SetAll(0.0);
+    m_error_state.Effort().SetAll(0.0); // disturbance
+    m_i_error.SetAll(0.0);
     this->enable(false);
 }
 
@@ -696,7 +741,12 @@ void mtsPID::enable(const bool & enable)
         m_feed_forward_jf.ForceTorque().Zeros();
         m_has_setpoint_v = false;
         m_setpoint_filtered_v_previous.Zeros();
+        // set valid flags
+        m_error_state.SetValid(true);
+    } else {
+        m_error_state.SetValid(false);
     }
+
     // trigger Enabled
     Events.enabled(m_enabled);
 }

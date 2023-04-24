@@ -68,6 +68,9 @@ void mtsPIDQtWidget::Init(void)
     PID.m_setpoint_js.Position().SetSize(m_number_of_joints);
     PID.m_setpoint_js.Velocity().SetSize(0);
     PID.m_setpoint_js.Effort().SetSize(m_number_of_joints);
+    PID.m_error_state.Position().SetSize(m_number_of_joints);
+    PID.m_error_state.Velocity().SetSize(m_number_of_joints);
+    PID.m_error_state.Effort().SetSize(m_number_of_joints);
 
     SetpointPosition.SetSize(m_number_of_joints);
     SetpointPosition.SetAll(0.0);
@@ -96,6 +99,7 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("servo_jp", PID.servo_jp);
         interfaceRequired->AddFunction("measured_js", PID.measured_js);
         interfaceRequired->AddFunction("setpoint_js", PID.setpoint_js);
+        interfaceRequired->AddFunction("error_state/measured_js", PID.error_state_measured_js);
         // Events
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "error");
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
@@ -370,6 +374,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.m_measured_js.Velocity().ElementwiseMultiply(UnitFactor);
     PID.setpoint_js(PID.m_setpoint_js);
     PID.m_setpoint_js.Position().ElementwiseMultiply(UnitFactor);
+    PID.error_state_measured_js(PID.m_error_state);
     bool trackingErrorEnabled;
     PID.TrackingErrorEnabled(trackingErrorEnabled);
     bool positionLimitsEnforced;
@@ -400,6 +405,8 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
                                               -PID.m_measured_js.Effort().Element(PlotIndex)));
     signal_setpoint_f->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
                                               -PID.m_setpoint_js.Effort().Element(PlotIndex)));
+    signal_disturbance->AppendPoint(vctDouble2(PID.m_error_state.Timestamp(),
+                                               -PID.m_error_state.Position().Element(PlotIndex)));
     QVPlot->update();
 }
 
@@ -521,31 +528,43 @@ void mtsPIDQtWidget::setupUi(void)
     QLabel * label;
     QPalette palette;
     palette.setColor(QPalette::Window, Qt::black);
+    // --
     label = new QLabel("Measured position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    // --
     label = new QLabel("Setpoint position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    // --
     label = new QLabel("Measured velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::gray);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    // --
     label = new QLabel("Measured effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::cyan);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    // --
     label = new QLabel("Setpoint effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    // --
+    label = new QLabel("Disturbance");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, Qt::magenta);
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    // --
     plotButtonsLayout->addStretch();
     plotLayout->addLayout(plotButtonsLayout);
     // plotting area
@@ -563,6 +582,8 @@ void mtsPIDQtWidget::setupUi(void)
     signal_measured_f->SetColor(vctDouble3(0.0, 1.0, 1.0));
     signal_setpoint_f = scaleEffort->AddSignal("-setpoint");
     signal_setpoint_f->SetColor(vctDouble3(1.0, 1.0, 1.0));
+    signal_disturbance = scaleEffort->AddSignal("-disturbance");
+    signal_disturbance->SetColor(vctDouble3(1.0, 0.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 

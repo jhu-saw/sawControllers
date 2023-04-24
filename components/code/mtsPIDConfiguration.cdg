@@ -85,6 +85,24 @@ class {
         default 1.0;
         visibility public;
     }
+    member {
+        name use_disturbance_observer;
+        type bool;
+        default false;
+        visibility public;
+    }
+    member {
+        name nominal_mass;
+        type double;
+        default 0.0;
+        visibility public;
+    }
+    member {
+        name disturbance_cutoff;
+        type double;
+        default 0.0;
+        visibility public;
+    }
 }
 
 inline-header {

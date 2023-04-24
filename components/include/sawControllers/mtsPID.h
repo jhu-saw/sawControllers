@@ -2,7 +2,7 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-  Author(s):  Zihan Chen, Anton Deguet
+  Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-22
 
   (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
@@ -88,7 +88,9 @@ protected:
         m_setpoint_js;
 
     //! Error
-    vctDoubleVec m_p_error, m_i_error;
+    prmStateJoint m_error_state; // position, velocity and effort for disturbance
+    vctDoubleVec m_i_error;
+    vctDoubleVec m_disturbance_state;
 
     bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
     bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities

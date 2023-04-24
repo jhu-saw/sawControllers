@@ -2,7 +2,7 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-  Author(s):  Zihan Chen, Anton Deguet
+  Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-20
 
   (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
@@ -65,7 +65,7 @@ private slots:
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);
     void SlotEnableTrackingError(bool toggle);
-    void SlotEnforcePositionLimits(bool toggle);    
+    void SlotEnforcePositionLimits(bool toggle);
     void SlotConfigurationChanged(void);
     //! slot send setpoint pos when input changed
     void SlotPositionChanged(void);
@@ -113,11 +113,13 @@ protected:
         mtsFunctionWrite servo_jp;
         mtsFunctionRead  measured_js;
         mtsFunctionRead  setpoint_js;
+        mtsFunctionRead error_state_measured_js;
 
         mtsPIDConfiguration m_configuration;
         prmConfigurationJoint m_configuration_js;
-        prmStateJoint    m_measured_js;
-        prmStateJoint    m_setpoint_js;
+        prmStateJoint m_measured_js;
+        prmStateJoint m_setpoint_js;
+        prmStateJoint m_error_state;
     } PID;
 
 private:
@@ -157,6 +159,7 @@ private:
     vctPlot2DBase::Signal * signal_measured_v;
     vctPlot2DBase::Signal * signal_measured_f;
     vctPlot2DBase::Signal * signal_setpoint_f;
+    vctPlot2DBase::Signal * signal_disturbance;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };
