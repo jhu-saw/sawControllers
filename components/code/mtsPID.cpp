@@ -402,7 +402,7 @@ void mtsPID::Run(void)
     CMN_ASSERT(mTrackingErrorFlag.size() == m_number_of_joints);
     CMN_ASSERT(mPreviousTrackingErrorFlag.size() == m_number_of_joints);
     CMN_ASSERT(m_i_error.size() == m_number_of_joints);
-    CMN_ASSERT(m_disturbance.size() == m_number_of_joints);
+    CMN_ASSERT(m_error_state.Effort().size() == m_number_of_joints);
     CMN_ASSERT(m_disturbance_state.size() == m_number_of_joints);
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
     CMN_ASSERT(m_configuration_js.EffortMin().size() == m_number_of_joints);
