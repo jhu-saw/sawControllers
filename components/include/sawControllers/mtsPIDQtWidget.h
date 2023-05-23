@@ -157,6 +157,7 @@ private:
     vctPlot2DBase::Signal * signal_measured_p;
     vctPlot2DBase::Signal * signal_setpoint_p;
     vctPlot2DBase::Signal * signal_measured_v;
+    vctPlot2DBase::Signal * signal_setpoint_v;
     vctPlot2DBase::Signal * signal_measured_f;
     vctPlot2DBase::Signal * signal_setpoint_f;
     vctPlot2DBase::Signal * signal_disturbance;

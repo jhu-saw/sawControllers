@@ -374,6 +374,10 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.m_measured_js.Velocity().ElementwiseMultiply(UnitFactor);
     PID.setpoint_js(PID.m_setpoint_js);
     PID.m_setpoint_js.Position().ElementwiseMultiply(UnitFactor);
+    bool has_setpoint_v = (PID.m_setpoint_js.Position().size() == PID.m_setpoint_js.Velocity().size());
+    if (has_setpoint_v) {
+        PID.m_setpoint_js.Velocity().ElementwiseMultiply(UnitFactor);
+    }
     PID.error_state_measured_js(PID.m_error_state);
     bool trackingErrorEnabled;
     PID.TrackingErrorEnabled(trackingErrorEnabled);
@@ -400,6 +404,13 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
                                               PID.m_setpoint_js.Position().Element(PlotIndex)));
     signal_measured_v->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
                                               PID.m_measured_js.Velocity().Element(PlotIndex)));
+    if (has_setpoint_v) {
+        signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+                                                  PID.m_setpoint_js.Velocity().Element(PlotIndex)));
+    } else {
+        signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+                                                  0.0));
+    }
     // negate effort to plot the same direction
     signal_measured_f->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
                                               -PID.m_measured_js.Effort().Element(PlotIndex)));
@@ -543,7 +554,12 @@ void mtsPIDQtWidget::setupUi(void)
     // --
     label = new QLabel("Measured velocity");
     label->setAutoFillBackground(true);
-    palette.setColor(QPalette::WindowText, Qt::gray);
+    palette.setColor(QPalette::WindowText, QColor(static_cast<int>(0.7 * 255), 0, 0));
+    label->setPalette(palette);
+    plotButtonsLayout->addWidget(label);
+    label = new QLabel("Setpoint velocity");
+    label->setAutoFillBackground(true);
+    palette.setColor(QPalette::WindowText, QColor(0, static_cast<int>(0.7 * 255), 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
     // --
@@ -569,14 +585,19 @@ void mtsPIDQtWidget::setupUi(void)
     plotLayout->addLayout(plotButtonsLayout);
     // plotting area
     QVPlot = new vctPlot2DOpenGLQtWidget();
+
     vctPlot2DBase::Scale * scalePosition = QVPlot->AddScale("positions");
     signal_measured_p = scalePosition->AddSignal("measured");
     signal_measured_p->SetColor(vctDouble3(1.0, 0.0, 0.0));
     signal_setpoint_p = scalePosition->AddSignal("setpoint");
     signal_setpoint_p->SetColor(vctDouble3(0.0, 1.0, 0.0));
+
     vctPlot2DBase::Scale * scaleVelocity = QVPlot->AddScale("velocities");
     signal_measured_v = scaleVelocity->AddSignal("measured");
-    signal_measured_v->SetColor(vctDouble3(0.5, 0.5, 0.5));
+    signal_measured_v->SetColor(vctDouble3(0.7, 0.0, 0.0));
+    signal_setpoint_v = scaleVelocity->AddSignal("setpoint");
+    signal_setpoint_v->SetColor(vctDouble3(0.0, 0.7, 0.0));
+
     vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
     signal_measured_f = scaleEffort->AddSignal("-measured");
     signal_measured_f->SetColor(vctDouble3(0.0, 1.0, 1.0));
