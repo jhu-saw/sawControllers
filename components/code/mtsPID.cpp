@@ -519,6 +519,7 @@ void mtsPID::Run(void)
                         - c->nominal_mass * c->disturbance_cutoff * *measured_v;
                     *setpoint_f = *disturbance;
                 } else {
+                    *disturbance = 0.0;
                     *setpoint_f = 0.0;
                 }
 
