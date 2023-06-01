@@ -5,7 +5,7 @@
   Author(s):  Preetham Chalasani
   Created on: 2016-11-07
 
-  (C) Copyright 2016-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2016-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -19,11 +19,10 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _osaCartesianImpedanceController_h
 #define _osaCartesianImpedanceController_h
 
-#include <cisstParameterTypes/prmCartesianImpedanceGains.h>
+#include <cisstParameterTypes/prmCartesianImpedance.h>
 #include <cisstParameterTypes/prmForceCartesianSet.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 #include <cisstParameterTypes/prmVelocityCartesianGet.h>
-#include <cisstVector/vctFrame4x4.h>
 
 // Always include last
 #include <sawControllers/sawControllersExport.h>
@@ -34,15 +33,15 @@ public:
     osaCartesianImpedanceController(void);
     ~osaCartesianImpedanceController(){}
 
-    void SetGains(const prmCartesianImpedanceGains & gains);
-    void ResetGains(void);
+    void SetGoal(const prmCartesianImpedance & goal);
+    void ResetGoal(void);
     void Update(const prmPositionCartesianGet & pose,
                 const prmVelocityCartesianGet & twist,
                 prmForceCartesianSet & wrenchBody,
                 const bool needWrenchInBody = false);
 
 private:
-    prmCartesianImpedanceGains mGains;
+    prmCartesianImpedance m_goal;
 };
 
 #endif // _osaCartesianImpedanceController_h

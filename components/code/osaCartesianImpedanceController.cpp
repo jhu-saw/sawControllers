@@ -5,7 +5,7 @@
   Author(s):  Preetham Chalasani
   Created on: 2016-11-07
 
-  (C) Copyright 2016-2017 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2016-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -21,36 +21,36 @@ http://www.cisst.org/cisst/license.txt.
 
 osaCartesianImpedanceController::osaCartesianImpedanceController(void)
 {
-    ResetGains();
+    ResetGoal();
 }
 
-void osaCartesianImpedanceController::SetGains(const prmCartesianImpedanceGains & gains)
+void osaCartesianImpedanceController::SetGoal(const prmCartesianImpedance & goal)
 {
-    mGains = gains;
+    m_goal = goal;
 }
 
-void osaCartesianImpedanceController::ResetGains(void)
+void osaCartesianImpedanceController::ResetGoal(void)
 {
-    mGains.ForceOrientation().Identity();
-    mGains.TorqueOrientation().Identity();
+    m_goal.ForceOrientation.Identity();
+    m_goal.TorqueOrientation.Identity();
 
-    mGains.PositionDeadbandPos().Zeros();
-    mGains.PositionDeadbandNeg().Zeros();
-    mGains.PositionStiffnessPos().Zeros();
-    mGains.PositionStiffnessNeg().Zeros();
-    mGains.PositionDampingPos().Zeros();
-    mGains.PositionDampingNeg().Zeros();
-    mGains.ForceBiasPos().Zeros();
-    mGains.ForceBiasNeg().Zeros();
-    
-    mGains.OrientationDeadbandPos().Zeros();
-    mGains.OrientationDeadbandNeg().Zeros();
-    mGains.OrientationStiffnessPos().Zeros();
-    mGains.OrientationStiffnessNeg().Zeros();
-    mGains.OrientationDampingPos().Zeros();
-    mGains.OrientationDampingNeg().Zeros();
-    mGains.TorqueBiasPos().Zeros();
-    mGains.TorqueBiasNeg().Zeros();
+    m_goal.PositionPositive.Deadband.Zeros();
+    m_goal.PositionNegative.Deadband.Zeros();
+    m_goal.PositionPositive.P.Zeros();
+    m_goal.PositionNegative.P.Zeros();
+    m_goal.PositionPositive.D.Zeros();
+    m_goal.PositionNegative.D.Zeros();
+    m_goal.PositionPositive.Bias.Zeros();
+    m_goal.PositionNegative.Bias.Zeros();
+
+    m_goal.OrientationPositive.Deadband.Zeros();
+    m_goal.OrientationNegative.Deadband.Zeros();
+    m_goal.OrientationPositive.P.Zeros();
+    m_goal.OrientationNegative.P.Zeros();
+    m_goal.OrientationPositive.D.Zeros();
+    m_goal.OrientationNegative.D.Zeros();
+    m_goal.OrientationPositive.Bias.Zeros();
+    m_goal.OrientationNegative.Bias.Zeros();
 }
 
 void osaCartesianImpedanceController::Update(const prmPositionCartesianGet & pose,
@@ -65,31 +65,31 @@ void osaCartesianImpedanceController::Update(const prmPositionCartesianGet & pos
     vct3 biasForce(0.0);
 
     // In phantom frame
-    vct3 errPos = mGains.ForceOrientation().Inverse() * (pose.Position().Translation() - mGains.ForcePosition());
-    vct3 velPos = mGains.ForceOrientation().Inverse() * twist.VelocityLinear();
+    vct3 errPos = m_goal.ForceOrientation.Inverse() * (pose.Position().Translation() - m_goal.ForcePosition);
+    vct3 velPos = m_goal.ForceOrientation.Inverse() * twist.VelocityLinear();
 
     for (size_t i = 0; i < 3; i++) {
         if (errPos[i] > 0) {
-            errPos[i] = errPos[i] - fabs(mGains.PositionDeadbandPos().at(i));
+            errPos[i] = errPos[i] - fabs(m_goal.PositionPositive.Deadband.at(i));
             if (errPos[i] < 0.0) {
                 errPos[i] = 0.0;
             }
-            kpForce[i] = errPos[i] * mGains.PositionStiffnessPos().at(i);
-            kdForce[i] = velPos[i] * mGains.PositionDampingPos().at(i);
-            biasForce[i] = mGains.ForceBiasPos().at(i);
+            kpForce[i] = errPos[i] * m_goal.PositionPositive.P.at(i);
+            kdForce[i] = velPos[i] * m_goal.PositionPositive.D.at(i);
+            biasForce[i] = m_goal.PositionPositive.Bias.at(i);
         } else {
-            errPos[i] = errPos[i] + fabs(mGains.PositionDeadbandNeg().at(i));
+            errPos[i] = errPos[i] + fabs(m_goal.PositionNegative.Deadband.at(i));
             if (errPos[i] > 0.0) {
                 errPos[i] = 0.0;
             }
-            kpForce[i] = errPos[i] * mGains.PositionStiffnessNeg().at(i);
-            kdForce[i] = velPos[i] * mGains.PositionDampingNeg().at(i);
-            biasForce[i] = mGains.ForceBiasNeg().at(i);
+            kpForce[i] = errPos[i] * m_goal.PositionNegative.P.at(i);
+            kdForce[i] = velPos[i] * m_goal.PositionNegative.D.at(i);
+            biasForce[i] = m_goal.PositionNegative.Bias.at(i);
         }
     }
 
     force = kpForce + kdForce + biasForce;
-    force = mGains.ForceOrientation() * force;   // Force in absolute Frame
+    force = m_goal.ForceOrientation * force;   // Force in absolute Frame
     if (needWrenchInBody) {
         force = pose.Position().Rotation().Inverse() * force;   // Force in body frame
     }
@@ -102,34 +102,34 @@ void osaCartesianImpedanceController::Update(const prmPositionCartesianGet & pos
 
     // error theta
     vctRot3 tempRot;
-    tempRot = mGains.TorqueOrientation().Inverse() * pose.Position().Rotation();
+    tempRot = m_goal.TorqueOrientation.Inverse() * pose.Position().Rotation();
     vctAxAnRot3 errAxAnRot;
     errAxAnRot.FromNormalized(tempRot);
     vct3 errRot = errAxAnRot.Angle() * errAxAnRot.Axis();
-    vct3 velRot = mGains.TorqueOrientation().Inverse() * twist.VelocityAngular();
+    vct3 velRot = m_goal.TorqueOrientation.Inverse() * twist.VelocityAngular();
 
     for (size_t i = 0; i < 3; i++) {
         if (errRot[i] > 0.0) {
-            errRot[i] = errRot[i] - fabs(mGains.OrientationDeadbandPos().at(i));
+            errRot[i] = errRot[i] - fabs(m_goal.OrientationPositive.Deadband.at(i));
             if (errRot[i] < 0.0) {
                 errRot[i] = 0.0;
             }
-            kpTorque[i] = errRot[i] * mGains.OrientationStiffnessPos().at(i);
-            kdTorque[i] = velRot[i] * mGains.OrientationDampingPos().at(i);
-            biasTorque[i] = mGains.TorqueBiasPos().at(i);
+            kpTorque[i] = errRot[i] * m_goal.OrientationPositive.P.at(i);
+            kdTorque[i] = velRot[i] * m_goal.OrientationPositive.D.at(i);
+            biasTorque[i] = m_goal.OrientationPositive.Bias.at(i);
         } else {
-            errRot[i] = errRot[i] + fabs(mGains.OrientationDeadbandNeg().at(i));
+            errRot[i] = errRot[i] + fabs(m_goal.OrientationNegative.Deadband.at(i));
             if (errRot[i] > 0.0) {
                 errRot[i] = 0.0;
             }
-            kpTorque[i] = errRot[i] * mGains.OrientationStiffnessNeg().at(i);
-            kdTorque[i] = velRot[i] * mGains.OrientationDampingNeg().at(i);
-            biasTorque[i] = mGains.TorqueBiasNeg().at(i);
+            kpTorque[i] = errRot[i] * m_goal.OrientationNegative.P.at(i);
+            kdTorque[i] = velRot[i] * m_goal.OrientationNegative.D.at(i);
+            biasTorque[i] = m_goal.OrientationNegative.Bias.at(i);
         }
     }
 
     torque = kpTorque + kdTorque + biasTorque;
-    torque = mGains.TorqueOrientation() * torque;   // Torque in absolute Frame
+    torque = m_goal.TorqueOrientation * torque;   // Torque in absolute Frame
     if (needWrenchInBody) {
         torque = pose.Position().Rotation().Inverse() * torque;     // Torque in Body Frame
     }
