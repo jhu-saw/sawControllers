@@ -42,7 +42,7 @@ if (cisst_FOUND)
   set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
   set (sawControllers_LIBRARIES sawControllers)
 
-  include_directories (${sawControllers_INCLUDE_DIR})
+  include_directories (BEFORE ${sawControllers_INCLUDE_DIR})
 
   if (CISST_HAS_QT)
     add_subdirectory (code/Qt)
