@@ -27,6 +27,18 @@ class {
         description 1 for prismatic or 2 for revolute;
     }
     member {
+        name position_min;
+        type double;
+        visibility public;
+        description minimum position allowed, controller will clamp servo_jp based on limits;
+    }
+    member {
+        name position_max;
+        type double;
+        visibility public;
+        description maximum position allowed, controller will clamp servo_jp based on limits;
+    }
+    member {
         name p_gain;
         type double;
         visibility public;
@@ -70,7 +82,7 @@ class {
         type double;
         default 0.0;
         visibility public;
-        description constant offset applied to output;
+        description constant effort offset applied to output;
     }
     member {
         name error_limit;
