@@ -210,14 +210,6 @@ void mtsPID::Configure(const std::string & filename)
                                          << filename << "\"\n" << std::endl;
                 exit(EXIT_FAILURE);
             }
-            if (c.position_min > c.position_max) {
-                CMN_LOG_CLASS_INIT_ERROR << "Configure " << this->GetName()
-                                         << ": min position for " << c.index
-                                         << " is greater than max position, found min "
-                                         << c.position_min << " and max " << c.position_max
-                                         << " in configuration file \"" << filename << "\"\n" << std::endl;
-                exit(EXIT_FAILURE);
-            }
         }
 
     } catch (std::exception & e) {
@@ -297,8 +289,6 @@ void mtsPID::Configure(const std::string & filename)
     for (const auto & c : m_configuration) {
         m_configuration_js.Name().at(index) = c.name;
         m_configuration_js.Type().at(index) = c.type;
-        m_configuration_js.PositionMin().at(index) = c.position_min;
-        m_configuration_js.PositionMax().at(index) = c.position_max;
         m_measured_js.Name().at(index) = c.name;
         m_setpoint_js.Name().at(index) = c.name;
         m_error_state.Name().at(index) = c.name;
@@ -335,6 +325,22 @@ void mtsPID::Startup(void)
                 }
             }
 
+            // get the position min/max based on IO level.  Provided
+            // from IO level based on max current and position to
+            // current scale
+            if ((io_configuration_js.PositionMin().size() != m_configuration_js.Name().size())
+                || (io_configuration_js.PositionMax().size() != m_configuration_js.Name().size())) {
+                std::string message = this->GetName() + " Startup: min and max position vectors from IO don't have the correct size for " + this->GetName();
+                CMN_LOG_CLASS_INIT_ERROR << message << std::endl
+                                         << "IO configuration position min: " << io_configuration_js.PositionMin() << std::endl
+                                         << "IO configuration position max: " << io_configuration_js.PositionMax() << std::endl;
+                cmnThrow("PID::" + message);
+            } else {
+                m_configuration_js.PositionMin().ForceAssign(io_configuration_js.PositionMin());
+                m_configuration_js.PositionMax().ForceAssign(io_configuration_js.PositionMax());
+                CheckLowerUpper(m_configuration_js.PositionMin(), m_configuration_js.PositionMax(), "Startup, position");
+            }
+
             // get the effort min/max based on IO level.  Provided
             // from IO level based on max current and effort to
             // current scale
@@ -364,6 +370,8 @@ void mtsPID::Startup(void)
                 // IO doesn't have proper names, let's configure them
                 IO.configure_js(m_configuration_js);
             }
+            CMN_LOG_CLASS_INIT_VERBOSE << "Startup: configuration_js:" << std::endl
+                                       << m_configuration_js << std::endl;
         }
     }
 }
