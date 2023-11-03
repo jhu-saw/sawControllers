@@ -122,7 +122,6 @@ void mtsPID::SetupInterfaces(void)
 
         // Set joint configuration
         mInterface->AddCommandWrite(&mtsPID::configure, this, "configure", m_configuration);
-        mInterface->AddCommandWrite(&mtsPID::configure_js, this, "configure_js", m_configuration_js);
 
         // Events
         mInterface->AddEventWrite(Events.enabled, "Enabled", m_enabled);
@@ -152,6 +151,7 @@ void mtsPID::enforce_position_limits(const bool & enforce)
             return;
         } else {
             mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
+            CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " enforce_position_limits: using configuration " << m_configuration_js << std::endl;
         }
     }
     m_enforce_position_limits = false;
@@ -313,6 +313,7 @@ void mtsPID::Startup(void)
             CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " Startup: Robot interface isn't connected properly, unable to get joint configuration.  Function call returned: "
                                      << result << std::endl;
         } else {
+            // check the types
             for (size_t index = 0;
                  index < m_number_of_joints;
                  ++index) {
@@ -324,6 +325,39 @@ void mtsPID::Startup(void)
                     cmnThrow("PID::" + message);
                 }
             }
+
+            // get the position min/max based on IO level.  Provided
+            // from IO level based on max current and position to
+            // current scale
+            if ((io_configuration_js.PositionMin().size() != m_configuration_js.Name().size())
+                || (io_configuration_js.PositionMax().size() != m_configuration_js.Name().size())) {
+                std::string message = this->GetName() + " Startup: min and max position vectors from IO don't have the correct size for " + this->GetName();
+                CMN_LOG_CLASS_INIT_ERROR << message << std::endl
+                                         << "IO configuration position min: " << io_configuration_js.PositionMin() << std::endl
+                                         << "IO configuration position max: " << io_configuration_js.PositionMax() << std::endl;
+                cmnThrow("PID::" + message);
+            } else {
+                m_configuration_js.PositionMin().ForceAssign(io_configuration_js.PositionMin());
+                m_configuration_js.PositionMax().ForceAssign(io_configuration_js.PositionMax());
+                CheckLowerUpper(m_configuration_js.PositionMin(), m_configuration_js.PositionMax(), "Startup, position");
+            }
+
+            // get the effort min/max based on IO level.  Provided
+            // from IO level based on max current and effort to
+            // current scale
+            if ((io_configuration_js.EffortMin().size() != m_configuration_js.Name().size())
+                || (io_configuration_js.EffortMax().size() != m_configuration_js.Name().size())) {
+                std::string message = this->GetName() + " Startup: min and max effort vectors from IO don't have the correct size for " + this->GetName();
+                CMN_LOG_CLASS_INIT_ERROR << message << std::endl
+                                         << "IO configuration effort min: " << io_configuration_js.EffortMin() << std::endl
+                                         << "IO configuration effort max: " << io_configuration_js.EffortMax() << std::endl;
+                cmnThrow("PID::" + message);
+            } else {
+                m_configuration_js.EffortMin().ForceAssign(io_configuration_js.EffortMin());
+                m_configuration_js.EffortMax().ForceAssign(io_configuration_js.EffortMax());
+                CheckLowerUpper(m_configuration_js.EffortMin(), m_configuration_js.EffortMax(), "Startup, effort");
+            }
+
             // check that names are also set properly
             if (io_configuration_js.Name().size() == m_configuration_js.Name().size()) {
                 if (io_configuration_js.Name() != m_configuration_js.Name()) {
@@ -337,6 +371,8 @@ void mtsPID::Startup(void)
                 // IO doesn't have proper names, let's configure them
                 IO.configure_js(m_configuration_js);
             }
+            CMN_LOG_CLASS_INIT_VERBOSE << "Startup: configuration_js:" << std::endl
+                                       << m_configuration_js << std::endl;
         }
     }
 }
@@ -604,27 +640,6 @@ void mtsPID::configure(const mtsPIDConfiguration & configuration)
     mConfigurationStateTable.Start();
     m_configuration = configuration;
     mConfigurationStateTable.Advance();
-}
-
-
-void mtsPID::configure_js(const prmConfigurationJoint & configuration)
-{
-    if (SizeMismatch(configuration.Name().size(), "configure_js.Name")) {
-        return;
-    }
-    mConfigurationStateTable.Start();
-    m_configuration_js = configuration;
-    mConfigurationStateTable.Advance();
-
-    // consistency checks
-    CheckLowerUpper(m_configuration_js.PositionMin(), m_configuration_js.PositionMax(), "SetPositionLowerLimit");
-    CheckLowerUpper(m_configuration_js.EffortMin(), m_configuration_js.EffortMax(), "SetEffortLowerLimit");
-
-    // update joint names for setpoint
-    // m_setpoint_js.Name().Assign(configuration.Name());
-
-    CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << "::configure_js: called with "
-                               << configuration << std::endl;
 }
 
 

@@ -220,16 +220,6 @@ protected:
      */
     void configure(const mtsPIDConfiguration & configuration);
 
-    /**
-     * @brief Set joint configuration.  Size of vector of names must
-     * match the current configuration.  Empty vectors are ignored and
-     * non empty vectors must match the size of the current
-     * configuration.
-     *
-     * @param configuration
-     */
-    void configure_js(const prmConfigurationJoint & configuration);
-
     /*! Return true is size mismatch.  Also sends error message and
       disables PID. */
     bool SizeMismatch(const size_t size, const std::string & methodName);

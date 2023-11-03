@@ -70,7 +70,7 @@ class {
         type double;
         default 0.0;
         visibility public;
-        description constant offset applied to output;
+        description constant effort offset applied to output;
     }
     member {
         name error_limit;
