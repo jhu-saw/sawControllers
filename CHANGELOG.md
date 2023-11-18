@@ -1,6 +1,31 @@
 Change log
 ==========
 
+2.1.0 (2023-11-xx)
+==================
+
+* API changes:
+  * mtsPID:
+    * Assumes control is performed on actuators, not joints
+    * Removed all code related to actuator to joint coupling
+    * Configuration file is now `.cdg` based and uses JSON (was XML)
+    * Effort and position limits come from IO level and are retrieved in `Startup` method
+* Deprecated features:
+  * mtsPID: Removed non-linear gains
+* New features:
+  * mtsPID:
+    * Now uses the velocities sent through `servo_jp` as reference velocities, much better trajectory following!
+    * Added support for disturbance observer
+  * mtsPID QtWidget:
+    * More signals plotted
+    * GUI uses CRTK naming convention
+    * Added option to save configuration
+  * CMake:
+    * Updated install targets and debian packages generation
+    * Works with ROS2/colcon
+* Bug fixes:
+  * mtsPID: fixed deadband transitions
+
 2.0.0 (2021-04-08)
 ==================
 
