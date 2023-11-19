@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2012-2021 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2012-2023 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -10,7 +10,7 @@
 # --- end cisst license ---
 
 cmake_minimum_required (VERSION 3.10)
-project (sawControllersAll VERSION 2.0.0)
+project (sawControllersAll VERSION 2.1.0)
 
 find_package (cisst REQUIRED)
 include (${CISST_USE_FILE})
