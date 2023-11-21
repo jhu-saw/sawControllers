@@ -1,0 +1,116 @@
+// -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+// ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab:
+
+inline-header {
+#include <cisstParameterTypes/prmJointType.h>
+#include <sawControllers/sawControllersExport.h>
+}
+
+class {
+    name mtsPIDAxisConfiguration;
+    attribute CISST_EXPORT;
+    member {
+        name index;
+        type size_t;
+        visibility public;
+        description axis index, this needs to match the axis position in the configuration vector;
+    }
+    member {
+        name name;
+        type std::string;
+        visibility public;
+    }
+    member {
+        name type;
+        type prmJointType;
+        visibility public;
+        description 1 for prismatic or 2 for revolute;
+    }
+    member {
+        name p_gain;
+        type double;
+        visibility public;
+        description gain applied to error in position;
+    }
+    member {
+        name d_gain;
+        type double;
+        visibility public;
+        description gain applied to error in velocity;
+    }
+    member {
+        name i_gain;
+        type double;
+        visibility public;
+        description gain applied to error integral;
+    }
+    member {
+        name i_forget_rate;
+        type double;
+        default 1.0;
+        visibility public;
+        description error integral preserve rate per second (multiplied to i_error);
+    }
+    member {
+        name i_limit;
+        type double;
+        default 0.0;
+        visibility public;
+        description cap on error integral;
+    }
+    member {
+        name p_deadband;
+        type double;
+        default 0.0;
+        visibility public;
+        description deadband around goal position;
+    }
+    member {
+        name offset;
+        type double;
+        default 0.0;
+        visibility public;
+        description constant effort offset applied to output;
+    }
+    member {
+        name error_limit;
+        type double;
+        default cmnTypeTraits<double>::MaxPositiveValue();
+        visibility public;
+        description maximum position error between setpoint and measured position;
+    }
+    member {
+        name v_low_pass_cutoff;
+        type double;
+        default 1.0;
+        visibility public;
+    }
+    member {
+        name use_disturbance_observer;
+        type bool;
+        default false;
+        visibility public;
+    }
+    member {
+        name nominal_mass;
+        type double;
+        default 0.0;
+        visibility public;
+    }
+    member {
+        name disturbance_cutoff;
+        type double;
+        default 0.0;
+        visibility public;
+    }
+}
+
+inline-header {
+    typedef std::vector<mtsPIDAxisConfiguration> mtsPIDConfiguration;
+    typedef mtsGenericObjectProxy<mtsPIDConfiguration> mtsPIDConfigurationProxy;
+    CMN_DECLARE_SERVICES_INSTANTIATION(mtsPIDConfigurationProxy);
+}
+
+inline-code {
+    CMN_IMPLEMENT_SERVICES_TEMPLATED(mtsPIDConfigurationProxy);
+}

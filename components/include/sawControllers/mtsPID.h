@@ -2,10 +2,10 @@
 /* ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab: */
 
 /*
-  Author(s):  Zihan Chen, Anton Deguet
+  Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2021 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -33,9 +33,9 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
-#include <cisstParameterTypes/prmActuatorJointCoupling.h>
 
 #include <sawControllers/sawControllersRevision.h>
+#include <sawControllers/mtsPIDConfiguration.h>
 
 //! Always include last
 #include <sawControllers/sawControllersExport.h>
@@ -47,9 +47,6 @@ class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 protected:
     // Required interface
     struct {
-        //! Set actuator/joint coupling
-        mtsFunctionWrite SetCoupling;
-
         //! Read joint type from robot
         mtsFunctionRead configuration_js;
         mtsFunctionWrite configure_js;
@@ -63,32 +60,21 @@ protected:
 
 
     //! Number of joints, set from the XML file used in Configure method
-    size_t mNumberOfJoints;
+    size_t m_number_of_joints;
 
-    struct {
-        //! Proportional gains
-        vctDoubleVec Kp;
-        //! Derivative gains
-        vctDoubleVec Kd;
-        //! Integral gains
-        vctDoubleVec Ki;
-        //! Offset
-        vctDoubleVec Offset;
-    } mGains;
+    //! PID Configuration
+    mtsPIDConfiguration m_configuration;
 
     //! Joint configuration
     prmConfigurationJoint m_configuration_js;
 
     //! Flag whether check joint limit
-    bool mCheckPositionLimit = true;
+    bool m_enforce_position_limits = false;
     vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
-
-    //! Flag whether to apply effort limit
-    bool mApplyEffortLimit;
 
     //! Commanded joint efforts sent to IO level
     vctDoubleVec mEffortMeasure;
-    prmForceTorqueJointSet mEffortPIDCommand;
+    prmForceTorqueJointSet m_pid_setpoint_jf;
     //! Feedforward, i.e. effort added to the PID output in position mode
     prmForceTorqueJointSet m_feed_forward_jf;
 
@@ -102,29 +88,25 @@ protected:
         m_setpoint_js;
 
     //! Error
-    vctDoubleVec mError;
-    vctDoubleVec mIError;
+    prmStateJoint m_error_state; // position, velocity and effort for disturbance
+    vctDoubleVec m_i_error;
+    vctDoubleVec m_disturbance_state;
 
-    //! Min/max iError
-    vctDoubleVec mIErrorLimitMin;
-    vctDoubleVec mIErrorLimitMax;
-    //! iError forgetting factor (0 < factor <= 1.0)
-    vctDoubleVec mIErrorForgetFactor;
-
-    //! If 0, use regular PID, else use as nonlinear factor
-    vctDoubleVec mNonLinear;
-
-    //! Deadband (errors less than this are set to 0)
-    vctDoubleVec mDeadBand;
+    bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
+    bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities
+    //! If cutoff set to 1.0, unfiltered
+    vctDoubleVec
+        m_setpoint_filtered_v,
+        m_setpoint_filtered_v_previous;
 
     //! Enable mtsPID controller
-    bool mEnabled = false;
+    bool m_enabled = false;
 
     //! Enable individal joints
-    vctBoolVec mJointsEnabled;
+    vctBoolVec m_joints_enabled;
 
     //! Enable mtsPID controller
-    vctBoolVec mEffortMode;
+    vctBoolVec m_effort_mode;
 
     bool mTrackingErrorEnabled;
     vctDoubleVec mTrackingErrorTolerances;
@@ -132,7 +114,7 @@ protected:
 
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
-    bool mIsSimulated = false;
+    bool m_simulated = false;
     double mCommandTime, mPreviousCommandTime;
 
     //! Configuration state table
@@ -140,13 +122,13 @@ protected:
 
     struct {
         //! Enable event
-        mtsFunctionWrite Enabled;
+        mtsFunctionWrite enabled;
         //! Position limit event
-        mtsFunctionWrite PositionLimit;
+        mtsFunctionWrite position_limit;
         //! Enabled joints event
-        mtsFunctionWrite EnabledJoints;
-        //! Coupling changed event
-        mtsFunctionWrite Coupling;
+        mtsFunctionWrite enabled_joints;
+        //! Use setpoint_v
+        mtsFunctionWrite use_setpoint_v;
     } Events;
 
     mtsInterfaceProvided * mInterface;
@@ -177,32 +159,28 @@ protected:
 
     void SetupInterfaces(void);
 
-    void Enable(const bool & enable);
+    void enable(const bool & enable);
 
-    void EnableJoints(const vctBoolVec & enable);
+    void enable_joints(const vctBoolVec & enable);
+
+    void use_setpoint_v(const bool & use);
 
     void EnableEffortMode(const vctBoolVec & enable);
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
-    void SetCoupling(const prmActuatorJointCoupling & coupling);
-
     /*! Retrieve data from the IO component.  This method checks for
       the simulated flag and sets position/effort based on user
       commands if it is simulated.  If the IO component doesn't
       provide the velocity, the method estimates the velocity based on
-      the previous measured position.  When changing coupling, the
-      previous position might be irrelevant so the user can skip
-      velocity computation.  In this case, velocity is set to 0. */
-    void GetIOData(const bool computeVelocity);
+      the previous measured position. */
+    void get_IO_data(void);
 
     /*! Utility method to convert vector of doubles
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
       requested efforts to the IO component. */
     void SetEffortLocal(const vctDoubleVec & effort);
-
-    void CouplingEventHandler(const prmActuatorJointCoupling & coupling);
 
     void ErrorEventHandler(const mtsMessage & message);
 
@@ -232,58 +210,15 @@ public:
     void SetSimulated(void);
 
 protected:
-    /**
-     * @brief Set controller P gains
-     *
-     * @param pgain   new P gains
-     */
-    void SetPGain(const vctDoubleVec & pgain);
+
+    void enforce_position_limits(const bool & enforce);
 
     /**
-     * @brief Set controller D gains
+     * @brief Set configuration
      *
-     * @param dgain   new D gains
+     * @param configuration  new configuration
      */
-    void SetDGain(const vctDoubleVec & dgain);
-
-    /**
-     * @brief Set controller I gains
-     *
-     * @param igain  new I gains
-     */
-    void SetIGain(const vctDoubleVec & igain);
-
-    /**
-     * @brief Set joint configuration.  Size of vector of names must
-     * match the current configuration.  Empty vectors are ignored and
-     * non empty vectors must match the size of the current
-     * configuration.
-     *
-     * @param configuration
-     */
-    void configure_js(const prmConfigurationJoint & configuration);
-
-    /**
-     * @brief Set minimum iError limit
-     *
-     * @param iminlim  minmum iError limit
-     */
-    void SetMinIErrorLimit(const vctDoubleVec & iminlim);
-
-
-    /**
-     * @brief Set maximum iError limit
-     *
-     * @param imaxlim  maximum iError limit
-     */
-    void SetMaxIErrorLimit(const vctDoubleVec & imaxlim);
-
-    /**
-     * @brief Set error integral forgetting factor
-     *
-     * @param forget  iError forgetting factor
-     */
-    void SetForgetIError(const double & forget);
+    void configure(const mtsPIDConfiguration & configuration);
 
     /*! Return true is size mismatch.  Also sends error message and
       disables PID. */

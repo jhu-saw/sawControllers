@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2016 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2023 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -9,7 +9,8 @@
 #
 # --- end cisst license ---
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.10)
+project (sawControllersExamples VERSION 2.1.0)
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
@@ -47,11 +48,17 @@ if (cisst_FOUND_AS_REQUIRED)
       add_executable (${_example} ${_example}.cpp)
       target_link_libraries (${_example} ${sawControllers_LIBRARIES})
       cisst_target_link_libraries (${_example} ${REQUIRED_CISST_LIBRARIES})
-      set_property (TARGET ${_example} PROPERTY FOLDER "sawControllers")
+      set_target_properties (${_example} PROPERTIES
+                             FOLDER "sawControllers")
     endforeach ()
 
     # examples that also need sawKeyboard
     target_link_libraries (mtsGCExample ${sawKeyboard_LIBRARIES})
+
+    install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
+             RUNTIME DESTINATION bin
+             LIBRARY DESTINATION lib
+             ARCHIVE DESTINATION lib)
 
     # copy configuration XML to the executable directory
     # add_custom_target (sawControllers_configPID ALL
