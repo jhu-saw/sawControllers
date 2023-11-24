@@ -46,6 +46,8 @@ if (cisst_FOUND_AS_REQUIRED)
                          VERSION ${sawControllers_VERSION}
                          FOLDER "sawControllers")
   cisst_target_link_libraries (sawControllersQt ${REQUIRED_CISST_LIBRARIES})
+  target_link_libraries (sawControllersQt
+                         ${sawControllers_LIBRARIES})
 
   install (TARGETS sawControllersQt COMPONENT sawControllers-Qt
            RUNTIME DESTINATION bin
