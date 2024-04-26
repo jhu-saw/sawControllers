@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2024 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -157,7 +157,7 @@ void mtsPIDQtWidget::Startup(void)
         UnitFactor.SetAll(0.0);
     } else {
         // set unitFactor;
-        prmJointTypeToFactor(PID.m_configuration_js.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
+        cmnJointTypeToFactor(PID.m_configuration_js.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
     }
 
     // get other configuration from PID
