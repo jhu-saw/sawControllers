@@ -1,6 +1,18 @@
 Change log
 ==========
 
+2.2.0 (2024-08-30)
+==================
+
+* API changes:
+  * Now uses `cmnJointType` instead of `prmJointType`
+* Deprecated features:
+  * None
+* New features:
+  * None
+* Bug fixes:
+  * CMake Qt library: added missing library to link on Windows
+
 2.1.0 (2023-11-21)
 ==================
 
