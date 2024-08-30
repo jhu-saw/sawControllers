@@ -2,7 +2,7 @@
 // ex: set filetype=cpp softtabstop=4 shiftwidth=4 tabstop=4 cindent expandtab:
 
 inline-header {
-#include <cisstParameterTypes/prmJointType.h>
+#include <cisstCommon/cmnJointType.h>
 #include <sawControllers/sawControllersExport.h>
 }
 
@@ -22,7 +22,7 @@ class {
     }
     member {
         name type;
-        type prmJointType;
+        type cmnJointType;
         visibility public;
         description 1 for prismatic or 2 for revolute;
     }
