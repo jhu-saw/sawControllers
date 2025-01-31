@@ -147,7 +147,7 @@ protected:
     /*! Set the effort feed forward for the PID controller.  The
       effort are added to the output of the PID controller.  These
       values are ignored for joints controlled in effort mode. */
-    void feed_forward_jf(const prmForceTorqueJointSet & feedForward);
+    void feed_forward_servo_jf(const prmForceTorqueJointSet & feedForward);
 
     /*! Set the effort directly, this by-passes the PID controller
       except for the effort limits.  See also EnableEffortMode to

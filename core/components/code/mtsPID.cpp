@@ -97,7 +97,7 @@ void mtsPID::SetupInterfaces(void)
 
         // set goals
         mInterface->AddCommandWrite(&mtsPID::servo_jp, this, "servo_jp", prmPositionJointSet());
-        mInterface->AddCommandWrite(&mtsPID::feed_forward_jf, this, "feed_forward_jf", prmForceTorqueJointSet());
+        mInterface->AddCommandWrite(&mtsPID::feed_forward_servo_jf, this, "feed_forward/servo_jf", prmForceTorqueJointSet());
         mInterface->AddCommandWrite(&mtsPID::servo_jf, this, "servo_jf", prmForceTorqueJointSet());
 
         // ROS compatible joint state
@@ -110,7 +110,7 @@ void mtsPID::SetupInterfaces(void)
         // Get joint configuration
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration, "configuration");
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
-
+            
         // Set enforce position limits
         mInterface->AddCommandWrite(&mtsPID::enforce_position_limits, this, "enforce_position_limits", m_enforce_position_limits);
         mInterface->AddCommandReadState(StateTable, m_enforce_position_limits, "position_limits_enforced");
@@ -715,9 +715,9 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
 }
 
 
-void mtsPID::feed_forward_jf(const prmForceTorqueJointSet & feedForward)
+void mtsPID::feed_forward_servo_jf(const prmForceTorqueJointSet & feedForward)
 {
-    if (SizeMismatch(feedForward.ForceTorque().size(), "SetFeedForward")) {
+    if (SizeMismatch(feedForward.ForceTorque().size(), "feed_forward/servo_jf")) {
         return;
     }
     m_feed_forward_jf.ForceTorque().Assign(feedForward.ForceTorque());
