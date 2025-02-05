@@ -1,0 +1,4 @@
+{
+  "name": "saw_controllers_ros",
+  "dependencies": ["cisst_ros_crtk", "sawControllersCore"]
+}
