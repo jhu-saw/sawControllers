@@ -84,15 +84,16 @@ if (cisst_FOUND_AS_REQUIRED)
       ${catkin_LIBRARIES})
     cisst_target_link_libraries (saw_controllers_ros ${REQUIRED_CISST_LIBRARIES})
 
-    install (TARGETS saw_controllers_ros
+    install (
+      TARGETS saw_controllers_ros
       EXPORT saw_controllers_ros
       LIBRARY DESTINATION lib
-      RUNTIME DESTINATION lib
-      RUNTIME DESTINATION bin
+      ARCHIVE DESTINATION lib
       INCLUDES DESTINATION include
       )
 
-    install (DIRECTORY include/saw_controllers_ros
+    install (
+      DIRECTORY include/saw_controllers_ros
       DESTINATION include
       )
 
