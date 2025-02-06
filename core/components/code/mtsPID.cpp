@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -128,15 +128,6 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddEventWrite(Events.enabled_joints, "EnabledJoints", vctBoolVec());
         mInterface->AddEventWrite(Events.use_setpoint_v, "use_setpoint_v", m_use_setpoint_v);
         mInterface->AddEventWrite(Events.position_limit, "PositionLimit", vctBoolVec());
-    }
-
-    auto interfaceMonitoring = AddInterfaceProvided("Monitoring");
-    if (interfaceMonitoring) {
-        // ROS compatible joint state
-        interfaceMonitoring->AddCommandReadState(StateTable, m_measured_js, "measured_js");
-        interfaceMonitoring->AddCommandReadState(StateTable, m_setpoint_js, "setpoint_js");
-        // disturbance
-        interfaceMonitoring->AddCommandReadState(StateTable, m_error_state, "error_state/measured_js");
     }
 }
 
