@@ -472,7 +472,7 @@ void mtsPID::Run(void)
             // the PID controller is enabled and this joint is actively controlled
             // check the mode, i.e. position or effort pass-through
             if (*effortMode) {
-                *setpoint_f = *effortUserCommand;
+                *setpoint_f = *effortUserCommand + *feed_forward;
                 *setpoint_p = *measured_p;
             } else {
                 // PID mode
