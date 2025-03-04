@@ -33,6 +33,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
+#include <cisstParameterTypes/prmJointCommand.h>
 
 #include <sawControllers/sawControllersRevision.h>
 #include <sawControllers/mtsPIDConfiguration.h>
@@ -59,27 +60,15 @@ protected:
     } IO;
 
 
-    //! Number of joints, set from the XML file used in Configure method
-    size_t m_number_of_joints;
+    size_t m_number_of_joints; // set from the XML file used in Configure method
 
-    //! PID Configuration
-    mtsPIDConfiguration m_configuration;
+    mtsPIDConfiguration m_configuration; // PID configuration
+    prmConfigurationJoint m_configuration_js; // joint configuration (limits, etc.)
 
-    //! Joint configuration
-    prmConfigurationJoint m_configuration_js;
+    bool m_enforce_position_limits = false; // whether to check/enforce joint limits
+    vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag; // whether joint limit was hit
 
-    //! Flag whether check joint limit
-    bool m_enforce_position_limits = false;
-    vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
-
-    //! Commanded joint efforts sent to IO level
-    vctDoubleVec mEffortMeasure;
-    prmForceTorqueJointSet m_pid_setpoint_jf;
-    //! Feedforward, i.e. effort added to the PID output in position mode
-    prmForceTorqueJointSet m_feed_forward_jf;
-
-    //! Desired joint efforts when bypassing PID
-    prmForceTorqueJointSet mEffortUserCommand;
+    prmForceTorqueJointSet m_pid_setpoint_jf; // Commanded joint efforts sent to IO level
 
     //! prm type joint state
     prmStateJoint
@@ -87,13 +76,15 @@ protected:
         m_measured_js_previous,
         m_setpoint_js;
 
+    prmJointCommand m_joint_command;
+
     //! Error
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
     vctDoubleVec m_i_error;
     vctDoubleVec m_disturbance_state;
 
     bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
-    bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities
+
     //! If cutoff set to 1.0, unfiltered
     vctDoubleVec
         m_setpoint_filtered_v,
@@ -104,9 +95,6 @@ protected:
 
     //! Enable individal joints
     vctBoolVec m_joints_enabled;
-
-    //! Enable mtsPID controller
-    vctBoolVec m_effort_mode;
 
     bool mTrackingErrorEnabled;
     vctDoubleVec mTrackingErrorTolerances;
@@ -139,20 +127,10 @@ protected:
      */
     void ResetController(void);
 
-    /*! Set the desired position, i.e. goal used in the PID
-      controller.  See also EnableEffortMode to control with joints
-      are controlled in position or effort mode. */
+    /*! Sets desired setpoint & control mode per joint */
+    void servo_js(const prmJointCommand & command);
+    /* For backwards compatibility/convience - should use servo_js instead */
     void servo_jp(const prmPositionJointSet & command);
-
-    /*! Set the effort feed forward for the PID controller.  The
-      effort are added to the output of the PID controller.  These
-      values are ignored for joints controlled in effort mode. */
-    void feed_forward_servo_jf(const prmForceTorqueJointSet & feedForward);
-
-    /*! Set the effort directly, this by-passes the PID controller
-      except for the effort limits.  See also EnableEffortMode to
-      control with joints are controlled in position or effort
-      mode. */
     void servo_jf(const prmForceTorqueJointSet & command);
 
     void Init(void);
@@ -164,8 +142,6 @@ protected:
     void enable_joints(const vctBoolVec & enable);
 
     void use_setpoint_v(const bool & use);
-
-    void EnableEffortMode(const vctBoolVec & enable);
 
     void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
 
@@ -228,6 +204,16 @@ protected:
       to upper limit. */
     void CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
                          const std::string & methodName);
+
+    double clamp(double value, double min, double max) {
+        if (value < min) {
+          return min;
+        } else if (value > max) {
+          return max;
+        } else {
+          return value;
+        }
+    }
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPID);
