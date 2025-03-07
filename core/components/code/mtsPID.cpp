@@ -63,11 +63,11 @@ void mtsPID::SetupInterfaces(void)
     }
 
     // this should go in "write" state table
-    StateTable.AddData(mEffortUserCommand, "EffortUserCommand");
+    StateTable.AddData(m_requested_jf, "requested_jf");
     // this should go in a "read" state table
     StateTable.AddData(m_enabled, "enabled");
     StateTable.AddData(m_joints_enabled, "joints_enabled");
-    StateTable.AddData(m_use_setpoint_v, "use_setpoint_v");
+    StateTable.AddData(m_setpoint_v_used, "setpoint_v_used");
 
     // measures are timestamped by the IO level
     StateTable.AddData(m_enforce_position_limits, "enforce_position_limits");
@@ -80,20 +80,20 @@ void mtsPID::SetupInterfaces(void)
     // configuration state table with occasional start/advance
     mConfigurationStateTable.AddData(m_configuration, "configuration");
     mConfigurationStateTable.AddData(m_configuration_js, "configuration_js");
-    StateTable.AddData(mTrackingErrorEnabled, "EnableTrackingError"); // that table advances automatically
-    mConfigurationStateTable.AddData(mTrackingErrorTolerances, "TrackingErrorTolerances");
+    StateTable.AddData(m_measured_setpoint_check, "enable_measured_setpoint_check"); // that table advances automatically
+    mConfigurationStateTable.AddData(m_measured_setpoint_tolerance, "measured to setpoint tolerance");
 
     mInterface = AddInterfaceProvided("Controller");
     mInterface->AddMessageEvents();
     if (mInterface) {
-        mInterface->AddCommandVoid(&mtsPID::ResetController, this, "ResetController");
-        mInterface->AddCommandWrite(&mtsPID::enable, this, "Enable", m_enabled);
-        mInterface->AddCommandWrite(&mtsPID::enable_joints, this, "EnableJoints", m_joints_enabled);
-        mInterface->AddCommandWrite(&mtsPID::use_setpoint_v, this, "use_setpoint_v", m_use_setpoint_v);
+        mInterface->AddCommandVoid(&mtsPID::reset_controller, this, "reset_controller");
+        mInterface->AddCommandWrite(&mtsPID::enable, this, "enable", m_enabled);
+        mInterface->AddCommandWrite(&mtsPID::enable_joints, this, "enable_joints", m_joints_enabled);
+        mInterface->AddCommandWrite(&mtsPID::use_setpoint_v, this, "use_setpoint_v", m_setpoint_v_used);
         mInterface->AddCommandWrite(&mtsPID::EnableEffortMode, this, "EnableTorqueMode", m_effort_mode);
-        mInterface->AddCommandReadState(StateTable, m_enabled, "Enabled");
-        mInterface->AddCommandReadState(StateTable, m_joints_enabled, "JointsEnabled");
-        mInterface->AddCommandReadState(StateTable, m_use_setpoint_v, "use_setpoint_v");
+        mInterface->AddCommandReadState(StateTable, m_enabled, "enabled");
+        mInterface->AddCommandReadState(StateTable, m_joints_enabled, "joints_enabled");
+        mInterface->AddCommandReadState(StateTable, m_setpoint_v_used, "setpoint_v_used");
 
         // set goals
         mInterface->AddCommandWrite(&mtsPID::servo_jp, this, "servo_jp", prmPositionJointSet());
@@ -110,24 +110,24 @@ void mtsPID::SetupInterfaces(void)
         // Get joint configuration
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration, "configuration");
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
-            
+
         // Set enforce position limits
         mInterface->AddCommandWrite(&mtsPID::enforce_position_limits, this, "enforce_position_limits", m_enforce_position_limits);
         mInterface->AddCommandReadState(StateTable, m_enforce_position_limits, "position_limits_enforced");
 
-        // Error tracking
-        mInterface->AddCommandWriteState(StateTable, mTrackingErrorEnabled, "EnableTrackingError");
-        mInterface->AddCommandReadState(StateTable, mTrackingErrorEnabled, "TrackingErrorEnabled");
-        mInterface->AddCommandWrite(&mtsPID::SetTrackingErrorTolerances, this, "SetTrackingErrorTolerances");
+        // measured vs setpoint check
+        mInterface->AddCommandWriteState(StateTable, m_measured_setpoint_check, "enable_measured_setpoint_check");
+        mInterface->AddCommandReadState(StateTable, m_measured_setpoint_check, "measured_setpoint_check_enabled");
+        mInterface->AddCommandWrite(&mtsPID::set_measured_setpoint_tolerance, this, "set_measured_setpoint_tolerance");
 
         // Set joint configuration
         mInterface->AddCommandWrite(&mtsPID::configure, this, "configure", m_configuration);
 
         // Events
-        mInterface->AddEventWrite(Events.enabled, "Enabled", m_enabled);
-        mInterface->AddEventWrite(Events.enabled_joints, "EnabledJoints", vctBoolVec());
-        mInterface->AddEventWrite(Events.use_setpoint_v, "use_setpoint_v", m_use_setpoint_v);
-        mInterface->AddEventWrite(Events.position_limit, "PositionLimit", vctBoolVec());
+        mInterface->AddEventWrite(Events.enabled, "enabled", m_enabled);
+        mInterface->AddEventWrite(Events.enabled_joints, "enabled_joints", vctBoolVec());
+        mInterface->AddEventWrite(Events.setpoint_v_used, "setpoint_v_used", m_setpoint_v_used);
+        mInterface->AddEventWrite(Events.position_limit, "position_limit", vctBoolVec());
     }
 }
 
@@ -225,7 +225,7 @@ void mtsPID::Configure(const std::string & filename)
     // feedback
     m_pid_setpoint_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
     m_feed_forward_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
-    mEffortUserCommand.ForceTorque().SetSize(m_number_of_joints, 0.0);
+    m_requested_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
 
     // size all vectors
     m_configuration_js.Name().SetSize(m_number_of_joints);
@@ -260,7 +260,7 @@ void mtsPID::Configure(const std::string & filename)
     // disturbance observer
     m_disturbance_state.SetSize(m_number_of_joints);
     m_disturbance_state.SetAll(0.0);
-    ResetController();
+    reset_controller();
 
     // default: 1 so there's no filtering
     m_setpoint_filtered_v.SetSize(m_number_of_joints, 0.0);
@@ -271,10 +271,10 @@ void mtsPID::Configure(const std::string & filename)
     m_effort_mode.SetAll(false);
 
     // tracking error
-    mTrackingErrorEnabled = false;
-    mTrackingErrorTolerances.SetSize(m_number_of_joints, 0.0);
-    mTrackingErrorFlag.SetSize(m_number_of_joints, false);
-    mPreviousTrackingErrorFlag.ForceAssign(mTrackingErrorFlag);
+    m_measured_setpoint_check = false;
+    m_measured_setpoint_tolerance.SetSize(m_number_of_joints, 0.0);
+    m_measured_setpoint_error.SetSize(m_number_of_joints, false);
+    m_previous_measured_setpoint_error.ForceAssign(m_measured_setpoint_error);
 
     // copy data from configuration, name and type
     size_t index = 0;
@@ -391,13 +391,13 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator setpoint_p = m_setpoint_js.Position().begin();
     vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
     vctBoolVec::const_iterator effortMode = m_effort_mode.begin();
-    vctDoubleVec::const_iterator effortUserCommand = mEffortUserCommand.ForceTorque().begin();
+    vctDoubleVec::const_iterator effortUserCommand = m_requested_jf.ForceTorque().begin();
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
-    vctDoubleVec::const_iterator tolerance = mTrackingErrorTolerances.begin();
+    vctDoubleVec::const_iterator tolerance = m_measured_setpoint_tolerance.begin();
     vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
-    vctBoolVec::iterator trackingErrorFlag = mTrackingErrorFlag.begin();
-    vctBoolVec::iterator previousTrackingErrorFlag = mPreviousTrackingErrorFlag.begin();
+    vctBoolVec::iterator trackingErrorFlag = m_measured_setpoint_error.begin();
+    vctBoolVec::iterator previousTrackingErrorFlag = m_previous_measured_setpoint_error.begin();
     vctDoubleVec::iterator i_error = m_i_error.begin();
     vctDoubleVec::iterator disturbance = m_error_state.Effort().begin();
     vctDoubleVec::iterator disturbance_state = m_disturbance_state.begin();
@@ -422,12 +422,12 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_setpoint_filtered_v.size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_filtered_v_previous.size() == m_number_of_joints);
     CMN_ASSERT(m_effort_mode.size() == m_number_of_joints);
-    CMN_ASSERT(mEffortUserCommand.ForceTorque().size() == m_number_of_joints);
+    CMN_ASSERT(m_requested_jf.ForceTorque().size() == m_number_of_joints);
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
-    CMN_ASSERT(mTrackingErrorTolerances.size() == m_number_of_joints);
+    CMN_ASSERT(m_measured_setpoint_tolerance.size() == m_number_of_joints);
     CMN_ASSERT(mPositionLimitFlag.size() == m_number_of_joints);
-    CMN_ASSERT(mTrackingErrorFlag.size() == m_number_of_joints);
-    CMN_ASSERT(mPreviousTrackingErrorFlag.size() == m_number_of_joints);
+    CMN_ASSERT(m_measured_setpoint_error.size() == m_number_of_joints);
+    CMN_ASSERT(m_previous_measured_setpoint_error.size() == m_number_of_joints);
     CMN_ASSERT(m_i_error.size() == m_number_of_joints);
     CMN_ASSERT(m_error_state.Effort().size() == m_number_of_joints);
     CMN_ASSERT(m_disturbance_state.size() == m_number_of_joints);
@@ -495,7 +495,7 @@ void mtsPID::Run(void)
                     }
                 }
                 // check for tracking errors
-                if (mTrackingErrorEnabled) {
+                if (m_measured_setpoint_check) {
                     double errorAbsolute = fabs(*p_error);
                     // trigger error if the error is too high
                     // AND the last request was not outside joint limit
@@ -515,7 +515,7 @@ void mtsPID::Run(void)
                 *v_error = 0.0;
                 if (!in_deadband) {
                     double _setpoint_v = 0.0;
-                    if (m_has_setpoint_v && m_use_setpoint_v) {
+                    if (m_has_setpoint_v && m_setpoint_v_used) {
                         // apply filter on setpoint_v only
                         *filtered_setpoint_v = (1.0 - c->v_low_pass_cutoff) * *filtered_setpoint_v_previous + c->v_low_pass_cutoff * *setpoint_v;
                         _setpoint_v = *filtered_setpoint_v;
@@ -579,15 +579,15 @@ void mtsPID::Run(void)
     }
 
     // report errors (tracking)
-    if (mTrackingErrorEnabled && anyTrackingError) {
+    if (m_measured_setpoint_check && anyTrackingError) {
         this->enable(false);
         if (newTrackingError) {
             std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
-            message.append(mTrackingErrorFlag.ToString());
+            message.append(m_measured_setpoint_error.ToString());
             mInterface->SendError(message);
             CMN_LOG_CLASS_RUN_ERROR << message << std::endl
                                     << "errors:     " << m_error_state.Position() << std::endl
-                                    << "tolerances: " << mTrackingErrorTolerances << std::endl
+                                    << "tolerances: " << m_measured_setpoint_tolerance << std::endl
                                     << "measured:   " << m_measured_js.Position() << std::endl
                                     << "setpoint:   " << m_setpoint_js.Position() << std::endl;
         }
@@ -595,7 +595,7 @@ void mtsPID::Run(void)
 
     // make sure we apply efforts only if enabled
     if (m_enabled) {
-        SetEffortLocal(m_setpoint_js.Effort());
+        servo_jf_local(m_setpoint_js.Effort());
     }
 
     // for simulated mode
@@ -611,7 +611,7 @@ void mtsPID::Cleanup(void)
 {
     // cleanup
     m_setpoint_js.Effort().Zeros();
-    SetEffortLocal(m_setpoint_js.Effort());
+    servo_jf_local(m_setpoint_js.Effort());
 }
 
 
@@ -634,9 +634,9 @@ void mtsPID::configure(const mtsPIDConfiguration & configuration)
 }
 
 
-void mtsPID::ResetController(void)
+void mtsPID::reset_controller(void)
 {
-    CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " Reset Controller" << std::endl;
+    CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " reset_controller" << std::endl;
     m_error_state.Position().SetAll(0.0);
     m_error_state.Velocity().SetAll(0.0);
     m_error_state.Effort().SetAll(0.0); // disturbance
@@ -653,7 +653,7 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
     }
 
     m_setpoint_js.Position().Assign(command.Goal());
-    mCommandTime = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
+    m_command_time = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
     if (m_enforce_position_limits) {
         bool limitReached = false;
@@ -720,7 +720,7 @@ void mtsPID::servo_jf(const prmForceTorqueJointSet & command)
     if (SizeMismatch(command.ForceTorque().size(), "servo_jf")) {
         return;
     }
-    mEffortUserCommand.ForceTorque().Assign(command.ForceTorque());
+    m_requested_jf.ForceTorque().Assign(command.ForceTorque());
 }
 
 
@@ -736,15 +736,15 @@ void mtsPID::enable(const bool & enable)
 
     // set effort to 0
     m_setpoint_js.Effort().Zeros();
-    SetEffortLocal(m_setpoint_js.Effort());
+    servo_jf_local(m_setpoint_js.Effort());
 
     // reset error flags
     if (enable) {
-        mPreviousTrackingErrorFlag.SetAll(false);
-        mTrackingErrorFlag.SetAll(false);
+        m_previous_measured_setpoint_error.SetAll(false);
+        m_measured_setpoint_error.SetAll(false);
         mPositionLimitFlagPrevious.SetAll(false);
         mPositionLimitFlag.SetAll(false);
-        mPreviousCommandTime = 0.0;
+        m_previous_command_time = 0.0;
         m_feed_forward_jf.ForceTorque().Zeros();
         m_has_setpoint_v = false;
         m_setpoint_filtered_v_previous.Zeros();
@@ -761,7 +761,7 @@ void mtsPID::enable(const bool & enable)
 
 void mtsPID::enable_joints(const vctBoolVec & enable)
 {
-    if (SizeMismatch(enable.size(), "EnableJoints")) {
+    if (SizeMismatch(enable.size(), "enable_joints")) {
         return;
     }
     m_joints_enabled.Assign(enable);
@@ -771,9 +771,10 @@ void mtsPID::enable_joints(const vctBoolVec & enable)
 
 void mtsPID::use_setpoint_v(const bool & use)
 {
-    m_use_setpoint_v = use;
-    Events.use_setpoint_v(m_use_setpoint_v);
-    if (m_use_setpoint_v) {
+    m_setpoint_v_used = use;
+    std::cerr << "used: " << use << std::endl;
+    Events.setpoint_v_used(m_setpoint_v_used);
+    if (m_setpoint_v_used) {
         m_setpoint_filtered_v_previous.Zeros();
     }
 }
@@ -799,11 +800,11 @@ void mtsPID::get_IO_data(void)
     // m_setpoint_js
     if (m_simulated) {
         // check that position is not too old
-        if ((StateTable.GetTic() - mCommandTime) > 20.0 * cmn_ms) {
+        if ((StateTable.GetTic() - m_command_time) > 20.0 * cmn_ms) {
             m_measured_js.Velocity().Zeros();
         } else {
             // evaluate velocity based on positions sent by arm/client
-            const double dt = mCommandTime - mPreviousCommandTime;
+            const double dt = m_command_time - m_previous_command_time;
             if (dt > 0) {
                 vctDoubleVec::const_iterator currentPosition = m_setpoint_js.Position().begin();
                 vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
@@ -826,7 +827,7 @@ void mtsPID::get_IO_data(void)
         }
         // timestamp using last know position
         m_measured_js_previous = m_setpoint_js;
-        mPreviousCommandTime = mCommandTime;
+        m_previous_command_time = m_command_time;
     }
 
     // talking to actual robot
@@ -860,7 +861,7 @@ void mtsPID::get_IO_data(void)
     }
 }
 
-void mtsPID::SetEffortLocal(const vctDoubleVec & effort)
+void mtsPID::servo_jf_local(const vctDoubleVec & effort)
 {
     if (!m_simulated) {
         m_pid_setpoint_jf.ForceTorque().Assign(effort);
@@ -868,12 +869,12 @@ void mtsPID::SetEffortLocal(const vctDoubleVec & effort)
     }
 }
 
-void mtsPID::SetTrackingErrorTolerances(const vctDoubleVec & tolerances)
+void mtsPID::set_measured_setpoint_tolerance(const vctDoubleVec & tolerances)
 {
     if (tolerances.size() == m_number_of_joints) {
-        mTrackingErrorTolerances.Assign(tolerances);
+        m_measured_setpoint_tolerance.Assign(tolerances);
     } else {
-        std::string message = this->GetName() + ": incorrect vector size for SetTrackingErrorTolerances";
+        std::string message = this->GetName() + ": incorrect vector size for set_measured_setpoint_tolerance";
         cmnThrow(message);
     }
 }
