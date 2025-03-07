@@ -93,7 +93,7 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(StateTable, m_use_setpoint_v, "use_setpoint_v");
 
         // set goals
-        mInterface->AddCommandWrite(&mtsPID::servo_js, this, "servo_js", prmJointCommand());
+        mInterface->AddCommandWrite(&mtsPID::servo_js, this, "servo_js", prmServoJoint());
         mInterface->AddCommandWrite(&mtsPID::servo_jp, this, "servo_jp", prmPositionJointSet());
         mInterface->AddCommandWrite(&mtsPID::servo_jf, this, "servo_jf", prmForceTorqueJointSet());
 
@@ -243,7 +243,7 @@ void mtsPID::Configure(const std::string & filename)
     m_joint_command.Position().SetSize(m_number_of_joints, 0.0);
     m_joint_command.Velocity().SetSize(m_number_of_joints, 0.0);
     m_joint_command.Effort().SetSize(m_number_of_joints, 0.0);
-    m_joint_command.Mode().SetSize(m_number_of_joints, prmJointCommandMode::PRM_JOINT_MODE_NONE);
+    m_joint_command.Mode().SetSize(m_number_of_joints, prmSetpointMode::NONE);
 
     mPositionLimitFlag.SetSize(m_number_of_joints);
     mPositionLimitFlag.SetAll(false);
@@ -391,7 +391,7 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator setpoint_v = m_setpoint_js.Velocity().begin();
     vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
     vctDoubleVec::iterator command_f = m_joint_command.Effort().begin();
-    vctDynamicVector<prmJointCommandMode>::const_iterator mode = m_joint_command.Mode().begin();
+    vctDynamicVector<prmSetpointMode>::const_iterator mode = m_joint_command.Mode().begin();
 
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
@@ -486,11 +486,11 @@ void mtsPID::Run(void)
 
             *setpoint_f = c->offset;
 
-            const bool effort_mode = (*mode) & prmJointCommandMode::PRM_JOINT_MODE_EFFORT;
-            const bool velocity_mode = (*mode) & prmJointCommandMode::PRM_JOINT_MODE_VELOCITY;
+            const bool effort_mode = (*mode) & prmSetpointMode::EFFORT;
+            const bool velocity_mode = (*mode) & prmSetpointMode::VELOCITY;
             // currently velocity mode implementation requires position mode
-            const bool position_mode = velocity_mode || ((*mode) & prmJointCommandMode::PRM_JOINT_MODE_POSITION);
-            const bool psuedo_position_mode = velocity_mode && !((*mode) & prmJointCommandMode::PRM_JOINT_MODE_POSITION);
+            const bool position_mode = velocity_mode || ((*mode) & prmSetpointMode::POSITION);
+            const bool psuedo_position_mode = velocity_mode && !((*mode) & prmSetpointMode::POSITION);
 
             if (psuedo_position_mode) {
                 double dt = GetPeriodicity();
@@ -662,7 +662,7 @@ void mtsPID::ResetController(void)
 }
 
 
-void mtsPID::servo_js(const prmJointCommand & command)
+void mtsPID::servo_js(const prmServoJoint & command)
 {
     if (command.Position().size() > 0 && SizeMismatch(command.Position().size(), "servo_js:position")) { return; }
     if (command.Velocity().size() > 0 && SizeMismatch(command.Velocity().size(), "servo_js:velocity")) { return; }
@@ -692,19 +692,19 @@ void mtsPID::servo_js(const prmJointCommand & command)
     mCommandTime = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
     if (m_joint_command.Mode().size() == 0) {
-        m_joint_command.Mode().SetAll(prmJointCommandMode::PRM_JOINT_MODE_NONE);
+        m_joint_command.Mode().SetAll(prmSetpointMode::NONE);
     }
 
     if (m_enforce_position_limits && command.Position().size() > 0) {
         bool limitReached = false;
-        vctDynamicVector<prmJointCommandMode>::const_iterator mode = m_joint_command.Mode().begin();
+        vctDynamicVector<prmSetpointMode>::const_iterator mode = m_joint_command.Mode().begin();
         vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
         vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
         vctBoolVec::iterator flags = mPositionLimitFlag.begin();
         vctDoubleVec::iterator desired = m_setpoint_js.Position().begin();
         const vctDoubleVec::iterator end = m_setpoint_js.Position().end();
         for (; desired != end; ++desired, ++upper, ++lower, ++flags, ++mode) {
-            if (!(*mode & prmJointCommandMode::PRM_JOINT_MODE_POSITION)) {
+            if (!(*mode & prmSetpointMode::POSITION)) {
                 *flags = false;
                 continue; // only enforce for joints under position control
             }
@@ -739,20 +739,20 @@ void mtsPID::servo_js(const prmJointCommand & command)
 }
 
 void mtsPID::servo_jp(const prmPositionJointSet & command) {
-    prmJointCommand js;
+    prmServoJoint js;
     js.Position().Assign(command.Goal());
     js.Velocity().Assign(command.Velocity());
 
     js.Mode().SetSize(command.Goal().size());
-    js.Mode().SetAll(prmJointCommandMode::PRM_JOINT_MODE_POSITION);
+    js.Mode().SetAll(prmSetpointMode::POSITION);
 }
 
 void mtsPID::servo_jf(const prmForceTorqueJointSet & command) {
-    prmJointCommand js;
+    prmServoJoint js;
     js.Effort().Assign(command.ForceTorque());
 
     js.Mode().SetSize(command.ForceTorque().size());
-    js.Mode().SetAll(prmJointCommandMode::PRM_JOINT_MODE_EFFORT);
+    js.Mode().SetAll(prmSetpointMode::EFFORT);
 }
 
 void mtsPID::enable(const bool & enable)

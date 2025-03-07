@@ -33,7 +33,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
-#include <cisstParameterTypes/prmJointCommand.h>
+#include <cisstParameterTypes/prmServoJoint.h>
 
 #include <sawControllers/sawControllersRevision.h>
 #include <sawControllers/mtsPIDConfiguration.h>
@@ -76,7 +76,7 @@ protected:
         m_measured_js_previous,
         m_setpoint_js;
 
-    prmJointCommand m_joint_command;
+    prmServoJoint m_joint_command;
 
     //! Error
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
@@ -128,8 +128,8 @@ protected:
     void ResetController(void);
 
     /*! Sets desired setpoint & control mode per joint */
-    void servo_js(const prmJointCommand & command);
-    /* For backwards compatibility/convience - should use servo_js instead */
+    void servo_js(const prmServoJoint & command);
+    /* Convience wrappers around servo_js */
     void servo_jp(const prmPositionJointSet & command);
     void servo_jf(const prmForceTorqueJointSet & command);
 
