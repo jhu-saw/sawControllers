@@ -24,14 +24,16 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstMultiTask/mtsManagerLocal.h>
 
+#include <cisst_ros_bridge/mtsROSBridge.h>
 #include <saw_controllers_ros/mts_ros_crtk_controllers_pid_bridge.h>
 
 CMN_IMPLEMENT_SERVICES_DERIVED(mts_ros_crtk_controllers_pid_bridge, mtsComponent);
 
 mts_ros_crtk_controllers_pid_bridge::mts_ros_crtk_controllers_pid_bridge(const std::string & name,
                                                                          cisst_ral::node_ptr_t node_handle,
-                                                                         const double period_in_seconds):
-    mts_ros_crtk_bridge_provided(name, node_handle, period_in_seconds)
+                                                                         const double period_in_seconds,
+                                                                         const bool perform_spin):
+    mts_ros_crtk_bridge_provided(name, node_handle, period_in_seconds, perform_spin)
 {
 }
 
@@ -50,6 +52,24 @@ void mts_ros_crtk_controllers_pid_bridge::bridge_interface_provided(const std::s
 {
     // call base class method
     mts_ros_crtk_bridge_provided::bridge_interface_provided(component_name, interface_name, ros_namespace,
-                                                            publish_period_in_seconds, tf_period_in_seconds, read_write);
+                                                            publish_period_in_seconds, tf_period_in_seconds,
+                                                            read_write);
     // add non CRTK topics
+    m_events_bridge->AddPublisherFromEventWrite<bool,
+                                                CISST_RAL_MSG(std_msgs, Bool)>
+        (required_interface_name_for(component_name, interface_name), "enabled", ros_namespace + "/enabled");
+    m_events_bridge->AddPublisherFromEventWrite<bool,
+                                                CISST_RAL_MSG(std_msgs, Bool)>
+        (required_interface_name_for(component_name, interface_name), "setpoint_v_used", ros_namespace + "/setpoint_v_used");
+
+    // if write only
+    if (read_write) {
+        m_subscribers_bridge->AddSubscriberToCommandWrite<bool,
+                                                          CISST_RAL_MSG(std_msgs, Bool)>
+            (required_interface_name_for(component_name, interface_name), "enable", ros_namespace + "/enable");
+
+        m_subscribers_bridge->AddSubscriberToCommandWrite<bool,
+                                                          CISST_RAL_MSG(std_msgs, Bool)>
+            (required_interface_name_for(component_name, interface_name), "use_setpoint_v", ros_namespace + "/use_setpoint_v");
+    }
 }
