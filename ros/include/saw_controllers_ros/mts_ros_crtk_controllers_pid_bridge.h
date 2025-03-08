@@ -29,7 +29,8 @@ class CISST_EXPORT mts_ros_crtk_controllers_pid_bridge: public mts_ros_crtk_brid
 public:
     mts_ros_crtk_controllers_pid_bridge(const std::string & name,
                                         cisst_ral::node_ptr_t node_handle,
-                                        const double period_in_seconds = 5.0 * cmn_ms);
+                                        const double period_in_seconds = 5.0 * cmn_ms,
+                                        const bool perform_spin = true);
 
     inline ~mts_ros_crtk_controllers_pid_bridge(void) {}
 

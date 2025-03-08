@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -83,7 +83,7 @@ protected:
     vctDoubleVec m_i_error;
     vctDoubleVec m_disturbance_state;
 
-    bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
+    bool m_setpoint_v_used = true;  // option to ignore user setpoint_v
 
     //! If cutoff set to 1.0, unfiltered
     vctDoubleVec
@@ -96,14 +96,14 @@ protected:
     //! Enable individal joints
     vctBoolVec m_joints_enabled;
 
-    bool mTrackingErrorEnabled;
-    vctDoubleVec mTrackingErrorTolerances;
-    vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
+    bool m_measured_setpoint_check;
+    vctDoubleVec m_measured_setpoint_tolerance;
+    vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
 
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
     bool m_simulated = false;
-    double mCommandTime, mPreviousCommandTime;
+    double m_command_time, m_previous_command_time;
 
     //! Configuration state table
     mtsStateTable mConfigurationStateTable;
@@ -116,7 +116,7 @@ protected:
         //! Enabled joints event
         mtsFunctionWrite enabled_joints;
         //! Use setpoint_v
-        mtsFunctionWrite use_setpoint_v;
+        mtsFunctionWrite setpoint_v_used;
     } Events;
 
     mtsInterfaceProvided * mInterface;
@@ -125,7 +125,7 @@ protected:
      * @brief Reset encoder, clear e/ed/ei value
      *
      */
-    void ResetController(void);
+    void reset_controller(void);
 
     /*! Sets desired setpoint & control mode per joint */
     void servo_js(const prmServoJoint & command);
@@ -143,7 +143,7 @@ protected:
 
     void use_setpoint_v(const bool & use);
 
-    void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
+    void set_measured_setpoint_tolerance(const vctDoubleVec & tolerances);
 
     /*! Retrieve data from the IO component.  This method checks for
       the simulated flag and sets position/effort based on user
@@ -156,7 +156,7 @@ protected:
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
       requested efforts to the IO component. */
-    void SetEffortLocal(const vctDoubleVec & effort);
+    void servo_jf_local(const vctDoubleVec & effort);
 
     void ErrorEventHandler(const mtsMessage & message);
 
