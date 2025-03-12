@@ -82,6 +82,7 @@ protected:
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
     vctDoubleVec m_i_error;
     vctDoubleVec m_disturbance_state;
+    vctDoubleVec m_disturbance_input;
 
     bool m_setpoint_v_used = true;  // option to ignore user setpoint_v
 
@@ -205,17 +206,17 @@ protected:
     void CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
                          const std::string & methodName);
 
+    /* Sends error message and disables controller if measured and setpoint jp are too far apart,
+     * based on m_measured_setpoint_tolerance. Returns true if check passed, false if failed.
+     */
     bool measured_setpoint_check();
 
-    double clamp(double value, double min, double max) {
-        if (value < min) {
-          return min;
-        } else if (value > max) {
-          return max;
-        } else {
-          return value;
-        }
-    }
+    /* Sends warning message if setpoint is outside joint limits.
+       Returns true if check passed, false if failed.
+     */
+    bool setpoint_limits_check();
+
+    static double apply_deadband(double value, double deadband);
 };
 
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsPID);

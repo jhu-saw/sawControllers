@@ -23,6 +23,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <sawControllers/mtsPID.h>
 
+#include <algorithm>
 #include <cmath>
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
@@ -263,8 +264,9 @@ void mtsPID::Configure(const std::string & filename)
     m_i_error.SetSize(m_number_of_joints);
 
     // disturbance observer
-    m_disturbance_state.SetSize(m_number_of_joints);
-    m_disturbance_state.SetAll(0.0);
+    m_disturbance_state.SetSize(m_number_of_joints, 0.0);
+    m_disturbance_input.SetSize(m_number_of_joints, 0.0);
+
     reset_controller();
 
     m_setpoint_filtered_v.SetSize(m_number_of_joints, 0.0);
@@ -347,6 +349,13 @@ void mtsPID::Startup(void)
             } else {
                 m_configuration_js.EffortMin().ForceAssign(io_configuration_js.EffortMin());
                 m_configuration_js.EffortMax().ForceAssign(io_configuration_js.EffortMax());
+
+                // If no limits provided, set to numeric limits of data type 
+                if (!m_configuration_js.EffortMin().Any() && !m_configuration_js.EffortMax().Any()) {
+                    m_configuration_js.EffortMin().SetAll(std::numeric_limits<double>::lowest());
+                    m_configuration_js.EffortMax().SetAll(std::numeric_limits<double>::max());
+                }
+
                 CheckLowerUpper(m_configuration_js.EffortMin(), m_configuration_js.EffortMax(), "Startup, effort");
             }
 
@@ -393,10 +402,11 @@ void mtsPID::Run(void)
 
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
+    vctDoubleVec::iterator i_error = m_i_error.begin();
 
     vctDoubleVec::iterator disturbance = m_error_state.Effort().begin();
     vctDoubleVec::iterator disturbance_state = m_disturbance_state.begin();
-    vctDoubleVec::iterator i_error = m_i_error.begin();
+    vctDoubleVec::iterator disturbance_input = m_disturbance_input.begin();
 
     vctDoubleVec::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
     vctDoubleVec::iterator filtered_setpoint_v_previous = m_setpoint_filtered_v_previous.begin();
@@ -426,9 +436,10 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_error_state.Position().size() == m_number_of_joints);
     CMN_ASSERT(m_error_state.Velocity().size() == m_number_of_joints);
     CMN_ASSERT(m_error_state.Effort().size() == m_number_of_joints);
+    CMN_ASSERT(m_i_error.size() == m_number_of_joints);
 
     CMN_ASSERT(m_disturbance_state.size() == m_number_of_joints);
-    CMN_ASSERT(m_i_error.size() == m_number_of_joints);
+    CMN_ASSERT(m_disturbance_input.size() == m_number_of_joints);
 
     CMN_ASSERT(m_setpoint_filtered_v.size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_filtered_v_previous.size() == m_number_of_joints);
@@ -461,6 +472,7 @@ void mtsPID::Run(void)
              ++i_error,
              ++disturbance,
              ++disturbance_state,
+             ++disturbance_input,
              ++filtered_setpoint_v,
              ++filtered_setpoint_v_previous,
              ++limitFlag,
@@ -482,50 +494,28 @@ void mtsPID::Run(void)
             *disturbance_state = 0.0;
             *disturbance = 0.0;
         } else {
-            // for disturbance observer, should really be pulled from m_pid_setpoint_jf
-            double current_effort = *setpoint_f;
-
             const bool velocity_mode = (*mode) & prmSetpointMode::VELOCITY;
             // currently velocity mode implementation requires position mode
             const bool position_mode = velocity_mode || ((*mode) & prmSetpointMode::POSITION);
-            const bool psuedo_position_mode = velocity_mode && !((*mode) & prmSetpointMode::POSITION);
+            const bool psuedo_velocity_mode = velocity_mode && !((*mode) & prmSetpointMode::POSITION);
 
-            if (psuedo_position_mode) {
+            // integrate velocity setpoint to get position setpoint
+            if (psuedo_velocity_mode) {
                 // note: not measured_p + dt * setpoint_v since that "drifts" too much
                 *setpoint_p += *setpoint_v * dt;
-                // TODO: check position limits!!!!!
             }
 
-            bool in_deadband = false; // needs to be acessible for velocity mode
-            *p_error = 0.0;
             if (position_mode) {
                 *p_error = *setpoint_p - *measured_p;
-                // deadband
-                if (*p_error > 0.0) {
-                    if (*p_error < c->p_deadband) {
-                        *p_error = 0.0;
-                        in_deadband = true;
-                    } else {
-                        *p_error -= c->p_deadband;
-                    }
-                } else if (*p_error < 0.0) {
-                    if (*p_error > -c->p_deadband) {
-                        *p_error = 0.0;
-                        in_deadband = true;
-                    } else {
-                        *p_error += c->p_deadband;
-                    }
-                }
+                *p_error = apply_deadband(*p_error, c->p_deadband);
 
-                // compute error integral
-                *i_error *= c->i_forget_rate;
-                *i_error += *p_error * dt;
-                *i_error = clamp(*i_error, -c->i_limit, c->i_limit);
+                *i_error *= c->i_forget_rate; // decay to prevent integral windup
+                *i_error += *p_error * c->i_gain * dt; // include i_gain in integral so limits apply to entire k_i * integral
+                *i_error = std::clamp(*i_error, -c->i_limit, c->i_limit);
 
-                *disturbance = 0.0;
                 // TODO: need to reset when joint enters/leaves position mode
                 if (c->use_disturbance_observer) {
-                    const double dis_tmp = current_effort + c->nominal_mass * c->disturbance_cutoff * *measured_v;
+                    const double dis_tmp = *disturbance_input + c->nominal_mass * c->disturbance_cutoff * *measured_v;
                     *disturbance_state += (dis_tmp - *disturbance_state) * c->disturbance_cutoff * dt;
                     *disturbance = *disturbance_state - c->nominal_mass * c->disturbance_cutoff * *measured_v;
                 } else {
@@ -534,6 +524,8 @@ void mtsPID::Run(void)
                 }
             } else {
                 *setpoint_p = *measured_p;
+                *p_error = 0.0;
+                *i_error = 0.0;
                 *disturbance_state = 0.0;
                 *disturbance = 0.0;
             }
@@ -543,7 +535,7 @@ void mtsPID::Run(void)
                 // compute error derivative
                 // TODO: only zero-out velocity if in deadband AND v-error is very small (e.g. dt * v-error < deadband size)?
                 // maybe we always zero velocity if dt*v-error < deadband size?
-                if (!in_deadband) {
+                if (*p_error != 0.0) {
                     double _setpoint_v = 0.0;
                     if (m_setpoint_v_used) {
                         // apply filter on setpoint_v only
@@ -560,30 +552,31 @@ void mtsPID::Run(void)
         } // end of enabled
     }
 
+    // eliminate difference between measured and setpoint for directions under effort control
     m_error_state.Position() = m_servo_js.PositionProjection() * m_error_state.Position();
     m_error_state.Velocity() = m_servo_js.PositionProjection() * m_error_state.Velocity();
     m_setpoint_js.Position() = m_measured_js.Position() + m_error_state.Position();
 
-    for (size_t i = 0; i < m_number_of_joints; i++) {
-        if (m_enabled && m_joints_enabled[i]) {
-            const auto& cfg = m_configuration[i];
-            double pid = cfg.p_gain * m_error_state.Position()[i] +
-                         cfg.i_gain * m_i_error[i] +
-                         cfg.d_gain * m_error_state.Velocity()[i];
-            // total effort = offset + pid effort + disturance estimate + effort command
-            m_setpoint_js.Effort()[i] = cfg.offset + pid + m_error_state.Effort()[i] + m_servo_js.Effort()[i];
-        }
-    }
-
+    // run checks
+    setpoint_limits_check();
     measured_setpoint_check();
 
-    // apply effort limits if needed
-    // TODO: why inequality test?
     const auto& lower_limits = m_configuration_js.EffortMin();
     const auto& upper_limits = m_configuration_js.EffortMax();
+    
+    // compute output efforts, enforce effort limits
     for (size_t i = 0; i < m_number_of_joints; i++) {
-        if (lower_limits[i] != upper_limits[i]) {
-            m_setpoint_js.Effort()[i] = clamp(m_setpoint_js.Effort()[i], lower_limits[i], upper_limits[i]);
+        if (m_joints_enabled[i]) {
+            const auto& cfg = m_configuration[i];
+            double pid = cfg.p_gain * m_error_state.Position()[i] +
+                         m_i_error[i] + // Note: i_error already incorporates i_gain
+                         cfg.d_gain * m_error_state.Velocity()[i];
+            m_disturbance_input[i] = std::clamp(pid + m_error_state.Effort()[i], lower_limits[i], upper_limits[i]);
+            const double total_effort = cfg.offset + pid + m_error_state.Effort()[i] + m_servo_js.Effort()[i];
+            m_setpoint_js.Effort()[i] = std::clamp(total_effort, lower_limits[i], upper_limits[i]);
+        } else {
+            m_disturbance_input[i] = 0.0;
+            m_setpoint_js.Effort()[i] = 0.0;
         }
     }
 
@@ -631,10 +624,15 @@ void mtsPID::configure(const mtsPIDConfiguration & configuration)
 void mtsPID::reset_controller(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " reset_controller" << std::endl;
+
     m_error_state.Position().SetAll(0.0);
     m_error_state.Velocity().SetAll(0.0);
-    m_error_state.Effort().SetAll(0.0); // disturbance
     m_i_error.SetAll(0.0);
+
+    m_error_state.Effort().SetAll(0.0); // disturbance
+    m_disturbance_state.SetAll(0.0); // disturbance observer internal state
+    m_disturbance_input.SetAll(0.0); // disturbance observer input effort
+
     this->enable(false);
 }
 
@@ -688,47 +686,7 @@ void mtsPID::servo_js(const prmServoJoint & command)
         }
     }
 
-    if (m_enforce_position_limits && command.Position().size() > 0) {
-        bool limitReached = false;
-        vctDynamicVector<prmSetpointMode>::const_iterator mode = m_servo_js.Mode().begin();
-        vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
-        vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
-        vctBoolVec::iterator flags = mPositionLimitFlag.begin();
-        vctDoubleVec::iterator desired = m_setpoint_js.Position().begin();
-        const vctDoubleVec::iterator end = m_setpoint_js.Position().end();
-        for (; desired != end; ++desired, ++upper, ++lower, ++flags, ++mode) {
-            if (!(*mode & prmSetpointMode::POSITION)) {
-                *flags = false;
-                continue; // only enforce for joints under position control
-            }
-
-            if (*desired > *upper) {
-                limitReached = true;
-                *desired = *upper;
-                *flags = true;
-            } else if (*desired < *lower) {
-                limitReached = true;
-                *desired = *lower;
-                *flags = true;
-            } else {
-                *flags = false;
-            }
-        }
-        if (limitReached) {
-            if (mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
-                mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
-                Events.position_limit(mPositionLimitFlag);
-                std::string message = this->GetName() + ": position limit, mask (1 for limit): ";
-                message.append(mPositionLimitFlag.ToString());
-                mInterface->SendWarning(message);
-                CMN_LOG_CLASS_RUN_WARNING << message
-                                          << ", \n requested: " << m_setpoint_js.Position()
-                                          << ", \n lower limits: " << m_configuration_js.PositionMin()
-                                          << ", \n upper limits: " << m_configuration_js.PositionMax()
-                                          << std::endl;
-            }
-        }
-    }
+    setpoint_limits_check();
 }
 
 void mtsPID::servo_jp(const prmPositionJointSet & command) {
@@ -826,52 +784,42 @@ void mtsPID::get_IO_data(void)
             // evaluate velocity based on positions sent by arm/client
             const double dt = m_command_time - m_previous_command_time;
             if (dt > 0) {
-                vctDoubleVec::const_iterator currentPosition = m_setpoint_js.Position().begin();
-                vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
-                vctDoubleVec::iterator velocity;
-                const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
-                for (velocity = m_measured_js.Velocity().begin();
-                     velocity != end;
-                     ++currentPosition,
-                         ++previousPosition,
-                         ++velocity) {
-                    *velocity = (*currentPosition - *previousPosition) / dt;
-                }
+                m_measured_js.Velocity() = (m_setpoint_js.Position() - m_measured_js.Position()) / dt;
             }
         }
         // timestamp using last know position
         m_measured_js_previous = m_setpoint_js;
         m_previous_command_time = m_command_time;
+
+        return;
     }
 
     // talking to actual robot
-    else {
-        IO.measured_js(m_measured_js);
-        // velocities are not provided by the robot
-        if (m_measured_js.Velocity().size() == 0) {
-            // IO level doesn't provide velocities
-            // so estimate it from measured positions.  this
-            // estimation is very simple and likely noisy so try to
-            // avoid this case as much as possible
-            const double dt = m_measured_js.Timestamp() - m_measured_js_previous.Timestamp();
-            if (dt > 0) {
-                vctDoubleVec::const_iterator currentPosition = m_measured_js.Position().begin();
-                vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
-                vctDoubleVec::iterator velocity = m_measured_js.Velocity().begin();
-                const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
-                for (; velocity != end;
-                       ++currentPosition,
-                       ++previousPosition,
-                       ++velocity) {
-                    *velocity = (*currentPosition - *previousPosition) / dt;
-                }
+    IO.measured_js(m_measured_js);
+    // velocities are not provided by the robot
+    if (m_measured_js.Velocity().size() == 0) {
+        // IO level doesn't provide velocities
+        // so estimate it from measured positions.  this
+        // estimation is very simple and likely noisy so try to
+        // avoid this case as much as possible
+        const double dt = m_measured_js.Timestamp() - m_measured_js_previous.Timestamp();
+        if (dt > 0) {
+            vctDoubleVec::const_iterator currentPosition = m_measured_js.Position().begin();
+            vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
+            vctDoubleVec::iterator velocity = m_measured_js.Velocity().begin();
+            const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
+            for (; velocity != end;
+                    ++currentPosition,
+                    ++previousPosition,
+                    ++velocity) {
+                *velocity = (*currentPosition - *previousPosition) / dt;
             }
-        } // end of software base velocity estimation based on
-        // measured positions
+        }
+    } // end of software base velocity estimation based on
+    // measured positions
 
-        // save previous position with timestamp
-        m_measured_js_previous = m_measured_js;
-    }
+    // save previous position with timestamp
+    m_measured_js_previous = m_measured_js;
 }
 
 void mtsPID::servo_jf_local(const vctDoubleVec & effort)
@@ -962,16 +910,60 @@ bool mtsPID::measured_setpoint_check()
             message.append(m_measured_setpoint_error.ToString());
             mInterface->SendError(message);
 
-            std::stringstream full_message;
-            full_message << message << "\n"
+            std::stringstream detailed_message;
+            detailed_message << message << "\n"
                          << std::endl
                          << "errors:     " << m_error_state.Position() << std::endl
                          << "tolerances: " << m_measured_setpoint_tolerance << std::endl
                          << "measured:   " << m_measured_js.Position() << std::endl
                          << "setpoint:   " << m_setpoint_js.Position() << std::endl;
-            CMN_LOG_CLASS_RUN_ERROR << full_message.str();
+            CMN_LOG_CLASS_RUN_ERROR << detailed_message.str();
         }
     }
 
-    return any_tracking_error;
+    return !any_tracking_error;
+}
+
+bool mtsPID::setpoint_limits_check()
+{
+    if (!m_enforce_position_limits) {
+        return true;
+    }
+
+    bool any_limit_reached = false;
+
+    vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
+    vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
+    vctBoolVec::iterator limit_flag = mPositionLimitFlag.begin();
+    vctDoubleVec::iterator desired = m_setpoint_js.Position().begin();
+    const vctDoubleVec::iterator end = m_setpoint_js.Position().end();
+
+    for (; desired != end; ++desired, ++upper, ++lower, ++limit_flag) {
+        *limit_flag = (*desired > *upper) || (*desired < *lower);
+        any_limit_reached = any_limit_reached || *limit_flag;
+        *desired = std::clamp(*desired, *lower, *upper);
+    }
+
+    if (any_limit_reached && mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
+        mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
+        Events.position_limit(mPositionLimitFlag);
+        std::string message = this->GetName() + ": position limit, mask (1 for limit): ";
+        message.append(mPositionLimitFlag.ToString());
+        mInterface->SendWarning(message);
+
+        std::stringstream detailed_message;
+        detailed_message << message
+                         << ", \n requested:    " << m_setpoint_js.Position()
+                         << ", \n lower limits: " << m_configuration_js.PositionMin()
+                         << ", \n upper limits: " << m_configuration_js.PositionMax()
+                         << std::endl;
+        CMN_LOG_CLASS_RUN_WARNING << detailed_message.str();
+    }
+
+    return !any_limit_reached;
+}
+
+double mtsPID::apply_deadband(double value, double deadband)
+{
+    return value - std::clamp(value, -deadband, deadband);
 }
