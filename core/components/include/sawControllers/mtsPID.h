@@ -76,7 +76,7 @@ protected:
         m_measured_js_previous,
         m_setpoint_js;
 
-    prmServoJoint m_joint_command;
+    prmServoJoint m_servo_js;
 
     //! Error
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
@@ -204,6 +204,8 @@ protected:
       to upper limit. */
     void CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
                          const std::string & methodName);
+
+    bool measured_setpoint_check();
 
     double clamp(double value, double min, double max) {
         if (value < min) {

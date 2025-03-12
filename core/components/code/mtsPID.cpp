@@ -23,6 +23,8 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <sawControllers/mtsPID.h>
 
+#include <cmath>
+
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
 
@@ -239,11 +241,12 @@ void mtsPID::Configure(const std::string & filename)
     m_setpoint_js.Velocity().SetSize(m_number_of_joints, 0.0);
     m_setpoint_js.Effort().SetSize(m_number_of_joints, 0.0);
 
-    m_joint_command.Name().SetSize(m_number_of_joints);
-    m_joint_command.Position().SetSize(m_number_of_joints, 0.0);
-    m_joint_command.Velocity().SetSize(m_number_of_joints, 0.0);
-    m_joint_command.Effort().SetSize(m_number_of_joints, 0.0);
-    m_joint_command.Mode().SetSize(m_number_of_joints, prmSetpointMode::NONE);
+    m_servo_js.Name().SetSize(m_number_of_joints);
+    m_servo_js.Position().SetSize(m_number_of_joints, 0.0);
+    m_servo_js.Velocity().SetSize(m_number_of_joints, 0.0);
+    m_servo_js.Effort().SetSize(m_number_of_joints, 0.0);
+    m_servo_js.Mode().SetSize(m_number_of_joints, prmSetpointMode::NONE);
+    m_servo_js.PositionProjection().SetSize(m_number_of_joints, m_number_of_joints, 0.0);
 
     mPositionLimitFlag.SetSize(m_number_of_joints);
     mPositionLimitFlag.SetAll(false);
@@ -280,7 +283,7 @@ void mtsPID::Configure(const std::string & filename)
         m_configuration_js.Type().at(index) = c.type;
         m_measured_js.Name().at(index) = c.name;
         m_setpoint_js.Name().at(index) = c.name;
-        m_joint_command.Name().at(index) = c.name;
+        m_servo_js.Name().at(index) = c.name;
         m_error_state.Name().at(index) = c.name;
         ++index;
     }
@@ -378,10 +381,6 @@ void mtsPID::Run(void)
     // now that we have recent data, deal with user commands
     ProcessQueuedCommands();
 
-    // initialize variables
-    bool anyTrackingError = false;
-    bool newTrackingError = false;
-
     // loop on all joints
     vctBoolVec::const_iterator enabled = m_joints_enabled.begin();
     vctDoubleVec::const_iterator measured_p = m_measured_js.Position().begin();
@@ -390,8 +389,7 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator setpoint_p = m_setpoint_js.Position().begin();
     vctDoubleVec::iterator setpoint_v = m_setpoint_js.Velocity().begin();
     vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
-    vctDoubleVec::iterator command_f = m_joint_command.Effort().begin();
-    vctDynamicVector<prmSetpointMode>::const_iterator mode = m_joint_command.Mode().begin();
+    vctDynamicVector<prmSetpointMode>::const_iterator mode = m_servo_js.Mode().begin();
 
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
@@ -410,17 +408,14 @@ void mtsPID::Run(void)
 
     auto c = m_configuration.cbegin();
 
-    vctDoubleVec::const_iterator effortLowerLimit = m_configuration_js.EffortMin().begin();
-    vctDoubleVec::const_iterator effortUpperLimit = m_configuration_js.EffortMax().begin();
-
     CMN_ASSERT(m_joints_enabled.size() == m_number_of_joints);
     CMN_ASSERT(m_measured_js.Position().size() == m_number_of_joints);
     CMN_ASSERT(m_measured_js.Velocity().size() == m_number_of_joints);
 
     CMN_ASSERT(m_setpoint_js.Position().size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_js.Effort().size() == m_number_of_joints);
-    CMN_ASSERT(m_joint_command.Effort().size() == m_number_of_joints);
-    CMN_ASSERT(m_joint_command.Mode().size() == m_number_of_joints);
+    CMN_ASSERT(m_servo_js.Effort().size() == m_number_of_joints);
+    CMN_ASSERT(m_servo_js.Mode().size() == m_number_of_joints);
 
     CMN_ASSERT(m_setpoint_js.Position().size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_js.Velocity().size() == m_number_of_joints);
@@ -447,6 +442,8 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_configuration_js.EffortMin().size() == m_number_of_joints);
     CMN_ASSERT(m_configuration_js.EffortMax().size() == m_number_of_joints);
 
+    const double dt = this->GetPeriodicity();
+
     // loop on all joints using iterators
     for (size_t i = 0;
          i < m_number_of_joints;
@@ -458,7 +455,6 @@ void mtsPID::Run(void)
              ++setpoint_p,
              ++setpoint_v,
              ++setpoint_f,
-             ++command_f,
              ++mode,
              ++p_error,
              ++v_error,
@@ -471,29 +467,30 @@ void mtsPID::Run(void)
              ++tolerance,
              ++trackingErrorFlag,
              ++previousTrackingErrorFlag,
-             ++c,
-             ++effortLowerLimit,
-             ++effortUpperLimit
+             ++c
          ) {
 
         // first check if the controller and this joint is enabled
         if (!m_enabled || !(*enabled)) {
             *setpoint_f = 0.0;
+            *setpoint_v = 0.0;
             *setpoint_p = *measured_p;
+
+            *p_error = 0.0;
+            *v_error = 0.0;
+            *i_error = 0.0;
+            *disturbance_state = 0.0;
+            *disturbance = 0.0;
         } else {
             // for disturbance observer, should really be pulled from m_pid_setpoint_jf
             double current_effort = *setpoint_f;
 
-            *setpoint_f = c->offset;
-
-            const bool effort_mode = (*mode) & prmSetpointMode::EFFORT;
             const bool velocity_mode = (*mode) & prmSetpointMode::VELOCITY;
             // currently velocity mode implementation requires position mode
             const bool position_mode = velocity_mode || ((*mode) & prmSetpointMode::POSITION);
             const bool psuedo_position_mode = velocity_mode && !((*mode) & prmSetpointMode::POSITION);
 
             if (psuedo_position_mode) {
-                double dt = GetPeriodicity();
                 // note: not measured_p + dt * setpoint_v since that "drifts" too much
                 *setpoint_p += *setpoint_v * dt;
                 // TODO: check position limits!!!!!
@@ -520,27 +517,25 @@ void mtsPID::Run(void)
                     }
                 }
 
-                *setpoint_f += c->p_gain * *p_error;
-
                 // compute error integral
                 *i_error *= c->i_forget_rate;
-                *i_error += *p_error; // TODO: multiply by dt?
+                *i_error += *p_error * dt;
                 *i_error = clamp(*i_error, -c->i_limit, c->i_limit);
-
-                *setpoint_f += c->i_gain * *i_error;
 
                 *disturbance = 0.0;
                 // TODO: need to reset when joint enters/leaves position mode
                 if (c->use_disturbance_observer) {
-                    const double d_t = this->GetPeriodicity();
                     const double dis_tmp = current_effort + c->nominal_mass * c->disturbance_cutoff * *measured_v;
-                    *disturbance_state += (dis_tmp - *disturbance_state) * c->disturbance_cutoff * d_t;
+                    *disturbance_state += (dis_tmp - *disturbance_state) * c->disturbance_cutoff * dt;
                     *disturbance = *disturbance_state - c->nominal_mass * c->disturbance_cutoff * *measured_v;
+                } else {
+                    *disturbance_state = 0.0;
+                    *disturbance = 0.0;
                 }
-
-                *setpoint_f += *disturbance;
             } else {
                 *setpoint_p = *measured_p;
+                *disturbance_state = 0.0;
+                *disturbance = 0.0;
             }
 
             *v_error = 0.0;
@@ -558,55 +553,37 @@ void mtsPID::Run(void)
                     }
                     *v_error = _setpoint_v - (*measured_v);
                 }
-
-                *setpoint_f += c->d_gain * (*v_error);
             } else if (position_mode) {
                 // if we don't have a velocity setpoint, assume zero
                 *v_error = 0.0 - (*measured_v);
-                *setpoint_f += c->d_gain * (*v_error);
-            }
-
-            if (effort_mode) {
-                *setpoint_f += *command_f;
-            }
-
-            // check for tracking errors
-            if (m_measured_setpoint_check) {
-                double errorAbsolute = fabs(*p_error);
-                // trigger error if the error is too high
-                // AND the last request was not outside joint limit
-                if ((errorAbsolute > *tolerance) && !(*limitFlag)) {
-                    anyTrackingError = true;
-                    *trackingErrorFlag = true;
-                    if (*trackingErrorFlag != *previousTrackingErrorFlag) {
-                        newTrackingError = true;
-                    }
-                } else {
-                    *trackingErrorFlag = false;
-                }
-                *previousTrackingErrorFlag = *trackingErrorFlag;
-            } // end of tracking error
-
-            // apply effort limits if needed
-            // TODO: why inequality test?
-            if (*effortLowerLimit != *effortUpperLimit) {
-                *setpoint_f = clamp(*setpoint_f, *effortLowerLimit, *effortUpperLimit);
             }
         } // end of enabled
     }
 
-    // report errors (tracking)
-    if (m_measured_setpoint_check && anyTrackingError) {
-        this->enable(false);
-        if (newTrackingError) {
-            std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
-            message.append(m_measured_setpoint_error.ToString());
-            mInterface->SendError(message);
-            CMN_LOG_CLASS_RUN_ERROR << message << std::endl
-                                    << "errors:     " << m_error_state.Position() << std::endl
-                                    << "tolerances: " << m_measured_setpoint_tolerance << std::endl
-                                    << "measured:   " << m_measured_js.Position() << std::endl
-                                    << "setpoint:   " << m_setpoint_js.Position() << std::endl;
+    m_error_state.Position() = m_servo_js.PositionProjection() * m_error_state.Position();
+    m_error_state.Velocity() = m_servo_js.PositionProjection() * m_error_state.Velocity();
+    m_setpoint_js.Position() = m_measured_js.Position() + m_error_state.Position();
+
+    for (size_t i = 0; i < m_number_of_joints; i++) {
+        if (m_enabled && m_joints_enabled[i]) {
+            const auto& cfg = m_configuration[i];
+            double pid = cfg.p_gain * m_error_state.Position()[i] +
+                         cfg.i_gain * m_i_error[i] +
+                         cfg.d_gain * m_error_state.Velocity()[i];
+            // total effort = offset + pid effort + disturance estimate + effort command
+            m_setpoint_js.Effort()[i] = cfg.offset + pid + m_error_state.Effort()[i] + m_servo_js.Effort()[i];
+        }
+    }
+
+    measured_setpoint_check();
+
+    // apply effort limits if needed
+    // TODO: why inequality test?
+    const auto& lower_limits = m_configuration_js.EffortMin();
+    const auto& upper_limits = m_configuration_js.EffortMax();
+    for (size_t i = 0; i < m_number_of_joints; i++) {
+        if (lower_limits[i] != upper_limits[i]) {
+            m_setpoint_js.Effort()[i] = clamp(m_setpoint_js.Effort()[i], lower_limits[i], upper_limits[i]);
         }
     }
 
@@ -683,21 +660,37 @@ void mtsPID::servo_js(const prmServoJoint & command)
 
     // m_setpoint_js.Effort() already used to hold controller output
     if (command.Effort().size() > 0) {
-        m_joint_command.Effort().Assign(command.Effort());
+        m_servo_js.Effort().Assign(command.Effort());
     } else {
-        m_joint_command.Effort().Zeros();
+        m_servo_js.Effort().Zeros();
     }
 
-    m_joint_command.Mode().Assign(command.Mode());
+    m_servo_js.Mode().Assign(command.Mode());
     m_command_time = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
-    if (m_joint_command.Mode().size() == 0) {
-        m_joint_command.Mode().SetAll(prmSetpointMode::NONE);
+    if (m_servo_js.Mode().size() == 0) {
+        m_servo_js.Mode().SetAll(prmSetpointMode::NONE);
+    }
+
+    vctDoubleMat::size_type rows = command.PositionProjection().rows();
+    vctDoubleMat::size_type cols = command.PositionProjection().cols();
+    if (rows != 0 || cols != 0) {
+        if (SizeMismatch(rows, "servo_js:projection:rows") || SizeMismatch(cols, "servo_js:projection:cols")) {
+            return;
+        }
+
+        m_servo_js.PositionProjection().Assign(command.PositionProjection());
+    } else {
+        m_servo_js.PositionProjection().Zeros();
+        for (vctDoubleMat::size_type i = 0; i < m_number_of_joints; i++) {
+            bool pid_control = (m_servo_js.Mode()[i] & prmSetpointMode::POSITION) || (m_servo_js.Mode()[i] & prmSetpointMode::VELOCITY);
+            m_servo_js.PositionProjection()(i, i) = pid_control ? 1 : 0;
+        }
     }
 
     if (m_enforce_position_limits && command.Position().size() > 0) {
         bool limitReached = false;
-        vctDynamicVector<prmSetpointMode>::const_iterator mode = m_joint_command.Mode().begin();
+        vctDynamicVector<prmSetpointMode>::const_iterator mode = m_servo_js.Mode().begin();
         vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
         vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
         vctBoolVec::iterator flags = mPositionLimitFlag.begin();
@@ -742,9 +735,12 @@ void mtsPID::servo_jp(const prmPositionJointSet & command) {
     prmServoJoint js;
     js.Position().Assign(command.Goal());
     js.Velocity().Assign(command.Velocity());
+    js.Effort().Zeros();
 
     js.Mode().SetSize(command.Goal().size());
     js.Mode().SetAll(prmSetpointMode::POSITION);
+
+    js.PositionProjection().Assign(vctDoubleMat::Eye(m_number_of_joints));
 }
 
 void mtsPID::servo_jf(const prmForceTorqueJointSet & command) {
@@ -753,10 +749,14 @@ void mtsPID::servo_jf(const prmForceTorqueJointSet & command) {
         return;
     }
 
+    js.Position().Assign(m_measured_js.Position());
+    js.Velocity().Zeros();
     js.Effort().Assign(command.ForceTorque());
 
     js.Mode().SetSize(command.ForceTorque().size());
     js.Mode().SetAll(prmSetpointMode::EFFORT);
+
+    js.PositionProjection().Zeros();
 }
 
 void mtsPID::enable(const bool & enable)
@@ -929,4 +929,49 @@ void mtsPID::CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & up
             mInterface->SendWarning(this->GetName() + "::" + methodName + ": lower limit greater or equal to upper limit");
         }
     }
+}
+
+bool mtsPID::measured_setpoint_check()
+{
+    if (!m_measured_setpoint_check) {
+        return true;
+    }
+
+    bool any_tracking_error = false;
+    bool new_tracking_error = false;
+    const auto& position_error = m_error_state.Position();
+    for (size_t i = 0; i < m_number_of_joints; i++) {
+        if (std::abs(position_error[i]) > m_measured_setpoint_tolerance[i]) {
+            any_tracking_error = true;
+            m_measured_setpoint_error[i] = true;
+            if (!m_previous_measured_setpoint_error[i]) {
+                new_tracking_error = true;
+            }
+        } else {
+            m_measured_setpoint_error[i] = false;
+        }
+    }
+
+    m_previous_measured_setpoint_error = m_measured_setpoint_error;
+
+    // report errors (tracking)
+    if (any_tracking_error) {
+        this->enable(false);
+        if (new_tracking_error) {
+            std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
+            message.append(m_measured_setpoint_error.ToString());
+            mInterface->SendError(message);
+
+            std::stringstream full_message;
+            full_message << message << "\n"
+                         << std::endl
+                         << "errors:     " << m_error_state.Position() << std::endl
+                         << "tolerances: " << m_measured_setpoint_tolerance << std::endl
+                         << "measured:   " << m_measured_js.Position() << std::endl
+                         << "setpoint:   " << m_setpoint_js.Position() << std::endl;
+            CMN_LOG_CLASS_RUN_ERROR << full_message.str();
+        }
+    }
+
+    return any_tracking_error;
 }
