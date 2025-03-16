@@ -553,9 +553,17 @@ void mtsPID::Run(void)
     }
 
     // eliminate difference between measured and setpoint for directions under effort control
+    vctDoubleVec original_error = m_error_state.Position();
     m_error_state.Position() = m_servo_js.PositionProjection() * m_error_state.Position();
     m_error_state.Velocity() = m_servo_js.PositionProjection() * m_error_state.Velocity();
-    m_setpoint_js.Position() = m_measured_js.Position() + m_error_state.Position();
+    m_setpoint_js.Position() = m_measured_js.Position() + m_servo_js.PositionProjection() * ( m_setpoint_js.Position() - m_measured_js.Position() );
+
+    std::stringstream info;
+    info << "\n" << GetName() << ": " << m_servo_js.Mode() << "\n";
+    info << "\n" << GetName() << ": " << original_error << "\n";
+    info << "\n" << GetName() << ": " << m_error_state.Position() << "\n";
+    info << "\n" << GetName() << ": " << m_servo_js.PositionProjection() << "\n";
+    //std::cout << info.str();
 
     // run checks
     setpoint_limits_check();
