@@ -25,6 +25,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
@@ -71,7 +72,9 @@ void mtsPID::SetupInterfaces(void)
     StateTable.AddData(m_setpoint_v_used, "setpoint_v_used");
 
     // measures are timestamped by the IO level
-    StateTable.AddData(m_enforce_position_limits, "enforce_position_limits");
+    StateTable.AddData(m_enforce_setpoint_position_limits, "enforce_position_limits");
+    StateTable.AddData(m_enforce_setpoint_velocity_limits, "enforce_setpoint_velocity_limits");
+    StateTable.AddData(m_enforce_measured_velocity_limits, "enforce_measured_velocity_limits");
 
     m_measured_js.SetAutomaticTimestamp(false);
     StateTable.AddData(m_measured_js, "measured_js");
@@ -112,8 +115,16 @@ void mtsPID::SetupInterfaces(void)
         mInterface->AddCommandReadState(mConfigurationStateTable, m_configuration_js, "configuration_js");
 
         // Set enforce position limits
-        mInterface->AddCommandWrite(&mtsPID::enforce_position_limits, this, "enforce_position_limits", m_enforce_position_limits);
-        mInterface->AddCommandReadState(StateTable, m_enforce_position_limits, "position_limits_enforced");
+        mInterface->AddCommandWrite(&mtsPID::enforce_position_limits, this, "enforce_position_limits", m_enforce_setpoint_position_limits);
+        mInterface->AddCommandReadState(StateTable, m_enforce_setpoint_position_limits, "position_limits_enforced");
+
+        // Set enforce setpoint velocity limits
+        mInterface->AddCommandWrite(&mtsPID::enforce_setpoint_velocity_limits, this, "enforce_setpoint_velocity_limits", m_enforce_setpoint_velocity_limits);
+        mInterface->AddCommandReadState(StateTable, m_enforce_setpoint_velocity_limits, "setpoint_velocity_limits_enforced");
+
+        // Set enforce measured velocity limits
+        mInterface->AddCommandWrite(&mtsPID::enforce_measured_velocity_limits, this, "enforce_measured_velocity_limits", m_enforce_measured_velocity_limits);
+        mInterface->AddCommandReadState(StateTable, m_enforce_measured_velocity_limits, "measured_velocity_limits_enforced");
 
         // measured vs setpoint check
         mInterface->AddCommandWriteState(StateTable, m_measured_setpoint_check, "enable_measured_setpoint_check");
@@ -138,16 +149,25 @@ void mtsPID::enforce_position_limits(const bool & enforce)
     if (enforce) {
         // if any value is different from 0, we assume we have proper limits
         if (m_configuration_js.PositionMin().Any() || m_configuration_js.PositionMax().Any()) {
-            m_enforce_position_limits = enforce;
+            m_enforce_setpoint_position_limits = enforce;
             return;
         } else {
             mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
             CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " enforce_position_limits: using configuration " << m_configuration_js << std::endl;
         }
     }
-    m_enforce_position_limits = false;
+    m_enforce_setpoint_position_limits = false;
 }
 
+void mtsPID::enforce_setpoint_velocity_limits(const bool & enforce)
+{
+    m_enforce_setpoint_velocity_limits = enforce;
+}
+
+void mtsPID::enforce_measured_velocity_limits(const bool & enforce)
+{
+    m_enforce_measured_velocity_limits = enforce;
+}
 
 void mtsPID::Configure(const std::string & filename)
 {
@@ -223,6 +243,8 @@ void mtsPID::Configure(const std::string & filename)
     }
 
     // size all vectors
+    temp.SetSize(m_number_of_joints, 0.0);
+
     m_pid_setpoint_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
 
     m_configuration_js.Name().SetSize(m_number_of_joints);
@@ -249,9 +271,9 @@ void mtsPID::Configure(const std::string & filename)
     m_servo_js.Mode().SetSize(m_number_of_joints, prmSetpointMode::NONE);
     m_servo_js.PositionProjection().SetSize(m_number_of_joints, m_number_of_joints, 0.0);
 
-    mPositionLimitFlag.SetSize(m_number_of_joints);
-    mPositionLimitFlag.SetAll(false);
-    mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
+    mPositionLimitFlag.init(m_number_of_joints);
+    mSetpointVelocityLimitFlag.init(m_number_of_joints);
+    mMeasuredVelocityLimitFlag.init(m_number_of_joints);
 
     m_joints_enabled.SetSize(m_number_of_joints);
     m_joints_enabled.SetAll(true);
@@ -275,8 +297,7 @@ void mtsPID::Configure(const std::string & filename)
     // tracking error
     m_measured_setpoint_check = false;
     m_measured_setpoint_tolerance.SetSize(m_number_of_joints, 0.0);
-    m_measured_setpoint_error.SetSize(m_number_of_joints, false);
-    m_previous_measured_setpoint_error.ForceAssign(m_measured_setpoint_error);
+    m_measured_setpoint_error.init(m_number_of_joints);
 
     // copy data from configuration, name and type
     size_t index = 0;
@@ -411,11 +432,6 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
     vctDoubleVec::iterator filtered_setpoint_v_previous = m_setpoint_filtered_v_previous.begin();
 
-    vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
-    vctDoubleVec::const_iterator tolerance = m_measured_setpoint_tolerance.begin();
-    vctBoolVec::iterator trackingErrorFlag = m_measured_setpoint_error.begin();
-    vctBoolVec::iterator previousTrackingErrorFlag = m_previous_measured_setpoint_error.begin();
-
     auto c = m_configuration.cbegin();
 
     CMN_ASSERT(m_joints_enabled.size() == m_number_of_joints);
@@ -423,13 +439,11 @@ void mtsPID::Run(void)
     CMN_ASSERT(m_measured_js.Velocity().size() == m_number_of_joints);
 
     CMN_ASSERT(m_setpoint_js.Position().size() == m_number_of_joints);
+    CMN_ASSERT(m_setpoint_js.Velocity().size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_js.Effort().size() == m_number_of_joints);
     CMN_ASSERT(m_servo_js.Effort().size() == m_number_of_joints);
     CMN_ASSERT(m_servo_js.Mode().size() == m_number_of_joints);
 
-    CMN_ASSERT(m_setpoint_js.Position().size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_js.Velocity().size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_js.Effort().size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_filtered_v.size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_filtered_v_previous.size() == m_number_of_joints);
 
@@ -443,11 +457,6 @@ void mtsPID::Run(void)
 
     CMN_ASSERT(m_setpoint_filtered_v.size() == m_number_of_joints);
     CMN_ASSERT(m_setpoint_filtered_v_previous.size() == m_number_of_joints);
-
-    CMN_ASSERT(mPositionLimitFlag.size() == m_number_of_joints);
-    CMN_ASSERT(m_measured_setpoint_tolerance.size() == m_number_of_joints);
-    CMN_ASSERT(m_measured_setpoint_error.size() == m_number_of_joints);
-    CMN_ASSERT(m_previous_measured_setpoint_error.size() == m_number_of_joints);
 
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
     CMN_ASSERT(m_configuration_js.EffortMin().size() == m_number_of_joints);
@@ -475,10 +484,6 @@ void mtsPID::Run(void)
              ++disturbance_input,
              ++filtered_setpoint_v,
              ++filtered_setpoint_v_previous,
-             ++limitFlag,
-             ++tolerance,
-             ++trackingErrorFlag,
-             ++previousTrackingErrorFlag,
              ++c
          ) {
 
@@ -513,7 +518,6 @@ void mtsPID::Run(void)
                 *i_error += *p_error * c->i_gain * dt; // include i_gain in integral so limits apply to entire k_i * integral
                 *i_error = std::clamp(*i_error, -c->i_limit, c->i_limit);
 
-                // TODO: need to reset when joint enters/leaves position mode
                 if (c->use_disturbance_observer) {
                     const double dis_tmp = *disturbance_input + c->nominal_mass * c->disturbance_cutoff * *measured_v;
                     *disturbance_state += (dis_tmp - *disturbance_state) * c->disturbance_cutoff * dt;
@@ -553,21 +557,22 @@ void mtsPID::Run(void)
     }
 
     // eliminate difference between measured and setpoint for directions under effort control
-    vctDoubleVec original_error = m_error_state.Position();
-    m_error_state.Position() = m_servo_js.PositionProjection() * m_error_state.Position();
-    m_error_state.Velocity() = m_servo_js.PositionProjection() * m_error_state.Velocity();
-    m_setpoint_js.Position() = m_measured_js.Position() + m_servo_js.PositionProjection() * ( m_setpoint_js.Position() - m_measured_js.Position() );
+    temp.ProductOf(m_servo_js.PositionProjection(), m_error_state.Position());
+    m_error_state.Position().Assign(temp);
 
-    std::stringstream info;
-    info << "\n" << GetName() << ": " << m_servo_js.Mode() << "\n";
-    info << "\n" << GetName() << ": " << original_error << "\n";
-    info << "\n" << GetName() << ": " << m_error_state.Position() << "\n";
-    info << "\n" << GetName() << ": " << m_servo_js.PositionProjection() << "\n";
-    //std::cout << info.str();
+    temp.ProductOf(m_servo_js.PositionProjection(), m_error_state.Velocity());
+    m_error_state.Velocity().Assign(temp);
+
+    // compute setpoint = measured + proj(setpoint - measured) without dynamically allocating temporaries
+    m_setpoint_js.Position() = m_setpoint_js.Position() - m_measured_js.Position();
+    temp.ProductOf(m_servo_js.PositionProjection(), m_setpoint_js.Position());
+    m_setpoint_js.Position() = m_measured_js.Position();
+    m_setpoint_js.Position() += temp;
 
     // run checks
     setpoint_limits_check();
     measured_setpoint_check();
+    measured_velocity_check();
 
     const auto& lower_limits = m_configuration_js.EffortMin();
     const auto& upper_limits = m_configuration_js.EffortMax();
@@ -583,7 +588,6 @@ void mtsPID::Run(void)
             const double total_effort = cfg.offset + pid + m_error_state.Effort()[i] + m_servo_js.Effort()[i];
             m_setpoint_js.Effort()[i] = std::clamp(total_effort, lower_limits[i], upper_limits[i]);
         } else {
-            m_disturbance_input[i] = 0.0;
             m_setpoint_js.Effort()[i] = 0.0;
         }
     }
@@ -695,34 +699,38 @@ void mtsPID::servo_js(const prmServoJoint & command)
     }
 
     setpoint_limits_check();
+    setpoint_velocity_check();
 }
 
 void mtsPID::servo_jp(const prmPositionJointSet & command) {
-    prmServoJoint js;
-    js.Position().Assign(command.Goal());
-    js.Velocity().Assign(command.Velocity());
-    js.Effort().Zeros();
+    m_servo_js_param.Position().ForceAssign(command.Goal());
+    m_servo_js_param.Velocity().ForceAssign(command.Velocity());
+    m_servo_js_param.Effort().SetSize(m_number_of_joints, 0.0);
 
-    js.Mode().SetSize(command.Goal().size());
-    js.Mode().SetAll(prmSetpointMode::POSITION);
+    m_servo_js_param.Mode().SetSize(command.Goal().size());
+    m_servo_js_param.Mode().SetAll(prmSetpointMode::POSITION);
 
-    js.PositionProjection().Assign(vctDoubleMat::Eye(m_number_of_joints));
+    m_servo_js_param.PositionProjection().ForceAssign(vctDoubleMat::Eye(m_number_of_joints));
+
+    servo_js(m_servo_js_param);
 }
 
 void mtsPID::servo_jf(const prmForceTorqueJointSet & command) {
-    prmServoJoint js;
     if (SizeMismatch(command.ForceTorque().size(), "servo_jf")) {
         return;
     }
 
-    js.Position().Assign(m_measured_js.Position());
-    js.Velocity().Zeros();
-    js.Effort().Assign(command.ForceTorque());
+    m_servo_js_param.Position().ForceAssign(m_measured_js.Position());
+    m_servo_js_param.Velocity().SetSize(m_number_of_joints, 0.0);
+    m_servo_js_param.Effort().ForceAssign(command.ForceTorque());
 
-    js.Mode().SetSize(command.ForceTorque().size());
-    js.Mode().SetAll(prmSetpointMode::EFFORT);
+    m_servo_js_param.Mode().SetSize(command.ForceTorque().size());
+    m_servo_js_param.Mode().SetAll(prmSetpointMode::EFFORT);
 
-    js.PositionProjection().Zeros();
+    m_servo_js_param.PositionProjection().SetSize(m_number_of_joints, m_number_of_joints);
+    m_servo_js_param.PositionProjection().Zeros();
+
+    servo_js(m_servo_js_param);
 }
 
 void mtsPID::enable(const bool & enable)
@@ -741,10 +749,10 @@ void mtsPID::enable(const bool & enable)
 
     // reset error flags
     if (enable) {
-        m_previous_measured_setpoint_error.SetAll(false);
-        m_measured_setpoint_error.SetAll(false);
-        mPositionLimitFlagPrevious.SetAll(false);
-        mPositionLimitFlag.SetAll(false);
+        m_measured_setpoint_error.reset();
+        mPositionLimitFlag.reset();
+        mSetpointVelocityLimitFlag.reset();
+        mMeasuredVelocityLimitFlag.reset();
         m_previous_command_time = 0.0;
         m_setpoint_filtered_v_previous.Zeros();
         // set valid flags
@@ -899,23 +907,23 @@ bool mtsPID::measured_setpoint_check()
     for (size_t i = 0; i < m_number_of_joints; i++) {
         if (std::abs(position_error[i]) > m_measured_setpoint_tolerance[i]) {
             any_tracking_error = true;
-            m_measured_setpoint_error[i] = true;
-            if (!m_previous_measured_setpoint_error[i]) {
+            m_measured_setpoint_error.current[i] = true;
+            if (!m_measured_setpoint_error.previous[i]) {
                 new_tracking_error = true;
             }
         } else {
-            m_measured_setpoint_error[i] = false;
+            m_measured_setpoint_error.current[i] = false;
         }
     }
 
-    m_previous_measured_setpoint_error = m_measured_setpoint_error;
+    m_measured_setpoint_error.advance();
 
     // report errors (tracking)
     if (any_tracking_error) {
         this->enable(false);
         if (new_tracking_error) {
             std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
-            message.append(m_measured_setpoint_error.ToString());
+            message.append(m_measured_setpoint_error.current.ToString());
             mInterface->SendError(message);
 
             std::stringstream detailed_message;
@@ -934,7 +942,7 @@ bool mtsPID::measured_setpoint_check()
 
 bool mtsPID::setpoint_limits_check()
 {
-    if (!m_enforce_position_limits) {
+    if (!m_enforce_setpoint_position_limits) {
         return true;
     }
 
@@ -942,7 +950,7 @@ bool mtsPID::setpoint_limits_check()
 
     vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
     vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
-    vctBoolVec::iterator limit_flag = mPositionLimitFlag.begin();
+    vctBoolVec::iterator limit_flag = mPositionLimitFlag.current.begin();
     vctDoubleVec::iterator desired = m_setpoint_js.Position().begin();
     const vctDoubleVec::iterator end = m_setpoint_js.Position().end();
 
@@ -952,11 +960,11 @@ bool mtsPID::setpoint_limits_check()
         *desired = std::clamp(*desired, *lower, *upper);
     }
 
-    if (any_limit_reached && mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
-        mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
-        Events.position_limit(mPositionLimitFlag);
+    if (any_limit_reached && mPositionLimitFlag.has_changed()) {
+        mPositionLimitFlag.advance();
+        Events.position_limit(mPositionLimitFlag.current);
         std::string message = this->GetName() + ": position limit, mask (1 for limit): ";
-        message.append(mPositionLimitFlag.ToString());
+        message.append(mPositionLimitFlag.current.ToString());
         mInterface->SendWarning(message);
 
         std::stringstream detailed_message;
@@ -964,6 +972,91 @@ bool mtsPID::setpoint_limits_check()
                          << ", \n requested:    " << m_setpoint_js.Position()
                          << ", \n lower limits: " << m_configuration_js.PositionMin()
                          << ", \n upper limits: " << m_configuration_js.PositionMax()
+                         << std::endl;
+        CMN_LOG_CLASS_RUN_WARNING << detailed_message.str();
+    }
+
+    return !any_limit_reached;
+}
+
+bool mtsPID::setpoint_velocity_check()
+{
+    if (!m_enforce_setpoint_velocity_limits) {
+        return true;
+    }
+
+    bool any_limit_reached = false;
+
+    mtsPIDConfiguration::const_iterator c = m_configuration.cbegin();
+    vctBoolVec::iterator limit_flag = mSetpointVelocityLimitFlag.current.begin();
+    vctDoubleVec::const_iterator velocity = m_setpoint_js.Velocity().cbegin();
+    const vctDoubleVec::const_iterator end = m_setpoint_js.Velocity().cend();
+
+    // first check velocity setpoints
+    for (; velocity != end; ++velocity, ++c, ++limit_flag) {
+        const double limit = c->setpoint_velocity_limit;
+        *limit_flag = (*velocity > limit) || (*velocity < -limit);
+        any_limit_reached = any_limit_reached || *limit_flag;
+    }
+
+    if (any_limit_reached && mSetpointVelocityLimitFlag.has_changed()) {
+        mSetpointVelocityLimitFlag.advance();
+        Events.setpoint_velocity_limit(mSetpointVelocityLimitFlag.current);
+        std::string message = this->GetName() + ": setpoint velocity limit exceeded, mask (1 for exceeded): ";
+        message.append(mSetpointVelocityLimitFlag.current.ToString());
+        mInterface->SendWarning(message);
+
+        vctDoubleVec velocity_limits(m_configuration.size());
+        for (size_t i = 0; i < m_configuration.size(); i++) {
+            velocity_limits[i] = m_configuration[i].setpoint_velocity_limit;
+        }
+
+        std::stringstream detailed_message;
+        detailed_message << message
+                         << ", \n setpoint: " << m_setpoint_js.Velocity()
+                         << ", \n limit:    " << velocity_limits
+                         << std::endl;
+        CMN_LOG_CLASS_RUN_WARNING << detailed_message.str();
+    }
+
+    return !any_limit_reached;
+}
+
+bool mtsPID::measured_velocity_check()
+{
+    if (!m_enforce_measured_velocity_limits) {
+        return true;
+    }
+
+    bool any_limit_reached = false;
+
+    mtsPIDConfiguration::const_iterator c = m_configuration.cbegin();
+    vctBoolVec::iterator limit_flag = mMeasuredVelocityLimitFlag.current.begin();
+    vctDoubleVec::const_iterator velocity = m_measured_js.Velocity().cbegin();
+    const vctDoubleVec::const_iterator end = m_measured_js.Velocity().cend();
+
+    for (; velocity != end; ++velocity, ++c, ++limit_flag) {
+        const double limit = c->measured_velocity_limit;
+        *limit_flag = (*velocity > limit) || (*velocity < -limit);
+        any_limit_reached = any_limit_reached || *limit_flag;
+    }
+
+    if (any_limit_reached && mMeasuredVelocityLimitFlag.has_changed()) {
+        mMeasuredVelocityLimitFlag.advance();
+        Events.measured_velocity_limit(mMeasuredVelocityLimitFlag.current);
+        std::string message = this->GetName() + ": measured velocity limit exceeded, mask (1 for exceeded): ";
+        message.append(mMeasuredVelocityLimitFlag.current.ToString());
+        mInterface->SendWarning(message);
+
+        vctDoubleVec velocity_limits(m_configuration.size());
+        for (size_t i = 0; i < m_configuration.size(); i++) {
+            velocity_limits[i] = m_configuration[i].measured_velocity_limit;
+        }
+
+        std::stringstream detailed_message;
+        detailed_message << message
+                         << ", \n measured: " << m_measured_js.Velocity()
+                         << ", \n limits:   " << velocity_limits
                          << std::endl;
         CMN_LOG_CLASS_RUN_WARNING << detailed_message.str();
     }

@@ -29,6 +29,8 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _mtsPID_h
 #define _mtsPID_h
 
+#include <cstddef>
+
 #include <cisstMultiTask/mtsTaskPeriodic.h>
 #include <cisstParameterTypes/prmForceTorqueJointSet.h>
 #include <cisstParameterTypes/prmStateJoint.h>
@@ -59,23 +61,54 @@ protected:
         mtsFunctionWrite servo_jf;
     } IO;
 
+    class LimitFlags {
+    public:
+        vctBoolVec current;
+        vctBoolVec previous;
+
+        void init(size_t size) {
+            current.SetSize(size, false);
+            previous.SetSize(size, false);
+        }
+
+        void reset() {
+            current.SetAll(false);
+            previous.SetAll(false);
+        }
+
+        void advance() {
+            previous.Assign(current);
+        }
+
+        bool has_changed() const {
+            return current.NotEqual(previous);
+        }
+    };
 
     size_t m_number_of_joints; // set from the XML file used in Configure method
+
+    vctDoubleVec temp; // pre-allocated working space for computations
+    prmServoJoint m_servo_js_param;
 
     mtsPIDConfiguration m_configuration; // PID configuration
     prmConfigurationJoint m_configuration_js; // joint configuration (limits, etc.)
 
-    bool m_enforce_position_limits = false; // whether to check/enforce joint limits
-    vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag; // whether joint limit was hit
+    bool m_enforce_setpoint_position_limits = false; // whether to check/enforce septoint joint position limits
+    LimitFlags mPositionLimitFlag; // whether joint limit was hit
+
+    bool m_enforce_setpoint_velocity_limits = false; // whether to check/enforce setpoint joint velocity limits
+    LimitFlags mSetpointVelocityLimitFlag; // whether setpoint velocity limit was exceeded
+
+    bool m_enforce_measured_velocity_limits = false; // whether to check/enforce measured joint velocity limits
+    LimitFlags mMeasuredVelocityLimitFlag; // whether measured velocity limit was exceeded
 
     prmForceTorqueJointSet m_pid_setpoint_jf; // Commanded joint efforts sent to IO level
 
-    //! prm type joint state
     prmStateJoint
         m_measured_js,
-        m_measured_js_previous,
-        m_setpoint_js;
+        m_measured_js_previous;
 
+    prmStateJoint m_setpoint_js;
     prmServoJoint m_servo_js;
 
     //! Error
@@ -99,7 +132,7 @@ protected:
 
     bool m_measured_setpoint_check;
     vctDoubleVec m_measured_setpoint_tolerance;
-    vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
+    LimitFlags m_measured_setpoint_error;
 
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
@@ -114,6 +147,10 @@ protected:
         mtsFunctionWrite enabled;
         //! Position limit event
         mtsFunctionWrite position_limit;
+        //! Setpoint velocity limit event
+        mtsFunctionWrite setpoint_velocity_limit;
+        //! Measured velocity limit event
+        mtsFunctionWrite measured_velocity_limit;
         //! Enabled joints event
         mtsFunctionWrite enabled_joints;
         //! Use setpoint_v
@@ -189,6 +226,8 @@ public:
 protected:
 
     void enforce_position_limits(const bool & enforce);
+    void enforce_setpoint_velocity_limits(const bool & enforce);
+    void enforce_measured_velocity_limits(const bool & enforce);
 
     /**
      * @brief Set configuration
@@ -215,6 +254,16 @@ protected:
        Returns true if check passed, false if failed.
      */
     bool setpoint_limits_check();
+
+    /* Sends warning message if velocity setpoint exceeds limits, or if position setpoint moves
+     * faster than velocity limit. Returns true if check passed, false if failed.
+     */
+    bool setpoint_velocity_check();
+
+    /* Sends warning message if measured velocity exceeds limits.
+     * Returns true if check passed, false if failed.
+     */
+    bool measured_velocity_check();
 
     static double apply_deadband(double value, double deadband);
 };

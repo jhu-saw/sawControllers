@@ -80,6 +80,20 @@ class {
         description maximum position error between setpoint and measured position;
     }
     member {
+        name setpoint_velocity_limit;
+        type double;
+        default cmnTypeTraits<double>::MaxPositiveValue();
+        visibility public;
+        description maximum allowed velocity setpoint;
+    }
+    member {
+        name measured_velocity_limit;
+        type double;
+        default cmnTypeTraits<double>::MaxPositiveValue();
+        visibility public;
+        description maximum safe measured velocity;
+    }
+    member {
         name v_low_pass_cutoff;
         type double;
         default 1.0;
