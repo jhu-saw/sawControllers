@@ -228,19 +228,19 @@ void mtsPID::Configure(const std::string & filename)
     m_requested_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
 
     // size all vectors
-    m_configuration_js.Name().SetSize(m_number_of_joints);
+    m_configuration_js.Name().resize(m_number_of_joints);
     m_configuration_js.Type().SetSize(m_number_of_joints);
     m_configuration_js.PositionMin().SetSize(m_number_of_joints, 0.0);
     m_configuration_js.PositionMax().SetSize(m_number_of_joints, 0.0);
     m_configuration_js.EffortMin().SetSize(m_number_of_joints, 0.0);
     m_configuration_js.EffortMax().SetSize(m_number_of_joints, 0.0);
 
-    m_measured_js.Name().SetSize(m_number_of_joints);
+    m_measured_js.Name().resize(m_number_of_joints);
     m_measured_js.Position().SetSize(m_number_of_joints, 0.0);
     m_measured_js.Velocity().SetSize(m_number_of_joints, 0.0);
     m_measured_js.Effort().SetSize(m_number_of_joints, 0.0);
 
-    m_setpoint_js.Name().SetSize(m_number_of_joints);
+    m_setpoint_js.Name().resize(m_number_of_joints);
     m_setpoint_js.Position().SetSize(m_number_of_joints, 0.0);
     m_setpoint_js.Velocity().SetSize(m_number_of_joints, 0.0);
     m_setpoint_js.Effort().SetSize(m_number_of_joints, 0.0);
@@ -252,7 +252,7 @@ void mtsPID::Configure(const std::string & filename)
     m_joints_enabled.SetAll(true);
 
     // errors
-    m_error_state.Name().SetSize(m_number_of_joints);
+    m_error_state.Name().resize(m_number_of_joints);
     m_error_state.Position().SetSize(m_number_of_joints);
     m_error_state.Velocity().SetSize(m_number_of_joints);
     m_error_state.Effort().SetSize(m_number_of_joints); // disturbance
@@ -354,8 +354,10 @@ void mtsPID::Startup(void)
                 if (io_configuration_js.Name() != m_configuration_js.Name()) {
                     std::string message = this->GetName() + " Startup: joint names from IO don't match names from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
-                                             << "From IO:     " << io_configuration_js.Name() << std::endl
-                                             << "From config: " << m_configuration_js.Name() << std::endl;
+                                             << "From IO:     " << cmnDataHumanReadable(io_configuration_js.Name())
+                                             << std::endl
+                                             << "From config: " << cmnDataHumanReadable(m_configuration_js.Name())
+                                             << std::endl;
                     cmnThrow("PID::" + message);
                 }
             } else if (io_configuration_js.Name().size() == 0) {
