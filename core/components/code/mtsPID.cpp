@@ -264,12 +264,7 @@ void mtsPID::Configure(const std::string & filename)
     m_setpoint_js.Velocity().SetSize(m_number_of_joints, 0.0);
     m_setpoint_js.Effort().SetSize(m_number_of_joints, 0.0);
 
-    m_servo_js.Name().SetSize(m_number_of_joints);
-    m_servo_js.Position().SetSize(m_number_of_joints, 0.0);
-    m_servo_js.Velocity().SetSize(m_number_of_joints, 0.0);
-    m_servo_js.Effort().SetSize(m_number_of_joints, 0.0);
-    m_servo_js.Mode().SetSize(m_number_of_joints, prmSetpointMode::NONE);
-    m_servo_js.PositionProjection().SetSize(m_number_of_joints, m_number_of_joints, 0.0);
+    m_servo_js.SetSize(m_number_of_joints);
 
     mPositionLimitFlag.init(m_number_of_joints);
     mSetpointVelocityLimitFlag.init(m_number_of_joints);
@@ -421,7 +416,7 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator setpoint_p = m_setpoint_js.Position().begin();
     vctDoubleVec::iterator setpoint_v = m_setpoint_js.Velocity().begin();
     vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
-    vctDynamicVector<prmSetpointMode>::const_iterator mode = m_servo_js.Mode().begin();
+    std::vector<prmSetpointMode>::const_iterator mode = m_servo_js.Mode().begin();
 
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
@@ -677,11 +672,11 @@ void mtsPID::servo_js(const prmServoJoint & command)
         m_servo_js.Effort().Zeros();
     }
 
-    m_servo_js.Mode().Assign(command.Mode());
+    m_servo_js.Mode().assign(command.Mode().begin(), command.Mode().end());
     m_command_time = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
-    if (m_servo_js.Mode().size() == 0) {
-        m_servo_js.Mode().SetAll(prmSetpointMode::NONE);
+    if (command.Mode().size() == 0) {
+        m_servo_js.Mode().assign(m_number_of_joints, prmSetpointMode::NONE);
     }
 
     vctDoubleMat::size_type rows = command.PositionProjection().rows();
@@ -709,8 +704,7 @@ void mtsPID::servo_jp(const prmPositionJointSet & command) {
     m_servo_js_param.Velocity().ForceAssign(command.Velocity());
     m_servo_js_param.Effort().SetSize(m_number_of_joints, 0.0);
 
-    m_servo_js_param.Mode().SetSize(command.Goal().size());
-    m_servo_js_param.Mode().SetAll(prmSetpointMode::POSITION);
+    m_servo_js_param.Mode().assign(command.Goal().size(), prmSetpointMode::POSITION);
 
     m_servo_js_param.PositionProjection().ForceAssign(vctDoubleMat::Eye(m_number_of_joints));
 
@@ -726,8 +720,7 @@ void mtsPID::servo_jf(const prmForceTorqueJointSet & command) {
     m_servo_js_param.Velocity().SetSize(m_number_of_joints, 0.0);
     m_servo_js_param.Effort().ForceAssign(command.ForceTorque());
 
-    m_servo_js_param.Mode().SetSize(command.ForceTorque().size());
-    m_servo_js_param.Mode().SetAll(prmSetpointMode::EFFORT);
+    m_servo_js_param.Mode().assign(command.ForceTorque().size(), prmSetpointMode::EFFORT);
 
     m_servo_js_param.PositionProjection().SetSize(m_number_of_joints, m_number_of_joints);
     m_servo_js_param.PositionProjection().Zeros();
