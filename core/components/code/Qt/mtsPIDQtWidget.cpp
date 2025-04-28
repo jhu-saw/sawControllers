@@ -113,7 +113,13 @@ void mtsPIDQtWidget::Init(void)
 void mtsPIDQtWidget::GetConfiguration(void)
 {
     // get configuration
-    PID.configuration(PID.m_configuration);
+    mtsExecutionResult result = PID.configuration(PID.m_configuration);
+    if (!result) {
+        CMN_LOG_CLASS_INIT_ERROR << "GetConfiguration: Robot interface isn't connected properly, unable to get PID configuration.  Function call returned: "
+                                 << result << std::endl;
+        return;
+    }
+
     // convert to vectors
     vctDoubleVec pg, ig, dg, db, co;
     pg.SetSize(m_number_of_joints);
