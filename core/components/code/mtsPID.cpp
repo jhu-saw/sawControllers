@@ -141,7 +141,9 @@ void mtsPID::enforce_position_limits(const bool & enforce)
             m_enforce_position_limits = enforce;
             return;
         } else {
-            mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
+            if (!m_simulated) {
+                mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
+            }
             CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " enforce_position_limits: using configuration " << m_configuration_js << std::endl;
         }
     }
