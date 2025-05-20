@@ -30,11 +30,40 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointSet.h>
 
 #include <QCheckBox>
+#include <QLabel>
 #include <QSpinBox>
+#include <QMouseEvent>
 #include <QPushButton>
 
 #include <sawControllers/mtsPIDConfiguration.h>
 #include <sawControllers/sawControllersQtExport.h>
+
+// TODO: remember to remove
+class CISST_EXPORT mtsClickableQLabel : public QLabel {
+    Q_OBJECT;
+
+public:
+    mtsClickableQLabel(const QString &text, int id) : QLabel(text), id(id), enabled(true), label_font(this->font()) {}
+
+protected:
+    void mouseReleaseEvent(QMouseEvent * event) override {
+        if(event->button() == Qt::LeftButton) {
+            event->accept();
+            enabled = !enabled;
+            emit clicked(id, enabled);
+            label_font.setStrikeOut(!enabled);
+            setFont(label_font);
+        }
+    }
+
+signals:
+    void clicked(int id, bool enabled);
+
+private:
+    int id = -1;
+    bool enabled = true;
+    QFont label_font;
+};
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
 {
@@ -61,6 +90,7 @@ signals:
     void SignalUseSetpointV(bool use);
 
 private slots:
+    void SlotLabelClicked(int id, bool enabled);
     //! slot enable/disable mtsPID controller
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);

@@ -198,6 +198,33 @@ void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
     }
 }
 
+void mtsPIDQtWidget::SlotLabelClicked(int id, bool enabled)
+{
+    switch (id) {
+    case 0:
+        signal_measured_p->SetVisible(enabled);
+        break;
+    case 1:
+        signal_setpoint_p->SetVisible(enabled);
+        break;
+    case 2:
+        signal_measured_v->SetVisible(enabled);
+        break;
+    case 3:
+        signal_setpoint_v->SetVisible(enabled);
+        break;
+    case 4:
+        signal_measured_f->SetVisible(enabled);
+        break;
+    case 5:
+        signal_setpoint_f->SetVisible(enabled);
+        break;
+    case 6:
+        signal_disturbance->SetVisible(enabled);
+        break;
+    }
+}
+
 
 void mtsPIDQtWidget::SlotEnable(bool toggle)
 {
@@ -368,11 +395,6 @@ void mtsPIDQtWidget::SlotSetpointVUsedEventHandler(bool use)
 
 void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
 {
-    // make sure we should update the display
-    if (this->isHidden()) {
-        return;
-    }
-
     // get data from the PID
     PID.joints_enabled(JointsEnabled);
     PID.measured_js(PID.m_measured_js);
@@ -390,6 +412,34 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     bool positionLimitsEnforced;
     PID.position_limits_enforced(positionLimitsEnforced);
 
+    // add data to plots (without displaying it)
+    signal_measured_p->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+        PID.m_measured_js.Position().Element(PlotIndex)));
+    signal_setpoint_p->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+        PID.m_setpoint_js.Position().Element(PlotIndex)));
+    signal_measured_v->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+        PID.m_measured_js.Velocity().Element(PlotIndex)));
+    if (has_setpoint_v) {
+    signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+            PID.m_setpoint_js.Velocity().Element(PlotIndex)));
+    } else {
+    signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+            0.0));
+    }
+    // negate effort to plot the same direction
+    signal_measured_f->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
+        -PID.m_measured_js.Effort().Element(PlotIndex)));
+    signal_setpoint_f->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+        -PID.m_setpoint_js.Effort().Element(PlotIndex)));
+    signal_disturbance->AppendPoint(vctDouble2(PID.m_error_state.Timestamp(),
+        -PID.m_error_state.Position().Element(PlotIndex)));
+
+    // TODO: hmmmm
+    // make sure we should update the display
+    if (this->isHidden()) {
+        return;
+    }
+
     // update GUI
     QVWJointsEnabled->SetValue(JointsEnabled);
     QVRMeasuredPosition->SetValue(PID.m_measured_js.Position());
@@ -403,27 +453,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
         QVWSetpointEffort->SetValue(PID.m_setpoint_js.Effort());
     }
 
-    // plot
-    signal_measured_p->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                              PID.m_measured_js.Position().Element(PlotIndex)));
-    signal_setpoint_p->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                              PID.m_setpoint_js.Position().Element(PlotIndex)));
-    signal_measured_v->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                              PID.m_measured_js.Velocity().Element(PlotIndex)));
-    if (has_setpoint_v) {
-        signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                                  PID.m_setpoint_js.Velocity().Element(PlotIndex)));
-    } else {
-        signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                                  0.0));
-    }
-    // negate effort to plot the same direction
-    signal_measured_f->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-                                              -PID.m_measured_js.Effort().Element(PlotIndex)));
-    signal_setpoint_f->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-                                              -PID.m_setpoint_js.Effort().Element(PlotIndex)));
-    signal_disturbance->AppendPoint(vctDouble2(PID.m_error_state.Timestamp(),
-                                               -PID.m_error_state.Position().Element(PlotIndex)));
+    // update plot graphics
     QVPlot->update();
 }
 
@@ -546,49 +576,58 @@ void mtsPIDQtWidget::setupUi(void)
     QPalette palette;
     palette.setColor(QPalette::Window, Qt::black);
     // --
-    label = new QLabel("Measured position");
+    label = new mtsClickableQLabel("Measured position", 0);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
-    label = new QLabel("Setpoint position");
+    label = new mtsClickableQLabel("Setpoint position", 1);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
-    label = new QLabel("Measured velocity");
+    label = new mtsClickableQLabel("Measured velocity", 2);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(static_cast<int>(0.7 * 255), 0, 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    label = new QLabel("Setpoint velocity");
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    // --
+    label = new mtsClickableQLabel("Setpoint velocity", 3);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(0, static_cast<int>(0.7 * 255), 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
-    label = new QLabel("Measured effort");
+    label = new mtsClickableQLabel("Measured effort", 4);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::cyan);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
-    label = new QLabel("Setpoint effort");
+    label = new mtsClickableQLabel("Setpoint effort", 5);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
-    label = new QLabel("Disturbance");
+    label = new mtsClickableQLabel("Disturbance", 6);
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::magenta);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
+    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
     // --
     plotButtonsLayout->addStretch();
     plotLayout->addLayout(plotButtonsLayout);
+
     // plotting area
     QVPlot = new vctPlot2DOpenGLQtWidget();
 
