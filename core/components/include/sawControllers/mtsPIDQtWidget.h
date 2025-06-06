@@ -38,29 +38,27 @@ http://www.cisst.org/cisst/license.txt.
 #include <sawControllers/mtsPIDConfiguration.h>
 #include <sawControllers/sawControllersQtExport.h>
 
-// TODO: remember to remove
 class CISST_EXPORT mtsClickableQLabel : public QLabel {
     Q_OBJECT;
 
 public:
-    mtsClickableQLabel(const QString &text, int id) : QLabel(text), id(id), enabled(true), label_font(this->font()) {}
+    mtsClickableQLabel(const QString &text) : QLabel(text), enabled(true), label_font(this->font()) {}
 
 protected:
     void mouseReleaseEvent(QMouseEvent * event) override {
         if(event->button() == Qt::LeftButton) {
             event->accept();
             enabled = !enabled;
-            emit clicked(id, enabled);
+            emit clicked(enabled);
             label_font.setStrikeOut(!enabled);
             setFont(label_font);
         }
     }
 
 signals:
-    void clicked(int id, bool enabled);
+    void clicked(bool enabled);
 
 private:
-    int id = -1;
     bool enabled = true;
     QFont label_font;
 };
@@ -90,7 +88,6 @@ signals:
     void SignalUseSetpointV(bool use);
 
 private slots:
-    void SlotLabelClicked(int id, bool enabled);
     //! slot enable/disable mtsPID controller
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);

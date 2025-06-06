@@ -198,33 +198,6 @@ void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
     }
 }
 
-void mtsPIDQtWidget::SlotLabelClicked(int id, bool enabled)
-{
-    switch (id) {
-    case 0:
-        signal_measured_p->SetVisible(enabled);
-        break;
-    case 1:
-        signal_setpoint_p->SetVisible(enabled);
-        break;
-    case 2:
-        signal_measured_v->SetVisible(enabled);
-        break;
-    case 3:
-        signal_setpoint_v->SetVisible(enabled);
-        break;
-    case 4:
-        signal_measured_f->SetVisible(enabled);
-        break;
-    case 5:
-        signal_setpoint_f->SetVisible(enabled);
-        break;
-    case 6:
-        signal_disturbance->SetVisible(enabled);
-        break;
-    }
-}
-
 
 void mtsPIDQtWidget::SlotEnable(bool toggle)
 {
@@ -434,7 +407,6 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     signal_disturbance->AppendPoint(vctDouble2(PID.m_error_state.Timestamp(),
         -PID.m_error_state.Position().Element(PlotIndex)));
 
-    // TODO: hmmmm
     // make sure we should update the display
     if (this->isHidden()) {
         return;
@@ -572,58 +544,58 @@ void mtsPIDQtWidget::setupUi(void)
     QSBPlotIndex->setRange(0, (m_number_of_joints > 0) ? (m_number_of_joints - 1) : 0);
     plotButtonsLayout->addWidget(QSBPlotIndex);
     // legend
-    QLabel * label;
+    mtsClickableQLabel * label;
     QPalette palette;
     palette.setColor(QPalette::Window, Qt::black);
     // --
-    label = new mtsClickableQLabel("Measured position", 0);
+    label = new mtsClickableQLabel("Measured position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_p->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Setpoint position", 1);
+    label = new mtsClickableQLabel("Setpoint position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_p->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Measured velocity", 2);
+    label = new mtsClickableQLabel("Measured velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(static_cast<int>(0.7 * 255), 0, 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_v->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Setpoint velocity", 3);
+    label = new mtsClickableQLabel("Setpoint velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(0, static_cast<int>(0.7 * 255), 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_v->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Measured effort", 4);
+    label = new mtsClickableQLabel("Measured effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::cyan);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_f->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Setpoint effort", 5);
+    label = new mtsClickableQLabel("Setpoint effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_f->SetVisible(enabled); });
     // --
-    label = new mtsClickableQLabel("Disturbance", 6);
+    label = new mtsClickableQLabel("Disturbance");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::magenta);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, SIGNAL(clicked(int, bool)), this, SLOT(SlotLabelClicked(int, bool)));
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_disturbance->SetVisible(enabled); });
     // --
     plotButtonsLayout->addStretch();
     plotLayout->addLayout(plotButtonsLayout);
