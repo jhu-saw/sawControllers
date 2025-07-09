@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -73,13 +73,12 @@ protected:
     vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
 
     //! Commanded joint efforts sent to IO level
-    vctDoubleVec mEffortMeasure;
     prmForceTorqueJointSet m_pid_setpoint_jf;
     //! Feedforward, i.e. effort added to the PID output in position mode
     prmForceTorqueJointSet m_feed_forward_jf;
 
     //! Desired joint efforts when bypassing PID
-    prmForceTorqueJointSet mEffortUserCommand;
+    prmForceTorqueJointSet m_requested_jf;
 
     //! prm type joint state
     prmStateJoint
@@ -92,7 +91,7 @@ protected:
     vctDoubleVec m_i_error;
     vctDoubleVec m_disturbance_state;
 
-    bool m_use_setpoint_v = true;  // option to ignore user setpoint_v
+    bool m_setpoint_v_used = true;  // option to ignore user setpoint_v
     bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities
     //! If cutoff set to 1.0, unfiltered
     vctDoubleVec
@@ -108,14 +107,14 @@ protected:
     //! Enable mtsPID controller
     vctBoolVec m_effort_mode;
 
-    bool mTrackingErrorEnabled;
-    vctDoubleVec mTrackingErrorTolerances;
-    vctBoolVec mPreviousTrackingErrorFlag, mTrackingErrorFlag;
+    bool m_measured_setpoint_check;
+    vctDoubleVec m_measured_setpoint_tolerance;
+    vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
 
     // Flag to determine if this is connected to actual IO/hardware or
     // simulated
     bool m_simulated = false;
-    double mCommandTime, mPreviousCommandTime;
+    double m_command_time, m_previous_command_time;
 
     //! Configuration state table
     mtsStateTable mConfigurationStateTable;
@@ -128,7 +127,7 @@ protected:
         //! Enabled joints event
         mtsFunctionWrite enabled_joints;
         //! Use setpoint_v
-        mtsFunctionWrite use_setpoint_v;
+        mtsFunctionWrite setpoint_v_used;
     } Events;
 
     mtsInterfaceProvided * mInterface;
@@ -137,7 +136,7 @@ protected:
      * @brief Reset encoder, clear e/ed/ei value
      *
      */
-    void ResetController(void);
+    void reset_controller(void);
 
     /*! Set the desired position, i.e. goal used in the PID
       controller.  See also EnableEffortMode to control with joints
@@ -147,7 +146,7 @@ protected:
     /*! Set the effort feed forward for the PID controller.  The
       effort are added to the output of the PID controller.  These
       values are ignored for joints controlled in effort mode. */
-    void feed_forward_jf(const prmForceTorqueJointSet & feedForward);
+    void feed_forward_servo_jf(const prmForceTorqueJointSet & feedForward);
 
     /*! Set the effort directly, this by-passes the PID controller
       except for the effort limits.  See also EnableEffortMode to
@@ -167,7 +166,7 @@ protected:
 
     void EnableEffortMode(const vctBoolVec & enable);
 
-    void SetTrackingErrorTolerances(const vctDoubleVec & tolerances);
+    void set_measured_setpoint_tolerance(const vctDoubleVec & tolerances);
 
     /*! Retrieve data from the IO component.  This method checks for
       the simulated flag and sets position/effort based on user
@@ -180,7 +179,7 @@ protected:
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
       requested efforts to the IO component. */
-    void SetEffortLocal(const vctDoubleVec & effort);
+    void servo_jf_local(const vctDoubleVec & effort);
 
     void ErrorEventHandler(const mtsMessage & message);
 

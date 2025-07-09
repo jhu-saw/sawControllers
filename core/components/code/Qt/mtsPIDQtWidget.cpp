@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2024 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -83,14 +83,14 @@ void mtsPIDQtWidget::Init(void)
     // Setup cisst interface
     mtsInterfaceRequired * interfaceRequired = AddInterfaceRequired("Controller");
     if (interfaceRequired) {
-        interfaceRequired->AddFunction("ResetController", PID.ResetController);
-        interfaceRequired->AddFunction("Enable", PID.Enable);
-        interfaceRequired->AddFunction("EnableJoints", PID.EnableJoints);
-        interfaceRequired->AddFunction("JointsEnabled", PID.JointsEnabled);
-        interfaceRequired->AddFunction("use_setpoint_v", PID.UseSetpointV);
-        interfaceRequired->AddFunction("use_setpoint_v", PID.UsingSetpointV);
-        interfaceRequired->AddFunction("EnableTrackingError", PID.EnableTrackingError);
-        interfaceRequired->AddFunction("TrackingErrorEnabled", PID.TrackingErrorEnabled);
+        interfaceRequired->AddFunction("reset_controller", PID.reset_controller);
+        interfaceRequired->AddFunction("enable", PID.enable);
+        interfaceRequired->AddFunction("enable_joints", PID.enable_joints);
+        interfaceRequired->AddFunction("joints_enabled", PID.joints_enabled);
+        interfaceRequired->AddFunction("use_setpoint_v", PID.use_setpoint_v);
+        interfaceRequired->AddFunction("setpoint_v_used", PID.setpoint_v_used);
+        interfaceRequired->AddFunction("enable_measured_setpoint_check", PID.enable_measured_setpoint_check);
+        interfaceRequired->AddFunction("measured_setpoint_check_enabled", PID.measured_setpoint_check_enabled);
         interfaceRequired->AddFunction("enforce_position_limits", PID.enforce_position_limits);
         interfaceRequired->AddFunction("position_limits_enforced", PID.position_limits_enforced);
         interfaceRequired->AddFunction("configuration", PID.configuration);
@@ -102,8 +102,8 @@ void mtsPIDQtWidget::Init(void)
         interfaceRequired->AddFunction("error_state/measured_js", PID.error_state_measured_js);
         // Events
         interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::ErrorEventHandler, this, "error");
-        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnableEventHandler, this, "Enabled");
-        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::UseSetpointVEventHandler, this, "use_setpoint_v");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::EnabledEventHandler, this, "enabled");
+        interfaceRequired->AddEventHandlerWrite(&mtsPIDQtWidget::SetpointVUsedEventHandler, this, "setpoint_v_used");
     }
     setupUi();
     startTimer(TimerPeriodInMilliseconds); // ms
@@ -113,7 +113,13 @@ void mtsPIDQtWidget::Init(void)
 void mtsPIDQtWidget::GetConfiguration(void)
 {
     // get configuration
-    PID.configuration(PID.m_configuration);
+    mtsExecutionResult result = PID.configuration(PID.m_configuration);
+    if (!result) {
+        CMN_LOG_CLASS_INIT_ERROR << "GetConfiguration: Robot interface isn't connected properly, unable to get PID configuration.  Function call returned: "
+                                 << result << std::endl;
+        return;
+    }
+
     // convert to vectors
     vctDoubleVec pg, ig, dg, db, co;
     pg.SetSize(m_number_of_joints);
@@ -162,7 +168,7 @@ void mtsPIDQtWidget::Startup(void)
 
     // get other configuration from PID
     bool flag;
-    PID.UsingSetpointV(flag);
+    PID.setpoint_v_used(flag);
     QCBUseSetpointV->setChecked(flag);
 
     // Show the GUI
@@ -195,7 +201,7 @@ void mtsPIDQtWidget::closeEvent(QCloseEvent * event)
 
 void mtsPIDQtWidget::SlotEnable(bool toggle)
 {
-    PID.Enable(toggle);
+    PID.enable(toggle);
 }
 
 
@@ -203,13 +209,13 @@ void mtsPIDQtWidget::SlotEnabledJointsChanged(void)
 {
     vctBoolVec enable(m_number_of_joints, false);
     QVWJointsEnabled->GetValue(enable);
-    PID.EnableJoints(enable);
+    PID.enable_joints(enable);
 }
 
 
-void mtsPIDQtWidget::SlotEnableTrackingError(bool toggle)
+void mtsPIDQtWidget::SlotEnableMeasuredSetpointCheck(bool toggle)
 {
-    PID.EnableTrackingError(toggle);
+    PID.enable_measured_setpoint_check(toggle);
 }
 
 
@@ -314,7 +320,7 @@ void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
 }
 
 
-void mtsPIDQtWidget::SlotEnableEventHandler(bool enable)
+void mtsPIDQtWidget::SlotEnabledEventHandler(bool enable)
 {
     QCBEnable->setChecked(enable);
 }
@@ -340,7 +346,7 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
     QVWDeadband->setEnabled(toggle);
     QVWCutoff->setEnabled(toggle);
     QCBEnable->setEnabled(toggle);
-    QCBEnableTrackingError->setEnabled(toggle);
+    QCBEnableMeasuredSetpointCheck->setEnabled(toggle);
     QCBEnforcePositionLimits->setEnabled(toggle);
     QCBUseSetpointV->setEnabled(toggle);
     QPBMaintainPosition->setEnabled(toggle);
@@ -350,11 +356,11 @@ void mtsPIDQtWidget::SlotEnableDirectControl(bool toggle)
 
 void mtsPIDQtWidget::SlotUseSetpointV(bool use)
 {
-    PID.UseSetpointV(use);
+    PID.use_setpoint_v(use);
 }
 
 
-void mtsPIDQtWidget::SlotUseSetpointVEventHandler(bool use)
+void mtsPIDQtWidget::SlotSetpointVUsedEventHandler(bool use)
 {
     QCBUseSetpointV->setChecked(use);
 }
@@ -368,7 +374,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     }
 
     // get data from the PID
-    PID.JointsEnabled(JointsEnabled);
+    PID.joints_enabled(JointsEnabled);
     PID.measured_js(PID.m_measured_js);
     PID.m_measured_js.Position().ElementwiseMultiply(UnitFactor);
     PID.m_measured_js.Velocity().ElementwiseMultiply(UnitFactor);
@@ -379,8 +385,8 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
         PID.m_setpoint_js.Velocity().ElementwiseMultiply(UnitFactor);
     }
     PID.error_state_measured_js(PID.m_error_state);
-    bool trackingErrorEnabled;
-    PID.TrackingErrorEnabled(trackingErrorEnabled);
+    bool measuredSetpointCheckEnabled;
+    PID.measured_setpoint_check_enabled(measuredSetpointCheckEnabled);
     bool positionLimitsEnforced;
     PID.position_limits_enforced(positionLimitsEnforced);
 
@@ -388,7 +394,7 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     QVWJointsEnabled->SetValue(JointsEnabled);
     QVRMeasuredPosition->SetValue(PID.m_measured_js.Position());
     QVRMeasuredEffort->SetValue(PID.m_measured_js.Effort());
-    QCBEnableTrackingError->setChecked(trackingErrorEnabled);
+    QCBEnableMeasuredSetpointCheck->setChecked(measuredSetpointCheckEnabled);
     QCBEnforcePositionLimits->setChecked(positionLimitsEnforced);
 
     // display requested joint positions when we are not trying to set it using GUI
@@ -611,7 +617,7 @@ void mtsPIDQtWidget::setupUi(void)
     // control
     QCBEnableDirectControl = new QCheckBox("Direct control");
     QCBEnable = new QCheckBox("Enable PID");
-    QCBEnableTrackingError = new QCheckBox("Tracking error");
+    QCBEnableMeasuredSetpointCheck = new QCheckBox("Measured/setpoint check");
     QCBUseSetpointV = new QCheckBox("Use setpoint_v");
     QCBEnforcePositionLimits = new QCheckBox("Position limits");
     QPBMaintainPosition = new QPushButton("Maintain position");
@@ -620,7 +626,7 @@ void mtsPIDQtWidget::setupUi(void)
     controlLayout->setContentsMargins(1, 1, 1, 1);
     controlLayout->addWidget(QCBEnableDirectControl);
     controlLayout->addWidget(QCBEnable);
-    controlLayout->addWidget(QCBEnableTrackingError);
+    controlLayout->addWidget(QCBEnableMeasuredSetpointCheck);
     controlLayout->addWidget(QCBEnforcePositionLimits);
     controlLayout->addWidget(QCBUseSetpointV);
     controlLayout->addWidget(QPBMaintainPosition);
@@ -631,11 +637,11 @@ void mtsPIDQtWidget::setupUi(void)
 
     connect(QCBEnableDirectControl, SIGNAL(toggled(bool)), this, SLOT(SlotEnableDirectControl(bool)));
     connect(QCBEnable, SIGNAL(clicked(bool)), this, SLOT(SlotEnable(bool)));
-    connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnableEventHandler(bool)));
-    connect(QCBEnableTrackingError, SIGNAL(clicked(bool)), this, SLOT(SlotEnableTrackingError(bool)));
+    connect(this, SIGNAL(SignalEnable(bool)), this, SLOT(SlotEnabledEventHandler(bool)));
+    connect(QCBEnableMeasuredSetpointCheck, SIGNAL(clicked(bool)), this, SLOT(SlotEnableMeasuredSetpointCheck(bool)));
     connect(QCBEnforcePositionLimits, SIGNAL(clicked(bool)), this, SLOT(SlotEnforcePositionLimits(bool)));
     connect(QCBUseSetpointV, SIGNAL(clicked(bool)), this, SLOT(SlotUseSetpointV(bool)));
-    connect(this, SIGNAL(SignalUseSetpointV(bool)), this, SLOT(SlotUseSetpointVEventHandler(bool)));
+    connect(this, SIGNAL(SignalUseSetpointV(bool)), this, SLOT(SlotSetpointVUsedEventHandler(bool)));
     connect(QPBMaintainPosition, SIGNAL(clicked()), this, SLOT(SlotMaintainPosition()));
     connect(QPBSave, SIGNAL(clicked()), this, SLOT(SlotSave()));
     connect(QSBPlotIndex, SIGNAL(valueChanged(int)), this, SLOT(SlotPlotIndex(int)));
@@ -672,12 +678,12 @@ void mtsPIDQtWidget::ErrorEventHandler(const mtsMessage & message)
 }
 
 
-void mtsPIDQtWidget::EnableEventHandler(const bool & enable)
+void mtsPIDQtWidget::EnabledEventHandler(const bool & enable)
 {
     emit SignalEnable(enable);
 }
 
-void mtsPIDQtWidget::UseSetpointVEventHandler(const bool & use)
+void mtsPIDQtWidget::SetpointVUsedEventHandler(const bool & use)
 {
     emit SignalUseSetpointV(use);
 }

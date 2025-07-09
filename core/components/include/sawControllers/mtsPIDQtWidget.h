@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-20
 
-  (C) Copyright 2013-2023 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -64,7 +64,7 @@ private slots:
     //! slot enable/disable mtsPID controller
     void SlotEnable(bool toggle);
     void SlotEnabledJointsChanged(void);
-    void SlotEnableTrackingError(bool toggle);
+    void SlotEnableMeasuredSetpointCheck(bool toggle);
     void SlotEnforcePositionLimits(bool toggle);
     void SlotConfigurationChanged(void);
     //! slot send setpoint pos when input changed
@@ -76,11 +76,11 @@ private slots:
     //! slot to select which axis to plot
     void SlotPlotIndex(int newAxis);
     //! slot to change Enable Checkbox
-    void SlotEnableEventHandler(bool enable);
+    void SlotEnabledEventHandler(bool enable);
     void SlotEnableDirectControl(bool toggle);
 
     void SlotUseSetpointV(bool use);
-    void SlotUseSetpointVEventHandler(bool use);
+    void SlotSetpointVUsedEventHandler(bool use);
 
     //! timer event to update GUI
     void timerEvent(QTimerEvent * event);
@@ -91,20 +91,20 @@ private:
     int TimerPeriodInMilliseconds;
 
     void ErrorEventHandler(const mtsMessage & message);
-    void EnableEventHandler(const bool & enable);
-    void UseSetpointVEventHandler(const bool & use);
+    void EnabledEventHandler(const bool & enable);
+    void SetpointVUsedEventHandler(const bool & use);
 
 protected:
 
     struct ControllerPIDStruct {
-        mtsFunctionVoid  ResetController;
-        mtsFunctionWrite Enable;
-        mtsFunctionWrite EnableJoints;
-        mtsFunctionRead  JointsEnabled;
-        mtsFunctionWrite UseSetpointV;
-        mtsFunctionRead  UsingSetpointV;
-        mtsFunctionWrite EnableTrackingError;
-        mtsFunctionRead  TrackingErrorEnabled;
+        mtsFunctionVoid  reset_controller;
+        mtsFunctionWrite enable;
+        mtsFunctionWrite enable_joints;
+        mtsFunctionRead  joints_enabled;
+        mtsFunctionWrite use_setpoint_v;
+        mtsFunctionRead  setpoint_v_used;
+        mtsFunctionWrite enable_measured_setpoint_check;
+        mtsFunctionRead  measured_setpoint_check_enabled;
         mtsFunctionWrite enforce_position_limits;
         mtsFunctionRead  position_limits_enforced;
         mtsFunctionRead  configuration;
@@ -136,7 +136,7 @@ private:
     // GUI: Commands
     QCheckBox * QCBEnableDirectControl;
     QCheckBox * QCBEnable;
-    QCheckBox * QCBEnableTrackingError;
+    QCheckBox * QCBEnableMeasuredSetpointCheck;
     QCheckBox * QCBEnforcePositionLimits;
     QCheckBox * QCBUseSetpointV;
     QPushButton * QPBMaintainPosition;

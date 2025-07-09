@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2012-2024 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2012-2025 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -9,8 +9,8 @@
 #
 # --- end cisst license ---
 
-cmake_minimum_required (VERSION 3.10)
-project (sawControllersAll VERSION 2.2.0)
+cmake_minimum_required (VERSION 3.16)
+project (sawControllersCore VERSION 2.2.0)
 
 find_package (cisst REQUIRED)
 include (${CISST_USE_FILE})
@@ -20,7 +20,7 @@ cisst_cpack_settings (
 
 add_subdirectory (components)
 
-set (sawControllers_DIR "${sawControllersAll_BINARY_DIR}/components")
+set (sawControllers_DIR "${sawControllersCore_BINARY_DIR}/components")
 add_subdirectory (examples)
 
 include (CPack)
