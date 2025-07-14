@@ -30,11 +30,38 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionJointSet.h>
 
 #include <QCheckBox>
+#include <QLabel>
 #include <QSpinBox>
+#include <QMouseEvent>
 #include <QPushButton>
 
 #include <sawControllers/mtsPIDConfiguration.h>
 #include <sawControllers/sawControllersQtExport.h>
+
+class CISST_EXPORT mtsClickableQLabel : public QLabel {
+    Q_OBJECT;
+
+public:
+    mtsClickableQLabel(const QString &text) : QLabel(text), enabled(true), label_font(this->font()) {}
+
+protected:
+    void mouseReleaseEvent(QMouseEvent * event) override {
+        if(event->button() == Qt::LeftButton) {
+            event->accept();
+            enabled = !enabled;
+            emit clicked(enabled);
+            label_font.setStrikeOut(!enabled);
+            setFont(label_font);
+        }
+    }
+
+signals:
+    void clicked(bool enabled);
+
+private:
+    bool enabled = true;
+    QFont label_font;
+};
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
 {
