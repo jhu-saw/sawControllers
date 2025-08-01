@@ -108,7 +108,6 @@ protected:
     vctBoolVec m_effort_mode;
 
     bool m_measured_setpoint_check;
-    vctDoubleVec m_measured_setpoint_tolerance;
     vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
 
     // Flag to determine if this is connected to actual IO/hardware or

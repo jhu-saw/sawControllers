@@ -16,12 +16,14 @@ http://www.cisst.org/cisst/license.txt.
 --- end cisst license ---
 */
 
+#include <sawControllers/mtsPID.h>
+
+#include <algorithm>
+
 #include <cisstOSAbstraction/osaSleep.h>
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
-
-#include <sawControllers/mtsPID.h>
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
@@ -81,7 +83,6 @@ void mtsPID::SetupInterfaces(void)
     mConfigurationStateTable.AddData(m_configuration, "configuration");
     mConfigurationStateTable.AddData(m_configuration_js, "configuration_js");
     StateTable.AddData(m_measured_setpoint_check, "enable_measured_setpoint_check"); // that table advances automatically
-    mConfigurationStateTable.AddData(m_measured_setpoint_tolerance, "measured to setpoint tolerance");
 
     mInterface = AddInterfaceProvided("Controller");
     mInterface->AddMessageEvents();
@@ -274,7 +275,6 @@ void mtsPID::Configure(const std::string & filename)
 
     // tracking error
     m_measured_setpoint_check = false;
-    m_measured_setpoint_tolerance.SetSize(m_number_of_joints, 0.0);
     m_measured_setpoint_error.SetSize(m_number_of_joints, false);
     m_previous_measured_setpoint_error.ForceAssign(m_measured_setpoint_error);
 
@@ -398,7 +398,6 @@ void mtsPID::Run(void)
     vctDoubleVec::const_iterator effortUserCommand = m_requested_jf.ForceTorque().begin();
     vctDoubleVec::iterator p_error = m_error_state.Position().begin();
     vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
-    vctDoubleVec::const_iterator tolerance = m_measured_setpoint_tolerance.begin();
     vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
     vctBoolVec::iterator trackingErrorFlag = m_measured_setpoint_error.begin();
     vctBoolVec::iterator previousTrackingErrorFlag = m_previous_measured_setpoint_error.begin();
@@ -453,7 +452,6 @@ void mtsPID::Run(void)
              ++effortUserCommand,
              ++p_error,
              ++v_error,
-             ++tolerance,
              ++limitFlag,
              ++trackingErrorFlag,
              ++previousTrackingErrorFlag,
@@ -503,7 +501,7 @@ void mtsPID::Run(void)
                     double errorAbsolute = fabs(*p_error);
                     // trigger error if the error is too high
                     // AND the last request was not outside joint limit
-                    if ((errorAbsolute > *tolerance) && !(*limitFlag)) {
+                    if ((errorAbsolute > c->p_measured_setpoint_tolerance) && !(*limitFlag)) {
                         anyTrackingError = true;
                         *trackingErrorFlag = true;
                         if (*trackingErrorFlag != *previousTrackingErrorFlag) {
@@ -533,8 +531,7 @@ void mtsPID::Run(void)
                 *i_error += *p_error;
                 if (*i_error > c->i_limit) {
                     *i_error = c->i_limit;
-                }
-                else if (*i_error < -c->i_limit) {
+                } else if (*i_error < -c->i_limit) {
                     *i_error = -c->i_limit;
                 }
 
@@ -558,6 +555,11 @@ void mtsPID::Run(void)
                 *setpoint_f +=
                     c->p_gain * (*p_error) + c->d_gain * (*v_error) + c->i_gain * (*i_error);
 
+                // cap with max PID effort, not applying to effort specified by users
+                if (c->pid_max_output >= 0.0) {
+                    *setpoint_f = std::clamp(*setpoint_f, -c->pid_max_output, c->pid_max_output);
+                }
+
                 // add constant offsets in PID mode only and after non-linear scaling
                 *setpoint_f += c->offset;
 
@@ -568,11 +570,7 @@ void mtsPID::Run(void)
 
             // apply effort limits if needed
             if (*effortLowerLimit != *effortUpperLimit) {
-                if (*setpoint_f > *effortUpperLimit) {
-                    *setpoint_f = *effortUpperLimit;
-                } else if (*setpoint_f < *effortLowerLimit) {
-                    *setpoint_f = *effortLowerLimit;
-                }
+                *setpoint_f = std::clamp(*setpoint_f, *effortLowerLimit, *effortUpperLimit);
             }
         } // end of enabled
 
@@ -589,9 +587,13 @@ void mtsPID::Run(void)
             std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
             message.append(m_measured_setpoint_error.ToString());
             mInterface->SendError(message);
+            vctDoubleVec temp(m_number_of_joints);
+            for (size_t index = 0; index < m_number_of_joints; ++index) {
+                temp.at(index) = m_configuration.at(index).p_measured_setpoint_tolerance;
+            }
             CMN_LOG_CLASS_RUN_ERROR << message << std::endl
                                     << "errors:     " << m_error_state.Position() << std::endl
-                                    << "tolerances: " << m_measured_setpoint_tolerance << std::endl
+                                    << "tolerances: " << temp << std::endl
                                     << "measured:   " << m_measured_js.Position() << std::endl
                                     << "setpoint:   " << m_setpoint_js.Position() << std::endl;
         }
@@ -876,7 +878,9 @@ void mtsPID::servo_jf_local(const vctDoubleVec & effort)
 void mtsPID::set_measured_setpoint_tolerance(const vctDoubleVec & tolerances)
 {
     if (tolerances.size() == m_number_of_joints) {
-        m_measured_setpoint_tolerance.Assign(tolerances);
+        for (size_t index = 0; index < m_number_of_joints; ++index) {
+            m_configuration.at(index).p_measured_setpoint_tolerance = tolerances.at(index);
+        }
     } else {
         std::string message = this->GetName() + ": incorrect vector size for set_measured_setpoint_tolerance";
         cmnThrow(message);

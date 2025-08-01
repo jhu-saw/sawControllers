@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2024 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2025 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -81,6 +81,8 @@ if (cisst_FOUND)
   set_target_properties (sawControllers PROPERTIES
                          VERSION ${sawControllers_VERSION}
                          FOLDER "sawControllers")
+
+  target_compile_features (sawControllers PRIVATE cxx_std_17)
 
   cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})
 

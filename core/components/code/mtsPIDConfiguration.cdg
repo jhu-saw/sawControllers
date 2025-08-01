@@ -13,7 +13,7 @@ class {
         name index;
         type size_t;
         visibility public;
-        description axis index, this needs to match the axis position in the configuration vector;
+        description Axis index, this needs to match the axis position in the configuration vector;
     }
     member {
         name name;
@@ -30,40 +30,40 @@ class {
         name p_gain;
         type double;
         visibility public;
-        description gain applied to error in position;
-    }
-    member {
-        name d_gain;
-        type double;
-        visibility public;
-        description gain applied to error in velocity;
-    }
-    member {
-        name i_gain;
-        type double;
-        visibility public;
-        description gain applied to error integral;
-    }
-    member {
-        name i_forget_rate;
-        type double;
-        default 1.0;
-        visibility public;
-        description error integral preserve rate per second (multiplied to i_error);
-    }
-    member {
-        name i_limit;
-        type double;
-        default 0.0;
-        visibility public;
-        description cap on error integral;
+        description Gain applied to error in position;
     }
     member {
         name p_deadband;
         type double;
         default 0.0;
         visibility public;
-        description deadband around goal position;
+        description Deadband around goal position;
+    }
+    member {
+        name d_gain;
+        type double;
+        visibility public;
+        description Gain applied to error in velocity;
+    }
+    member {
+        name i_gain;
+        type double;
+        visibility public;
+        description Gain applied to error integral;
+    }
+    member {
+        name i_forget_rate;
+        type double;
+        default 1.0;
+        visibility public;
+        description Error integral preserve rate per second (multiplied to i_error);
+    }
+    member {
+        name i_limit;
+        type double;
+        default 0.0;
+        visibility public;
+        description Cap on error integral;
     }
     member {
         name offset;
@@ -73,17 +73,25 @@ class {
         description constant effort offset applied to output;
     }
     member {
-        name error_limit;
+        name pid_max_output;
         type double;
-        default cmnTypeTraits<double>::MaxPositiveValue();
+        default 0.0;
         visibility public;
-        description maximum position error between setpoint and measured position;
+        description Maximum effort computed based on PID only (excludes user efforts);
+    }
+    member {
+        name p_measured_setpoint_tolerance;
+        type double;
+        default 0.0;
+        visibility public;
+        description Maximum position error between setpoint and measured position;
     }
     member {
         name v_low_pass_cutoff;
         type double;
         default 1.0;
         visibility public;
+        description Low pass filter applied to velocity;
     }
     member {
         name use_disturbance_observer;
@@ -96,12 +104,14 @@ class {
         type double;
         default 0.0;
         visibility public;
+        description Nominal mass for disturbance observer;
     }
     member {
         name disturbance_cutoff;
         type double;
         default 0.0;
         visibility public;
+        description Cutoff for disturbance observer;
     }
 }
 
