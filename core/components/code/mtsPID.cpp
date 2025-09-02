@@ -158,26 +158,44 @@ void mtsPID::Configure(const std::string & filename)
     CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " Configure: using " << filename << std::endl;
 
     try {
-        std::ifstream jsonStream;
-        Json::Value jsonConfig;
-        Json::Reader jsonReader;
+        std::ifstream json_stream;
+        Json::Value json_config;
+        Json::Reader json_reader;
 
-        jsonStream.open(filename.c_str());
-        if (!jsonReader.parse(jsonStream, jsonConfig)) {
+        json_stream.open(filename.c_str());
+        if (!json_reader.parse(json_stream, json_config)) {
             CMN_LOG_CLASS_INIT_ERROR << "Configure " << this->GetName()
                                      << ": failed to parse configuration file \""
                                      << filename << "\"\n"
-                                     << jsonReader.getFormattedErrorMessages();
+                                     << json_reader.getFormattedErrorMessages();
+            exit(EXIT_FAILURE);
+        }
+
+                // id & version check
+        const std::string id = json_config["$id"].asString();
+        const std::string id_expected = "saw-controllers-pid.schema.json";
+        if (id != id_expected) {
+            CMN_LOG_CLASS_INIT_ERROR << "Configure: file " << filename
+                                     << " has incorrect or missing $id, found \"" << id
+                                     << "\", expected \"" << id_expected << "\"" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        const std::string version = json_config["$version"].asString();
+        if (version != "1") {
+            CMN_LOG_CLASS_INIT_ERROR << "Configure: file " << filename
+                                     << " has incorrect or missing $version, found \"" << version
+                                     << "\", expected \"6\"" << std::endl;
             exit(EXIT_FAILURE);
         }
 
         CMN_LOG_CLASS_INIT_VERBOSE << "Configure: " << this->GetName()
                                    << " using file \"" << filename << "\"" << std::endl
                                    << "----> content of configuration file: " << std::endl
-                                   << jsonConfig << std::endl
+                                   << json_config << std::endl
                                    << "<----" << std::endl;
 
-        const auto jsonPID = jsonConfig["pid"];
+        const auto jsonPID = json_config["pid"];
         if (jsonPID.isNull()) {
             CMN_LOG_CLASS_INIT_ERROR << "Configure " << this->GetName()
                                      << ": failed to find \"pid\" in configuration file \""
