@@ -90,6 +90,7 @@ protected:
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
     vctDoubleVec m_i_error;
     vctDoubleVec m_disturbance_state;
+    vctDoubleVec m_disturbance_input;
 
     bool m_setpoint_v_used = true;  // option to ignore user setpoint_v
     bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities

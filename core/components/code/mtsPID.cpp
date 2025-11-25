@@ -281,6 +281,8 @@ void mtsPID::Configure(const std::string & filename)
     // disturbance observer
     m_disturbance_state.SetSize(m_number_of_joints);
     m_disturbance_state.SetAll(0.0);
+    m_disturbance_input.SetSize(m_number_of_joints);
+    m_disturbance_input.SetAll(0.0);
     reset_controller();
 
     // default: 1 so there's no filtering
@@ -422,6 +424,7 @@ void mtsPID::Run(void)
     vctDoubleVec::iterator i_error = m_i_error.begin();
     vctDoubleVec::iterator disturbance = m_error_state.Effort().begin();
     vctDoubleVec::iterator disturbance_state = m_disturbance_state.begin();
+    vctDoubleVec::iterator disturbance_input = m_disturbance_input.begin();
     auto c = m_configuration.cbegin();
     vctDoubleVec::const_iterator feed_forward = m_feed_forward_jf.ForceTorque().begin();
     vctDoubleVec::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
@@ -475,6 +478,7 @@ void mtsPID::Run(void)
              ++i_error,
              ++disturbance,
              ++disturbance_state,
+             ++disturbance_input,
              ++c,
              ++feed_forward,
              ++filtered_setpoint_v,
@@ -486,6 +490,7 @@ void mtsPID::Run(void)
         // first check if the controller and this joint is enabled
         if (!m_enabled || !(*enabled)) {
             *setpoint_f = 0.0;
+            *disturbance_input = 0.0;
             *setpoint_p = *measured_p;
         } else {
             // the PID controller is enabled and this joint is actively controlled
@@ -556,7 +561,7 @@ void mtsPID::Run(void)
                 // compute disturbance observer before setpoint_f is changed
                 if (c->use_disturbance_observer) {
                     const double d_t = this->GetPeriodicity();
-                    const double dis_tmp = *setpoint_f
+                    const double dis_tmp = *disturbance_input
                         + c->nominal_mass * c->disturbance_cutoff * *measured_v;
                     *disturbance_state += (dis_tmp - *disturbance_state)
                         * c->disturbance_cutoff * d_t;
@@ -576,6 +581,8 @@ void mtsPID::Run(void)
                 if (c->pid_max_output >= 0.0) {
                     *setpoint_f = std::clamp(*setpoint_f, -c->pid_max_output, c->pid_max_output);
                 }
+
+                *disturbance_input = *setpoint_f;
 
                 // add constant offsets in PID mode only and after non-linear scaling
                 *setpoint_f += c->offset;
