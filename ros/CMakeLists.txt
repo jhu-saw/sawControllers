@@ -56,7 +56,7 @@ set (REQUIRED_CISST_LIBRARIES
      cisstParameterTypesQt
      cisstQt)
 
-find_package (cisst 1.2.0 REQUIRED ${REQUIRED_CISST_LIBRARIES})
+find_package (cisst 1.4.0 REQUIRED ${REQUIRED_CISST_LIBRARIES})
 
 if (cisst_FOUND_AS_REQUIRED)
 
@@ -64,7 +64,7 @@ if (cisst_FOUND_AS_REQUIRED)
   include (${CISST_USE_FILE})
 
   # sawControllers has been compiled within cisst, we should find it automatically
-  find_package (sawControllers 2.2.0)
+  find_package (sawControllers 2.3.0)
 
   if (sawControllers_FOUND)
 

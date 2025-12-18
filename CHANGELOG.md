@@ -1,6 +1,26 @@
 Change log
 ==========
 
+2.3.0 (2025-12-18)
+==================
+
+All changes are for mtsPID.
+
+* API changes:
+  * Changed ROS topics for feed_forward
+  * Re-organized code in top directories "core" and "ros"
+  * Interfaces use snake_case for commands (was CamelCase)
+* Deprecated features:
+  * CMake required version is 3.16
+* New features:
+  * Added configuration "pid_max_output"
+  * Check configuration file version and Id
+  * Dedicated ROS bridge library with read-only and read-write modes
+  * IO + PID separate ROS node
+  * In PID Qt Widget, toggle signals to plot
+* Bug fixes:
+  * Apply feed forward in effort mode
+
 2.2.0 (2024-08-30)
 ==================
 
