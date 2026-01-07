@@ -595,6 +595,7 @@ void mtsPID::Run(void)
             // apply effort limits if needed
             if (*effortLowerLimit != *effortUpperLimit) {
                 *setpoint_f = std::clamp(*setpoint_f, *effortLowerLimit, *effortUpperLimit);
+                *disturbance_input = std::clamp(*disturbance_input, *effortLowerLimit, *effortUpperLimit);
             }
         } // end of enabled
 
