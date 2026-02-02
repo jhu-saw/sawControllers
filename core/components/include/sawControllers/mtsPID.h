@@ -34,13 +34,15 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 
+#include <cisstParameterTypes/prmSimulationType.h>
+
 #include <sawControllers/sawControllersRevision.h>
 #include <sawControllers/mtsPIDConfiguration.h>
 
 //! Always include last
 #include <sawControllers/sawControllersExport.h>
 
-class CISST_EXPORT mtsPID: public mtsTaskPeriodic
+class CISST_EXPORT mtsPID: public mtsTaskPeriodic, prmSimulationType
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
@@ -111,9 +113,6 @@ protected:
     bool m_measured_setpoint_check;
     vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
 
-    // Flag to determine if this is connected to actual IO/hardware or
-    // simulated
-    bool m_simulated = false;
     double m_command_time, m_previous_command_time;
 
     //! Configuration state table
@@ -206,7 +205,8 @@ public:
     void Run(void);
     void Cleanup(void);
 
-    void SetSimulated(void);
+    // Override from prmSimulationType for handling simulation mode in derived classes
+    virtual void SetSimulationMode(const prmSimulationType::SimulationType& mode) override;
 
 protected:
 
