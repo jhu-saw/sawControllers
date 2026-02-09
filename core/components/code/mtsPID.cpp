@@ -266,6 +266,10 @@ void mtsPID::Configure(const std::string & filename)
     m_setpoint_js.Velocity().SetSize(m_number_of_joints, 0.0);
     m_setpoint_js.Effort().SetSize(m_number_of_joints, 0.0);
 
+    m_measured_js_previous.Position().SetSize(m_number_of_joints, 0.0);
+    m_measured_js_previous.Velocity().SetSize(m_number_of_joints, 0.0);
+    m_measured_js_previous.Effort().SetSize(m_number_of_joints, 0.0);
+
     mPositionLimitFlag.SetSize(m_number_of_joints);
     mPositionLimitFlag.SetAll(false);
     mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
