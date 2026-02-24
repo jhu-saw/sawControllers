@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet, Ugur Tumerdem
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2026 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -42,11 +42,14 @@ http://www.cisst.org/cisst/license.txt.
 //! Always include last
 #include <sawControllers/sawControllersExport.h>
 
-class CISST_EXPORT mtsPID: public mtsTaskPeriodic, prmSimulationType
+class CISST_EXPORT mtsPID: public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 protected:
+
+    prmSimulationType m_simulation_mode;
+
     // Required interface
     struct {
         //! Read joint type from robot
@@ -205,8 +208,7 @@ public:
     void Run(void);
     void Cleanup(void);
 
-    // Override from prmSimulationType for handling simulation mode in derived classes
-    virtual void SetSimulationMode(const prmSimulationType::SimulationType& mode) override;
+    void set_simulation_mode(const prmSimulationType & mode);
 
 protected:
 

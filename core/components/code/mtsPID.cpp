@@ -5,7 +5,7 @@
   Author(s):  Zihan Chen, Anton Deguet
   Created on: 2013-02-22
 
-  (C) Copyright 2013-2025 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2013-2026 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -142,7 +142,7 @@ void mtsPID::enforce_position_limits(const bool & enforce)
             m_enforce_position_limits = enforce;
             return;
         } else {
-            if (!(GetSimulationMode() == prmSimulationType::SimulationType::KINEMATIC)) {
+            if (m_simulation_mode != prmSimulationType::KINEMATIC) {
                 mInterface->SendWarning(this->GetName() + ": unable to enforce position limits since the limits are not set properly");
             }
             CMN_LOG_CLASS_INIT_VERBOSE << this->GetName() << " enforce_position_limits: using configuration " << m_configuration_js << std::endl;
@@ -322,7 +322,7 @@ void mtsPID::Configure(const std::string & filename)
 void mtsPID::Startup(void)
 {
     // get joint type from IO and check against values from PID config file
-    if (!(GetSimulationMode() == prmSimulationType::SimulationType::KINEMATIC)) {
+    if (m_simulation_mode != prmSimulationType::KINEMATIC) {
         mtsExecutionResult result;
         prmConfigurationJoint io_configuration_js;
         result = IO.configuration_js(io_configuration_js);
@@ -634,7 +634,7 @@ void mtsPID::Run(void)
     }
 
     // for simulated mode
-    if ((GetSimulationMode() == prmSimulationType::SimulationType::KINEMATIC)) {
+    if (m_simulation_mode == prmSimulationType::KINEMATIC) { 
         m_measured_js.SetValid(true);
         m_measured_js.Position().Assign(m_setpoint_js.Position());
         m_measured_js.SetTimestamp(StateTable.GetTic());
@@ -649,13 +649,21 @@ void mtsPID::Cleanup(void)
     servo_jf_local(m_setpoint_js.Effort());
 }
 
-void mtsPID::SetSimulationMode(const prmSimulationType::SimulationType &mode)
-{
-    // forward to base class
-    prmSimulationType::SetSimulationMode(mode);
 
-    // in simulation mode, we don't need IO
-    RemoveInterfaceRequired("RobotJointTorqueInterface");
+void mtsPID::set_simulation_mode(const prmSimulationType & mode)
+{
+    m_simulation_mode = mode;
+    switch (mode) {
+    case prmSimulationType::NONE:
+        break;
+    case prmSimulationType::KINEMATIC:
+    case prmSimulationType::IO:
+        // in simulation mode, we don't need IO
+        RemoveInterfaceRequired("RobotJointTorqueInterface");
+        break;
+    default:
+        cmnThrow("mtsPID::set_simulation_mode received unsupported mode");
+    }
 }
 
 
@@ -834,7 +842,7 @@ void mtsPID::get_IO_data(void)
     // get data from IO if not in simulated mode.  When is simulation
     // mode, position come from the user/client and is found in
     // m_setpoint_js
-    if ((GetSimulationMode() == prmSimulationType::SimulationType::KINEMATIC)) {
+    if (m_simulation_mode == prmSimulationType::KINEMATIC) {
         // check that position is not too old
         if ((StateTable.GetTic() - m_command_time) > 20.0 * cmn_ms) {
             m_measured_js.Velocity().Zeros();
@@ -899,7 +907,7 @@ void mtsPID::get_IO_data(void)
 
 void mtsPID::servo_jf_local(const vctDoubleVec & effort)
 {
-    if (!(GetSimulationMode() == prmSimulationType::SimulationType::KINEMATIC)) {
+    if (m_simulation_mode != prmSimulationType::KINEMATIC) {
         m_pid_setpoint_jf.ForceTorque().Assign(effort);
         IO.servo_jf(m_pid_setpoint_jf);
     }
