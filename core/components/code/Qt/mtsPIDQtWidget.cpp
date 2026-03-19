@@ -62,6 +62,7 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
 
 void mtsPIDQtWidget::Init(void)
 {
+    this->AddTag("UI");
     PID.m_measured_js.Position().SetSize(m_number_of_joints);
     PID.m_measured_js.Velocity().SetSize(m_number_of_joints);
     PID.m_measured_js.Effort().SetSize(m_number_of_joints);
