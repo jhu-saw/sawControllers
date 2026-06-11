@@ -75,7 +75,7 @@ protected:
 
     //! Flag whether check joint limit
     bool m_enforce_position_limits = false;
-    vctBoolVec mPositionLimitFlagPrevious, mPositionLimitFlag;
+    Eigen::ArrayX<bool> mPositionLimitFlagPrevious, mPositionLimitFlag;
 
     //! Commanded joint efforts sent to IO level
     prmForceTorqueJointSet m_pid_setpoint_jf;
@@ -93,14 +93,14 @@ protected:
 
     //! Error
     prmStateJoint m_error_state; // position, velocity and effort for disturbance
-    vctDoubleVec m_i_error;
-    vctDoubleVec m_disturbance_state;
-    vctDoubleVec m_disturbance_input;
+    Eigen::VectorXd m_i_error;
+    Eigen::VectorXd m_disturbance_state;
+    Eigen::VectorXd m_disturbance_input;
 
     bool m_setpoint_v_used = true;  // option to ignore user setpoint_v
     bool m_has_setpoint_v = false; // set it the setpoint sends by user has velocities
     //! If cutoff set to 1.0, unfiltered
-    vctDoubleVec
+    Eigen::VectorXd
         m_setpoint_filtered_v,
         m_setpoint_filtered_v_previous;
 
@@ -108,13 +108,13 @@ protected:
     bool m_enabled = false;
 
     //! Enable individal joints
-    vctBoolVec m_joints_enabled;
+    Eigen::ArrayX<bool> m_joints_enabled;
 
     //! Enable mtsPID controller
-    vctBoolVec m_effort_mode;
+    Eigen::ArrayX<bool> m_effort_mode;
 
     bool m_measured_setpoint_check;
-    vctBoolVec m_previous_measured_setpoint_error, m_measured_setpoint_error;
+    Eigen::ArrayX<bool> m_previous_measured_setpoint_error, m_measured_setpoint_error;
 
     double m_command_time, m_previous_command_time;
 
@@ -162,13 +162,13 @@ protected:
 
     void enable(const bool & enable);
 
-    void enable_joints(const vctBoolVec & enable);
+    void enable_joints(const Eigen::ArrayX<bool> & enable);
 
     void use_setpoint_v(const bool & use);
 
-    void EnableEffortMode(const vctBoolVec & enable);
+    void EnableEffortMode(const Eigen::ArrayX<bool> & enable);
 
-    void set_measured_setpoint_tolerance(const vctDoubleVec & tolerances);
+    void set_measured_setpoint_tolerance(const Eigen::VectorXd& tolerances);
 
     /*! Retrieve data from the IO component.  This method checks for
       the simulated flag and sets position/effort based on user
@@ -181,7 +181,7 @@ protected:
       (e.g. mStateJointCommand.Effort()) to cisstParameterType
       prmForceTorqueJointSet and then call the function to sent
       requested efforts to the IO component. */
-    void servo_jf_local(const vctDoubleVec & effort);
+    void servo_jf_local(const Eigen::VectorXd& effort);
 
     void ErrorEventHandler(const mtsMessage & message);
 
@@ -203,10 +203,10 @@ public:
      *
      * @param filename  The name of the configuration file
      */
-    void Configure(const std::string& filename);
-    void Startup(void);
-    void Run(void);
-    void Cleanup(void);
+    void Configure(const std::string& filename) override;
+    void Startup(void) override;
+    void Run(void) override;
+    void Cleanup(void) override;
 
     void set_simulation_mode(const prmSimulationType & mode);
 
@@ -227,7 +227,7 @@ protected:
 
     /*! Sends a warning message if any lower limit is greater or equal
       to upper limit. */
-    void CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
+    void CheckLowerUpper(const Eigen::ArrayXd& lower, const Eigen::ArrayXd& upper,
                          const std::string & methodName);
 };
 

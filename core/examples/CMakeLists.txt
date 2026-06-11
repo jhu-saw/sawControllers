@@ -39,10 +39,7 @@ if (cisst_FOUND_AS_REQUIRED)
     link_directories (${sawControllers_LIBRARY_DIR}
                       ${sawKeyboard_LIBRARY_DIR})
 
-    set (sawControllers_EXAMPLES
-         osaGCExample
-         osaPDGCExample
-         mtsGCExample)
+    set (sawControllers_EXAMPLES)
 
     foreach (_example ${sawControllers_EXAMPLES})
       add_executable (${_example} ${_example}.cpp)
@@ -53,7 +50,6 @@ if (cisst_FOUND_AS_REQUIRED)
     endforeach ()
 
     # examples that also need sawKeyboard
-    target_link_libraries (mtsGCExample ${sawKeyboard_LIBRARIES})
 
     install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
              RUNTIME DESTINATION bin

@@ -17,9 +17,10 @@ http://www.cisst.org/cisst/license.txt.
 */
 
 
+#include <Eigen/Geometry>
 #include <sawControllers/osaCartesianImpedanceController.h>
 
-osaCartesianImpedanceController::osaCartesianImpedanceController(void)
+osaCartesianImpedanceController::osaCartesianImpedanceController()
 {
     ResetGoal();
 }
@@ -34,23 +35,23 @@ void osaCartesianImpedanceController::ResetGoal(void)
     m_goal.ForceOrientation.Identity();
     m_goal.TorqueOrientation.Identity();
 
-    m_goal.PositionPositive.Deadband.Zeros();
-    m_goal.PositionNegative.Deadband.Zeros();
-    m_goal.PositionPositive.P.Zeros();
-    m_goal.PositionNegative.P.Zeros();
-    m_goal.PositionPositive.D.Zeros();
-    m_goal.PositionNegative.D.Zeros();
-    m_goal.PositionPositive.Bias.Zeros();
-    m_goal.PositionNegative.Bias.Zeros();
+    m_goal.PositionPositive.Deadband.setZero();
+    m_goal.PositionNegative.Deadband.setZero();
+    m_goal.PositionPositive.P.setZero();
+    m_goal.PositionNegative.P.setZero();
+    m_goal.PositionPositive.D.setZero();
+    m_goal.PositionNegative.D.setZero();
+    m_goal.PositionPositive.Bias.setZero();
+    m_goal.PositionNegative.Bias.setZero();
 
-    m_goal.OrientationPositive.Deadband.Zeros();
-    m_goal.OrientationNegative.Deadband.Zeros();
-    m_goal.OrientationPositive.P.Zeros();
-    m_goal.OrientationNegative.P.Zeros();
-    m_goal.OrientationPositive.D.Zeros();
-    m_goal.OrientationNegative.D.Zeros();
-    m_goal.OrientationPositive.Bias.Zeros();
-    m_goal.OrientationNegative.Bias.Zeros();
+    m_goal.OrientationPositive.Deadband.setZero();
+    m_goal.OrientationNegative.Deadband.setZero();
+    m_goal.OrientationPositive.P.setZero();
+    m_goal.OrientationNegative.P.setZero();
+    m_goal.OrientationPositive.D.setZero();
+    m_goal.OrientationNegative.D.setZero();
+    m_goal.OrientationPositive.Bias.setZero();
+    m_goal.OrientationNegative.Bias.setZero();
 }
 
 void osaCartesianImpedanceController::Update(const prmPositionCartesianGet & pose,
@@ -59,79 +60,77 @@ void osaCartesianImpedanceController::Update(const prmPositionCartesianGet & pos
                                              const bool needWrenchInBody)
 {
     // ---- FORCE ----
-    vct3 force(0.0);
-    vct3 kpForce(0.0);
-    vct3 kdForce(0.0);
-    vct3 biasForce(0.0);
+    Eigen::Vector3d force = Eigen::Vector3d::Zero();
+    Eigen::Vector3d kpForce = Eigen::Vector3d::Zero();
+    Eigen::Vector3d kdForce = Eigen::Vector3d::Zero();
+    Eigen::Vector3d biasForce = Eigen::Vector3d::Zero();
 
     // In phantom frame
-    vct3 errPos = m_goal.ForceOrientation.Inverse() * (pose.Position().Translation() - m_goal.ForcePosition);
-    vct3 velPos = m_goal.ForceOrientation.Inverse() * twist.VelocityLinear();
+    Eigen::Vector3d errPos = m_goal.ForceOrientation.transpose() * (pose.Position().translation() - m_goal.ForcePosition);
+    Eigen::Vector3d velPos = m_goal.ForceOrientation.transpose() * twist.VelocityLinear();
 
     for (size_t i = 0; i < 3; i++) {
         if (errPos[i] > 0) {
-            errPos[i] = errPos[i] - fabs(m_goal.PositionPositive.Deadband.at(i));
+            errPos[i] = errPos[i] - fabs(m_goal.PositionPositive.Deadband(i));
             if (errPos[i] < 0.0) {
                 errPos[i] = 0.0;
             }
-            kpForce[i] = errPos[i] * m_goal.PositionPositive.P.at(i);
-            kdForce[i] = velPos[i] * m_goal.PositionPositive.D.at(i);
-            biasForce[i] = m_goal.PositionPositive.Bias.at(i);
+            kpForce[i] = errPos[i] * m_goal.PositionPositive.P(i);
+            kdForce[i] = velPos[i] * m_goal.PositionPositive.D(i);
+            biasForce[i] = m_goal.PositionPositive.Bias(i);
         } else {
-            errPos[i] = errPos[i] + fabs(m_goal.PositionNegative.Deadband.at(i));
+            errPos[i] = errPos[i] + fabs(m_goal.PositionNegative.Deadband(i));
             if (errPos[i] > 0.0) {
                 errPos[i] = 0.0;
             }
-            kpForce[i] = errPos[i] * m_goal.PositionNegative.P.at(i);
-            kdForce[i] = velPos[i] * m_goal.PositionNegative.D.at(i);
-            biasForce[i] = m_goal.PositionNegative.Bias.at(i);
+            kpForce[i] = errPos[i] * m_goal.PositionNegative.P(i);
+            kdForce[i] = velPos[i] * m_goal.PositionNegative.D(i);
+            biasForce[i] = m_goal.PositionNegative.Bias(i);
         }
     }
 
     force = kpForce + kdForce + biasForce;
     force = m_goal.ForceOrientation * force;   // Force in absolute Frame
     if (needWrenchInBody) {
-        force = pose.Position().Rotation().Inverse() * force;   // Force in body frame
+        force = pose.Position().rotation().inverse() * force;   // Force in body frame
     }
 
     // ---- TORQUE ----
-    vct3 torque(0.0);
-    vct3 kpTorque;
-    vct3 kdTorque;
-    vct3 biasTorque;
+    Eigen::Vector3d torque = Eigen::Vector3d::Zero();
+    Eigen::Vector3d kpTorque = Eigen::Vector3d::Zero();
+    Eigen::Vector3d kdTorque = Eigen::Vector3d::Zero();
+    Eigen::Vector3d biasTorque = Eigen::Vector3d::Zero();
 
     // error theta
-    vctRot3 tempRot;
-    tempRot = m_goal.TorqueOrientation.Inverse() * pose.Position().Rotation();
-    vctAxAnRot3 errAxAnRot;
-    errAxAnRot.FromNormalized(tempRot);
-    vct3 errRot = errAxAnRot.Angle() * errAxAnRot.Axis();
-    vct3 velRot = m_goal.TorqueOrientation.Inverse() * twist.VelocityAngular();
+    Eigen::Matrix3d temp_rot = m_goal.TorqueOrientation.transpose() * pose.Position().rotation();
+    Eigen::AngleAxisd errAxAnRot(temp_rot);
+    Eigen::Vector3d errRot = errAxAnRot.angle() * errAxAnRot.axis();
+    Eigen::Vector3d velRot = m_goal.TorqueOrientation.transpose() * twist.VelocityAngular();
 
     for (size_t i = 0; i < 3; i++) {
         if (errRot[i] > 0.0) {
-            errRot[i] = errRot[i] - fabs(m_goal.OrientationPositive.Deadband.at(i));
+            errRot[i] = errRot[i] - fabs(m_goal.OrientationPositive.Deadband(i));
             if (errRot[i] < 0.0) {
                 errRot[i] = 0.0;
             }
-            kpTorque[i] = errRot[i] * m_goal.OrientationPositive.P.at(i);
-            kdTorque[i] = velRot[i] * m_goal.OrientationPositive.D.at(i);
-            biasTorque[i] = m_goal.OrientationPositive.Bias.at(i);
+            kpTorque[i] = errRot[i] * m_goal.OrientationPositive.P(i);
+            kdTorque[i] = velRot[i] * m_goal.OrientationPositive.D(i);
+            biasTorque[i] = m_goal.OrientationPositive.Bias(i);
         } else {
-            errRot[i] = errRot[i] + fabs(m_goal.OrientationNegative.Deadband.at(i));
+            errRot[i] = errRot[i] + fabs(m_goal.OrientationNegative.Deadband(i));
             if (errRot[i] > 0.0) {
                 errRot[i] = 0.0;
             }
-            kpTorque[i] = errRot[i] * m_goal.OrientationNegative.P.at(i);
-            kdTorque[i] = velRot[i] * m_goal.OrientationNegative.D.at(i);
-            biasTorque[i] = m_goal.OrientationNegative.Bias.at(i);
+            kpTorque[i] = errRot[i] * m_goal.OrientationNegative.P(i);
+            kdTorque[i] = velRot[i] * m_goal.OrientationNegative.D(i);
+            biasTorque[i] = m_goal.OrientationNegative.Bias(i);
         }
     }
 
     torque = kpTorque + kdTorque + biasTorque;
     torque = m_goal.TorqueOrientation * torque;   // Torque in absolute Frame
     if (needWrenchInBody) {
-        torque = pose.Position().Rotation().Inverse() * torque;     // Torque in Body Frame
+        torque = pose.Position().rotation().inverse() * torque;     // Torque in Body Frame
     }
 
     std::copy(force.begin(), force.begin() + 3, wrenchBody.Force().begin());

@@ -30,8 +30,7 @@ http://www.cisst.org/cisst/license.txt.
 class CISST_EXPORT osaCartesianImpedanceController
 {
 public:
-    osaCartesianImpedanceController(void);
-    ~osaCartesianImpedanceController(){}
+    osaCartesianImpedanceController();
 
     void SetGoal(const prmCartesianImpedance & goal);
     void ResetGoal(void);

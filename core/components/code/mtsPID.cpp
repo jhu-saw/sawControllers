@@ -16,6 +16,7 @@ http://www.cisst.org/cisst/license.txt.
 --- end cisst license ---
 */
 
+#include "cisstCommon/cmnLogger.h"
 #include <sawControllers/mtsPID.h>
 
 #include <algorithm>
@@ -24,6 +25,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <sstream>
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
@@ -126,9 +128,9 @@ void mtsPID::SetupInterfaces(void)
 
         // Events
         mInterface->AddEventWrite(Events.enabled, "enabled", m_enabled);
-        mInterface->AddEventWrite(Events.enabled_joints, "enabled_joints", vctBoolVec());
+        mInterface->AddEventWrite(Events.enabled_joints, "enabled_joints", Eigen::ArrayX<bool>());
         mInterface->AddEventWrite(Events.setpoint_v_used, "setpoint_v_used", m_setpoint_v_used);
-        mInterface->AddEventWrite(Events.position_limit, "position_limit", vctBoolVec());
+        mInterface->AddEventWrite(Events.position_limit, "position_limit", Eigen::ArrayX<bool>());
     }
 }
 
@@ -138,7 +140,7 @@ void mtsPID::enforce_position_limits(const bool & enforce)
     // make sure we have proper joint limits
     if (enforce) {
         // if any value is different from 0, we assume we have proper limits
-        if (m_configuration_js.PositionMin().Any() || m_configuration_js.PositionMax().Any()) {
+        if ((m_configuration_js.PositionMin() != 0.0).any() || (m_configuration_js.PositionMax() != 0.0).any()) {
             m_enforce_position_limits = enforce;
             return;
         } else {
@@ -244,63 +246,58 @@ void mtsPID::Configure(const std::string & filename)
     }
 
     // feedback
-    m_pid_setpoint_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
-    m_feed_forward_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
-    m_requested_jf.ForceTorque().SetSize(m_number_of_joints, 0.0);
+    m_pid_setpoint_jf.ForceTorque() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_feed_forward_jf.ForceTorque() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_requested_jf.ForceTorque() = Eigen::VectorXd::Zero(m_number_of_joints);
 
     // size all vectors
     m_configuration_js.Name().resize(m_number_of_joints);
-    m_configuration_js.Type().SetSize(m_number_of_joints);
-    m_configuration_js.PositionMin().SetSize(m_number_of_joints, 0.0);
-    m_configuration_js.PositionMax().SetSize(m_number_of_joints, 0.0);
-    m_configuration_js.EffortMin().SetSize(m_number_of_joints, 0.0);
-    m_configuration_js.EffortMax().SetSize(m_number_of_joints, 0.0);
+    m_configuration_js.Type().resize(m_number_of_joints);
+    m_configuration_js.PositionMin() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_configuration_js.PositionMax() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_configuration_js.EffortMin() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_configuration_js.EffortMax() = Eigen::VectorXd::Zero(m_number_of_joints);
 
     m_measured_js.Name().resize(m_number_of_joints);
-    m_measured_js.Position().SetSize(m_number_of_joints, 0.0);
-    m_measured_js.Velocity().SetSize(m_number_of_joints, 0.0);
-    m_measured_js.Effort().SetSize(m_number_of_joints, 0.0);
+    m_measured_js.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_measured_js.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_measured_js.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
 
     m_setpoint_js.Name().resize(m_number_of_joints);
-    m_setpoint_js.Position().SetSize(m_number_of_joints, 0.0);
-    m_setpoint_js.Velocity().SetSize(m_number_of_joints, 0.0);
-    m_setpoint_js.Effort().SetSize(m_number_of_joints, 0.0);
+    m_setpoint_js.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_setpoint_js.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_setpoint_js.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
 
-    m_measured_js_previous.Position().SetSize(m_number_of_joints, 0.0);
-    m_measured_js_previous.Velocity().SetSize(m_number_of_joints, 0.0);
-    m_measured_js_previous.Effort().SetSize(m_number_of_joints, 0.0);
+    m_measured_js_previous.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_measured_js_previous.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_measured_js_previous.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
 
-    mPositionLimitFlag.SetSize(m_number_of_joints);
-    mPositionLimitFlag.SetAll(false);
-    mPositionLimitFlagPrevious.ForceAssign(mPositionLimitFlag);
-    m_joints_enabled.SetSize(m_number_of_joints);
-    m_joints_enabled.SetAll(true);
+    mPositionLimitFlag = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    mPositionLimitFlagPrevious = mPositionLimitFlag;
+    m_joints_enabled = Eigen::ArrayX<bool>(m_number_of_joints, false);
 
     // errors
     m_error_state.Name().resize(m_number_of_joints);
-    m_error_state.Position().SetSize(m_number_of_joints);
-    m_error_state.Velocity().SetSize(m_number_of_joints);
-    m_error_state.Effort().SetSize(m_number_of_joints); // disturbance
-    m_i_error.SetSize(m_number_of_joints);
+    m_error_state.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_error_state.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_error_state.Effort() = Eigen::VectorXd::Zero(m_number_of_joints); // disturbance
+    m_i_error = Eigen::VectorXd::Zero(m_number_of_joints);
     // disturbance observer
-    m_disturbance_state.SetSize(m_number_of_joints);
-    m_disturbance_state.SetAll(0.0);
-    m_disturbance_input.SetSize(m_number_of_joints);
-    m_disturbance_input.SetAll(0.0);
+    m_disturbance_state = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_disturbance_input = Eigen::VectorXd::Zero(m_number_of_joints);
     reset_controller();
 
     // default: 1 so there's no filtering
-    m_setpoint_filtered_v.SetSize(m_number_of_joints, 0.0);
-    m_setpoint_filtered_v_previous.SetSize(m_number_of_joints, 0.0);
+    m_setpoint_filtered_v = Eigen::VectorXd::Zero(m_number_of_joints);
+    m_setpoint_filtered_v_previous = Eigen::VectorXd::Zero(m_number_of_joints);
 
     // effort mode
-    m_effort_mode.SetSize(m_number_of_joints);
-    m_effort_mode.SetAll(false);
+    m_effort_mode = Eigen::ArrayX<bool>(m_number_of_joints, false);
 
     // tracking error
     m_measured_setpoint_check = false;
-    m_measured_setpoint_error.SetSize(m_number_of_joints, false);
-    m_previous_measured_setpoint_error.ForceAssign(m_measured_setpoint_error);
+    m_measured_setpoint_error = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    m_previous_measured_setpoint_error = m_measured_setpoint_error;
 
     // copy data from configuration, name and type
     size_t index = 0;
@@ -337,8 +334,25 @@ void mtsPID::Startup(void)
                 if (io_configuration_js.Type().at(index) != m_configuration_js.Type().at(index)) {
                     std::string message = this->GetName() + " Startup: joint types from IO don't match types from configuration files for " + this->GetName();
                     CMN_LOG_CLASS_INIT_ERROR << message << std::endl
-                                             << "From IO:     " << io_configuration_js.Type() << std::endl
-                                             << "From config: " << m_configuration_js.Type() << std::endl;
+                                             << "From IO:     ";
+                    for (size_t idx = 0; idx < io_configuration_js.Type().size(); idx++) {
+                        CMN_LOG_CLASS_INIT_ERROR << io_configuration_js.Type().at(idx);
+                        if (idx + 1 < io_configuration_js.Type().size()) {
+                            CMN_LOG_CLASS_INIT_ERROR << ", ";
+                        } else {
+                            CMN_LOG_CLASS_INIT_ERROR << "\n";
+                        }
+                    }
+                    CMN_LOG_CLASS_INIT_ERROR << "From config: ";
+                    for (size_t idx = 0; idx < m_configuration_js.Type().size(); idx++) {
+                        CMN_LOG_CLASS_INIT_ERROR << m_configuration_js.Type().at(idx);
+                        if (idx + 1 < m_configuration_js.Type().size()) {
+                            CMN_LOG_CLASS_INIT_ERROR << ", ";
+                        } else {
+                            CMN_LOG_CLASS_INIT_ERROR << "\n";
+                        }
+                    }
+                    CMN_LOG_CLASS_INIT_ERROR << std::endl;
                     cmnThrow("PID::" + message);
                 }
             }
@@ -346,32 +360,32 @@ void mtsPID::Startup(void)
             // get the position min/max based on IO level.  Provided
             // from IO level based on max current and position to
             // current scale
-            if ((io_configuration_js.PositionMin().size() != m_configuration_js.Name().size())
-                || (io_configuration_js.PositionMax().size() != m_configuration_js.Name().size())) {
+            if ((io_configuration_js.PositionMin().size() != (Eigen::Index)m_configuration_js.Name().size())
+                || (io_configuration_js.PositionMax().size() != (Eigen::Index)m_configuration_js.Name().size())) {
                 std::string message = this->GetName() + " Startup: min and max position vectors from IO don't have the correct size for " + this->GetName();
                 CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                          << "IO configuration position min: " << io_configuration_js.PositionMin() << std::endl
                                          << "IO configuration position max: " << io_configuration_js.PositionMax() << std::endl;
                 cmnThrow("PID::" + message);
             } else {
-                m_configuration_js.PositionMin().ForceAssign(io_configuration_js.PositionMin());
-                m_configuration_js.PositionMax().ForceAssign(io_configuration_js.PositionMax());
+                m_configuration_js.PositionMin() = io_configuration_js.PositionMin();
+                m_configuration_js.PositionMax() = io_configuration_js.PositionMax();
                 CheckLowerUpper(m_configuration_js.PositionMin(), m_configuration_js.PositionMax(), "Startup, position");
             }
 
             // get the effort min/max based on IO level.  Provided
             // from IO level based on max current and effort to
             // current scale
-            if ((io_configuration_js.EffortMin().size() != m_configuration_js.Name().size())
-                || (io_configuration_js.EffortMax().size() != m_configuration_js.Name().size())) {
+            if ((io_configuration_js.EffortMin().size() != (Eigen::Index)m_configuration_js.Name().size())
+                || (io_configuration_js.EffortMax().size() != (Eigen::Index)m_configuration_js.Name().size())) {
                 std::string message = this->GetName() + " Startup: min and max effort vectors from IO don't have the correct size for " + this->GetName();
                 CMN_LOG_CLASS_INIT_ERROR << message << std::endl
                                          << "IO configuration effort min: " << io_configuration_js.EffortMin() << std::endl
                                          << "IO configuration effort max: " << io_configuration_js.EffortMax() << std::endl;
                 cmnThrow("PID::" + message);
             } else {
-                m_configuration_js.EffortMin().ForceAssign(io_configuration_js.EffortMin());
-                m_configuration_js.EffortMax().ForceAssign(io_configuration_js.EffortMax());
+                m_configuration_js.EffortMin() = io_configuration_js.EffortMin();
+                m_configuration_js.EffortMax() = io_configuration_js.EffortMax();
                 CheckLowerUpper(m_configuration_js.EffortMin(), m_configuration_js.EffortMax(), "Startup, effort");
             }
 
@@ -413,31 +427,31 @@ void mtsPID::Run(void)
     bool newTrackingError = false;
 
     // loop on all joints
-    vctBoolVec::const_iterator enabled = m_joints_enabled.begin();
-    vctDoubleVec::const_iterator measured_p = m_measured_js.Position().begin();
-    vctDoubleVec::const_iterator measured_v = m_measured_js.Velocity().begin();
-    vctDoubleVec::iterator setpoint_p = m_setpoint_js.Position().begin();
-    vctDoubleVec::iterator setpoint_f = m_setpoint_js.Effort().begin();
-    vctBoolVec::const_iterator effortMode = m_effort_mode.begin();
-    vctDoubleVec::const_iterator effortUserCommand = m_requested_jf.ForceTorque().begin();
-    vctDoubleVec::iterator p_error = m_error_state.Position().begin();
-    vctDoubleVec::iterator v_error = m_error_state.Velocity().begin();
-    vctBoolVec::iterator limitFlag = mPositionLimitFlag.begin();
-    vctBoolVec::iterator trackingErrorFlag = m_measured_setpoint_error.begin();
-    vctBoolVec::iterator previousTrackingErrorFlag = m_previous_measured_setpoint_error.begin();
-    vctDoubleVec::iterator i_error = m_i_error.begin();
-    vctDoubleVec::iterator disturbance = m_error_state.Effort().begin();
-    vctDoubleVec::iterator disturbance_state = m_disturbance_state.begin();
-    vctDoubleVec::iterator disturbance_input = m_disturbance_input.begin();
+    Eigen::ArrayX<bool>::const_iterator enabled = m_joints_enabled.begin();
+    Eigen::VectorXd::const_iterator measured_p = m_measured_js.Position().begin();
+    Eigen::VectorXd::const_iterator measured_v = m_measured_js.Velocity().begin();
+    Eigen::VectorXd::iterator setpoint_p = m_setpoint_js.Position().begin();
+    Eigen::VectorXd::iterator setpoint_f = m_setpoint_js.Effort().begin();
+    Eigen::ArrayX<bool>::const_iterator effortMode = m_effort_mode.begin();
+    Eigen::VectorXd::const_iterator effortUserCommand = m_requested_jf.ForceTorque().begin();
+    Eigen::VectorXd::iterator p_error = m_error_state.Position().begin();
+    Eigen::VectorXd::iterator v_error = m_error_state.Velocity().begin();
+    Eigen::ArrayX<bool>::iterator limitFlag = mPositionLimitFlag.begin();
+    Eigen::ArrayX<bool>::iterator trackingErrorFlag = m_measured_setpoint_error.begin();
+    Eigen::ArrayX<bool>::iterator previousTrackingErrorFlag = m_previous_measured_setpoint_error.begin();
+    Eigen::VectorXd::iterator i_error = m_i_error.begin();
+    Eigen::VectorXd::iterator disturbance = m_error_state.Effort().begin();
+    Eigen::VectorXd::iterator disturbance_state = m_disturbance_state.begin();
+    Eigen::VectorXd::iterator disturbance_input = m_disturbance_input.begin();
     auto c = m_configuration.cbegin();
-    vctDoubleVec::const_iterator feed_forward = m_feed_forward_jf.ForceTorque().begin();
-    vctDoubleVec::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
-    vctDoubleVec::iterator filtered_setpoint_v_previous = m_setpoint_filtered_v_previous.begin();
-    vctDoubleVec::const_iterator effortLowerLimit = m_configuration_js.EffortMin().begin();
-    vctDoubleVec::const_iterator effortUpperLimit = m_configuration_js.EffortMax().begin();
+    Eigen::VectorXd::const_iterator feed_forward = m_feed_forward_jf.ForceTorque().begin();
+    Eigen::VectorXd::iterator filtered_setpoint_v = m_setpoint_filtered_v.begin();
+    Eigen::VectorXd::iterator filtered_setpoint_v_previous = m_setpoint_filtered_v_previous.begin();
+    Eigen::ArrayXd::const_iterator effortLowerLimit = m_configuration_js.EffortMin().begin();
+    Eigen::ArrayXd::const_iterator effortUpperLimit = m_configuration_js.EffortMax().begin();
 
     // check if the setpoint has velocities
-    vctDoubleVec::iterator setpoint_v;
+    Eigen::VectorXd::iterator setpoint_v;
     if (m_has_setpoint_v) {
         setpoint_v = m_setpoint_js.Velocity().begin();
     }
@@ -613,14 +627,15 @@ void mtsPID::Run(void)
     if (m_measured_setpoint_check && anyTrackingError) {
         this->enable(false);
         if (newTrackingError) {
-            std::string message = this->GetName() + ": tracking error, mask (1 for error): ";
-            message.append(m_measured_setpoint_error.ToString());
-            mInterface->SendError(message);
+            std::stringstream message;
+            message << this->GetName() << ": tracking error, mask (1 for error): "
+                    << m_measured_setpoint_error;
+            mInterface->SendError(message.str());
             vctDoubleVec temp(m_number_of_joints);
             for (size_t index = 0; index < m_number_of_joints; ++index) {
                 temp.at(index) = m_configuration.at(index).p_measured_setpoint_tolerance;
             }
-            CMN_LOG_CLASS_RUN_ERROR << message << std::endl
+            CMN_LOG_CLASS_RUN_ERROR << message.str() << std::endl
                                     << "errors:     " << m_error_state.Position() << std::endl
                                     << "tolerances: " << temp << std::endl
                                     << "measured:   " << m_measured_js.Position() << std::endl
@@ -636,7 +651,7 @@ void mtsPID::Run(void)
     // for simulated mode
     if (m_simulation_mode == prmSimulationType::KINEMATIC) { 
         m_measured_js.SetValid(true);
-        m_measured_js.Position().Assign(m_setpoint_js.Position());
+        m_measured_js.Position() = m_setpoint_js.Position();
         m_measured_js.SetTimestamp(StateTable.GetTic());
     }
 }
@@ -645,7 +660,7 @@ void mtsPID::Run(void)
 void mtsPID::Cleanup(void)
 {
     // cleanup
-    m_setpoint_js.Effort().Zeros();
+    m_setpoint_js.Effort().setZero();
     servo_jf_local(m_setpoint_js.Effort());
 }
 
@@ -681,10 +696,10 @@ void mtsPID::configure(const mtsPIDConfiguration & configuration)
 void mtsPID::reset_controller(void)
 {
     CMN_LOG_CLASS_RUN_VERBOSE << this->GetName() << " reset_controller" << std::endl;
-    m_error_state.Position().SetAll(0.0);
-    m_error_state.Velocity().SetAll(0.0);
-    m_error_state.Effort().SetAll(0.0); // disturbance
-    m_i_error.SetAll(0.0);
+    m_error_state.Position().setZero();
+    m_error_state.Velocity().setZero();
+    m_error_state.Effort().setZero(); // disturbance
+    m_i_error.setZero();
     this->enable(false);
 }
 
@@ -696,16 +711,16 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
         return;
     }
 
-    m_setpoint_js.Position().Assign(command.Goal());
+    m_setpoint_js.Position() = command.Goal();
     m_command_time = command.Timestamp(); // m_setpoint_js timestamp is set by this class so can't use it later
 
     if (m_enforce_position_limits) {
         bool limitReached = false;
-        vctDoubleVec::const_iterator upper = m_configuration_js.PositionMax().begin();
-        vctDoubleVec::const_iterator lower = m_configuration_js.PositionMin().begin();
-        vctBoolVec::iterator flags = mPositionLimitFlag.begin();
-        vctDoubleVec::iterator desired = m_setpoint_js.Position().begin();
-        const vctDoubleVec::iterator end = m_setpoint_js.Position().end();
+        Eigen::ArrayXd::const_iterator upper = m_configuration_js.PositionMax().begin();
+        Eigen::ArrayXd::const_iterator lower = m_configuration_js.PositionMin().begin();
+        Eigen::ArrayX<bool>::iterator flags = mPositionLimitFlag.begin();
+        Eigen::VectorXd::iterator desired = m_setpoint_js.Position().begin();
+        const Eigen::VectorXd::iterator end = m_setpoint_js.Position().end();
         for (; desired != end; ++desired, ++upper, ++lower, ++flags) {
             if (*desired > *upper) {
                 limitReached = true;
@@ -720,13 +735,15 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
             }
         }
         if (limitReached) {
-            if (mPositionLimitFlagPrevious.NotEqual(mPositionLimitFlag)) {
-                mPositionLimitFlagPrevious.Assign(mPositionLimitFlag);
+            if ((mPositionLimitFlagPrevious != mPositionLimitFlag).any()) {
+                mPositionLimitFlagPrevious = mPositionLimitFlag;
                 Events.position_limit(mPositionLimitFlag);
-                std::string message = this->GetName() + ": position limit, mask (1 for limit): ";
-                message.append(mPositionLimitFlag.ToString());
-                mInterface->SendWarning(message);
-                CMN_LOG_CLASS_RUN_WARNING << message
+
+                std::stringstream message;
+                message << this->GetName() << ": position limit, mask (1 for limit): "
+                        << mPositionLimitFlag;
+                mInterface->SendWarning(message.str());
+                CMN_LOG_CLASS_RUN_WARNING << message.str()
                                           << ", \n requested: " << m_setpoint_js.Position()
                                           << ", \n lower limits: " << m_configuration_js.PositionMin()
                                           << ", \n upper limits: " << m_configuration_js.PositionMax()
@@ -739,13 +756,13 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
     m_has_setpoint_v = false;
     if (command.Velocity().size() > 0) {
         if (SizeMismatch(command.Velocity().size(), "servo_jp")) {
-            m_setpoint_js.Velocity().Zeros();
+            m_setpoint_js.Velocity().setZero();
             return;
         }
         m_has_setpoint_v = true;
-        m_setpoint_js.Velocity().Assign(command.Velocity());
+        m_setpoint_js.Velocity() = command.Velocity();
     } else {
-        m_setpoint_js.Velocity().Zeros();
+        m_setpoint_js.Velocity().setZero();
     }
 }
 
@@ -755,7 +772,7 @@ void mtsPID::feed_forward_servo_jf(const prmForceTorqueJointSet & feedForward)
     if (SizeMismatch(feedForward.ForceTorque().size(), "feed_forward/servo_jf")) {
         return;
     }
-    m_feed_forward_jf.ForceTorque().Assign(feedForward.ForceTorque());
+    m_feed_forward_jf.ForceTorque() = feedForward.ForceTorque();
 }
 
 
@@ -764,7 +781,7 @@ void mtsPID::servo_jf(const prmForceTorqueJointSet & command)
     if (SizeMismatch(command.ForceTorque().size(), "servo_jf")) {
         return;
     }
-    m_requested_jf.ForceTorque().Assign(command.ForceTorque());
+    m_requested_jf.ForceTorque() = command.ForceTorque();
 }
 
 
@@ -779,19 +796,19 @@ void mtsPID::enable(const bool & enable)
     m_enabled = enable;
 
     // set effort to 0
-    m_setpoint_js.Effort().Zeros();
+    m_setpoint_js.Effort().setZero();
     servo_jf_local(m_setpoint_js.Effort());
 
     // reset error flags
     if (enable) {
-        m_previous_measured_setpoint_error.SetAll(false);
-        m_measured_setpoint_error.SetAll(false);
-        mPositionLimitFlagPrevious.SetAll(false);
-        mPositionLimitFlag.SetAll(false);
+        m_previous_measured_setpoint_error.fill(false);
+        m_measured_setpoint_error.fill(false);
+        mPositionLimitFlagPrevious.fill(false);
+        mPositionLimitFlag.fill(false);
         m_previous_command_time = 0.0;
-        m_feed_forward_jf.ForceTorque().Zeros();
+        m_feed_forward_jf.ForceTorque().setZero();
         m_has_setpoint_v = false;
-        m_setpoint_filtered_v_previous.Zeros();
+        m_setpoint_filtered_v_previous.setZero();
         // set valid flags
         m_error_state.SetValid(true);
     } else {
@@ -803,12 +820,12 @@ void mtsPID::enable(const bool & enable)
 }
 
 
-void mtsPID::enable_joints(const vctBoolVec & enable)
+void mtsPID::enable_joints(const Eigen::ArrayX<bool> & enable)
 {
     if (SizeMismatch(enable.size(), "enable_joints")) {
         return;
     }
-    m_joints_enabled.Assign(enable);
+    m_joints_enabled = enable;
     Events.enabled_joints(enable);
 }
 
@@ -819,21 +836,21 @@ void mtsPID::use_setpoint_v(const bool & use)
     std::cerr << "used: " << use << std::endl;
     Events.setpoint_v_used(m_setpoint_v_used);
     if (m_setpoint_v_used) {
-        m_setpoint_filtered_v_previous.Zeros();
+        m_setpoint_filtered_v_previous.setZero();
     }
 }
 
 
-void mtsPID::EnableEffortMode(const vctBoolVec & enable)
+void mtsPID::EnableEffortMode(const Eigen::ArrayX<bool> & enable)
 {
     if (SizeMismatch(enable.size(), "EnableEffortMode")) {
         return;
     }
     // save preference
-    m_effort_mode.Assign(enable);
+    m_effort_mode = enable;
     // reset effort to 0
-    m_setpoint_js.Effort().Zeros();
-    m_feed_forward_jf.ForceTorque().Zeros();
+    m_setpoint_js.Effort().setZero();
+    m_feed_forward_jf.ForceTorque().setZero();
 }
 
 
@@ -845,16 +862,16 @@ void mtsPID::get_IO_data(void)
     if (m_simulation_mode == prmSimulationType::KINEMATIC) {
         // check that position is not too old
         if ((StateTable.GetTic() - m_command_time) > 20.0 * cmn_ms) {
-            m_measured_js.Velocity().Zeros();
+            m_measured_js.Velocity().setZero();
         } else {
             // evaluate velocity based on positions sent by arm/client
             const double dt = m_command_time - m_previous_command_time;
             if (dt > 0) {
-                vctDoubleVec::const_iterator currentPosition = m_setpoint_js.Position().begin();
-                vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
-                vctBoolVec::const_iterator effortMode = m_effort_mode.begin();
-                vctDoubleVec::iterator velocity;
-                const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
+                Eigen::VectorXd::const_iterator currentPosition = m_setpoint_js.Position().begin();
+                Eigen::VectorXd::const_iterator previousPosition = m_measured_js_previous.Position().begin();
+                Eigen::ArrayX<bool>::const_iterator effortMode = m_effort_mode.begin();
+                Eigen::VectorXd::iterator velocity;
+                const Eigen::VectorXd::iterator end = m_measured_js.Velocity().end();
                 for (velocity = m_measured_js.Velocity().begin();
                      velocity != end;
                      ++currentPosition,
@@ -885,10 +902,10 @@ void mtsPID::get_IO_data(void)
             // avoid this case as much as possible
             const double dt = m_measured_js.Timestamp() - m_measured_js_previous.Timestamp();
             if (dt > 0) {
-                vctDoubleVec::const_iterator currentPosition = m_measured_js.Position().begin();
-                vctDoubleVec::const_iterator previousPosition = m_measured_js_previous.Position().begin();
-                vctDoubleVec::iterator velocity;
-                const vctDoubleVec::iterator end = m_measured_js.Velocity().end();
+                Eigen::VectorXd::const_iterator currentPosition = m_measured_js.Position().begin();
+                Eigen::VectorXd::const_iterator previousPosition = m_measured_js_previous.Position().begin();
+                Eigen::VectorXd::iterator velocity;
+                const Eigen::VectorXd::iterator end = m_measured_js.Velocity().end();
                 for (velocity = m_measured_js.Velocity().begin();
                      velocity != end;
                      ++currentPosition,
@@ -905,23 +922,23 @@ void mtsPID::get_IO_data(void)
     }
 }
 
-void mtsPID::servo_jf_local(const vctDoubleVec & effort)
+void mtsPID::servo_jf_local(const Eigen::VectorXd& effort)
 {
     if (m_simulation_mode != prmSimulationType::KINEMATIC) {
-        m_pid_setpoint_jf.ForceTorque().Assign(effort);
+        m_pid_setpoint_jf.ForceTorque() = effort;
         IO.servo_jf(m_pid_setpoint_jf);
     }
 }
 
-void mtsPID::set_measured_setpoint_tolerance(const vctDoubleVec & tolerances)
+void mtsPID::set_measured_setpoint_tolerance(const Eigen::VectorXd& tolerances)
 {
-    if (tolerances.size() == m_number_of_joints) {
-        for (size_t index = 0; index < m_number_of_joints; ++index) {
-            m_configuration.at(index).p_measured_setpoint_tolerance = tolerances.at(index);
-        }
-    } else {
+    if (tolerances.size() != (Eigen::Index)m_number_of_joints) {
         std::string message = this->GetName() + ": incorrect vector size for set_measured_setpoint_tolerance";
         cmnThrow(message);
+    }
+
+    for (size_t index = 0; index < m_number_of_joints; ++index) {
+        m_configuration.at(index).p_measured_setpoint_tolerance = tolerances(index);
     }
 }
 
@@ -948,17 +965,19 @@ bool mtsPID::SizeMismatch(const size_t size, const std::string & methodName)
     return false;
 }
 
-void mtsPID::CheckLowerUpper(const vctDoubleVec & lower, const vctDoubleVec & upper,
+void mtsPID::CheckLowerUpper(const Eigen::ArrayXd& lower, const Eigen::ArrayXd& upper,
                              const std::string & methodName)
 {
     // it only makes sense to check if there's at least one limit set
-    if (lower.Any() || upper.Any()) {
-        if (lower.ElementwiseGreaterOrEqual(upper).Any()) {
-            CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " " << methodName
-                                     << ": lower limit greater or equal to upper limit " << std::endl
-                                     << " - lower: " << lower << std::endl
-                                     << " - upper: " << upper << std::endl;
-            mInterface->SendWarning(this->GetName() + "::" + methodName + ": lower limit greater or equal to upper limit");
-        }
+    if ((lower == 0.0).all() && (upper == 0.0).all()) {
+        return;
+    }
+
+    if ((lower >= upper).any()) {
+        CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " " << methodName
+                                    << ": lower limit greater or equal to upper limit " << std::endl
+                                    << " - lower: " << lower << std::endl
+                                    << " - upper: " << upper << std::endl;
+        mInterface->SendWarning(this->GetName() + "::" + methodName + ": lower limit greater or equal to upper limit");
     }
 }

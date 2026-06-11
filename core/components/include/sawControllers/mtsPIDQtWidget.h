@@ -153,10 +153,10 @@ private:
     bool DirectControl;
 
     //! SetPosition
-    vctBoolVec JointsEnabled;
-    vctDoubleVec SetpointPosition;
+    Eigen::ArrayX<bool> JointsEnabled;
+    Eigen::VectorXd SetpointPosition;
     prmPositionJointSet SetpointPositionParam;
-    vctDoubleVec UnitFactor;
+    Eigen::VectorXd UnitFactor;
 
     size_t m_number_of_joints;
 
