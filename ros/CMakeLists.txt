@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2025 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2025-2026 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -56,60 +56,55 @@ set (REQUIRED_CISST_LIBRARIES
      cisstParameterTypesQt
      cisstQt)
 
-find_package (cisst 1.4.0 REQUIRED ${REQUIRED_CISST_LIBRARIES})
+find_package (cisst 1.4.0 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
-if (cisst_FOUND_AS_REQUIRED)
 
-  # load cisst configuration
-  include (${CISST_USE_FILE})
+# sawControllers has been compiled within cisst, we should find it automatically
+find_package (sawControllers 2.3.0)
 
-  # sawControllers has been compiled within cisst, we should find it automatically
-  find_package (sawControllers 2.3.0)
+if (sawControllers_FOUND)
 
-  if (sawControllers_FOUND)
+  # sawControllers configuration
+  include_directories (
+    ${saw_controllers_ros_SOURCE_DIR}/include
+    ${sawControllers_INCLUDE_DIR})
+  link_directories (${sawControllers_LIBRARY_DIR})
 
-    # sawControllers configuration
-    include_directories (
-      ${saw_controllers_ros_SOURCE_DIR}/include
-      ${sawControllers_INCLUDE_DIR})
-    link_directories (${sawControllers_LIBRARY_DIR})
+  add_library (
+    saw_controllers_ros
+    include/saw_controllers_ros/mts_ros_crtk_controllers_pid_bridge.h
+    src/mts_ros_crtk_controllers_pid_bridge.cpp)
+  target_link_libraries (
+    saw_controllers_ros
+    ${sawControllers_LIBRARIES}
+    ${catkin_LIBRARIES})
+  target_link_libraries (saw_controllers_ros ${cisst_LIBRARIES})
 
-    add_library (
-      saw_controllers_ros
-      include/saw_controllers_ros/mts_ros_crtk_controllers_pid_bridge.h
-      src/mts_ros_crtk_controllers_pid_bridge.cpp)
-    target_link_libraries (
-      saw_controllers_ros
-      ${sawControllers_LIBRARIES}
-      ${catkin_LIBRARIES})
-    cisst_target_link_libraries (saw_controllers_ros ${REQUIRED_CISST_LIBRARIES})
+  install (
+    TARGETS saw_controllers_ros
+    EXPORT saw_controllers_ros
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+    )
 
-    install (
-      TARGETS saw_controllers_ros
-      EXPORT saw_controllers_ros
-      LIBRARY DESTINATION lib
-      ARCHIVE DESTINATION lib
-      INCLUDES DESTINATION include
-      )
+  install (
+    DIRECTORY include/saw_controllers_ros
+    DESTINATION include
+    )
 
-    install (
-      DIRECTORY include/saw_controllers_ros
-      DESTINATION include
-      )
-
-    if (ROS_VERSION EQUAL 2)
-      ament_target_dependencies (
+  if (ROS_VERSION EQUAL 2)
+    ament_target_dependencies (
 	saw_controllers_ros
-        ${ROS2_depends}
-        )
+      ${ROS2_depends}
+      )
 
-      ament_export_targets (saw_controllers_ros HAS_LIBRARY_TARGET)
+    ament_export_targets (saw_controllers_ros HAS_LIBRARY_TARGET)
 
-      ament_package ()
-    endif ()
+    ament_package ()
+  endif ()
 
-  else (sawControllers_FOUND)
-    message ("Information: code in ${CMAKE_CURRENT_SOURCE_DIR} will not be compiled, it requires sawControllers")
-  endif (sawControllers_FOUND)
+else (sawControllers_FOUND)
+  message ("Information: code in ${CMAKE_CURRENT_SOURCE_DIR} will not be compiled, it requires sawControllers")
+endif (sawControllers_FOUND)
 
-endif (cisst_FOUND_AS_REQUIRED)
