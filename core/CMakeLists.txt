@@ -12,7 +12,7 @@
 cmake_minimum_required (VERSION 3.16)
 project (sawControllersCore VERSION 2.3.0)
 
-find_package (cisst REQUIRED)
+find_package (cisst REQUIRED COMPONENTS cisstCommon)
 cisst_cpack_settings (
   VENDOR "JHU"
   MAINTAINER "anton.deguet@jhu.edu")

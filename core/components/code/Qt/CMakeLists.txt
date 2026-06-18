@@ -24,7 +24,6 @@ set (REQUIRED_CISST_LIBRARIES
 # cisst
 find_package (cisst REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
-
 # for Qt generated header files
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
 if (CISST_HAS_QT4)

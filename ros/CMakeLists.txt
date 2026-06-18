@@ -58,7 +58,6 @@ set (REQUIRED_CISST_LIBRARIES
 
 find_package (cisst 1.4.0 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
-
 # sawControllers has been compiled within cisst, we should find it automatically
 find_package (sawControllers 2.3.0)
 
