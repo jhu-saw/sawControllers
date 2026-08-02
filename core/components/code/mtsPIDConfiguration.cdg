@@ -40,6 +40,13 @@ class {
         description Deadband around goal position;
     }
     member {
+        name p_deadband_outer;
+        type double;
+        default 0.0;
+        visibility public;
+        description Outer edge of the soft position deadband.  A value less than or equal to p_deadband keeps the existing hard deadband behavior;
+    }
+    member {
         name d_gain;
         type double;
         visibility public;

@@ -505,22 +505,27 @@ void mtsPID::Run(void)
             } else {
                 // PID mode
                 *p_error = *setpoint_p - *measured_p;
-                // deadband
-                bool in_deadband = false;
-                if (*p_error > 0.0) {
-                    if (*p_error < c->p_deadband) {
-                        *p_error = 0.0;
-                        in_deadband = true;
-                    } else {
-                        *p_error -= c->p_deadband;
-                    }
-                } else if (*p_error < 0.0) {
-                    if (*p_error > -c->p_deadband) {
-                        *p_error = 0.0;
-                        in_deadband = true;
-                    } else {
-                        *p_error += c->p_deadband;
-                    }
+                // deadband.  With p_deadband_outer enabled, smoothly ramp the
+                // effective error from zero at the inner edge to the regular
+                // deadband response at the outer edge.  This avoids an abrupt
+                // change in closed-loop stiffness around quantized encoder values.
+                const double error_sign = (*p_error >= 0.0) ? 1.0 : -1.0;
+                const double error_magnitude = fabs(*p_error);
+                const double outer_deadband = std::max(c->p_deadband_outer,
+                                                       c->p_deadband);
+                bool in_deadband = (error_magnitude < c->p_deadband);
+                if (in_deadband) {
+                    *p_error = 0.0;
+                } else if (outer_deadband > c->p_deadband
+                           && error_magnitude < outer_deadband) {
+                    const double x = (error_magnitude - c->p_deadband)
+                        / (outer_deadband - c->p_deadband);
+                    const double smoothstep = x * x * (3.0 - 2.0 * x);
+                    *p_error = error_sign
+                        * (error_magnitude - c->p_deadband) * smoothstep;
+                } else {
+                    *p_error = error_sign
+                        * (error_magnitude - c->p_deadband);
                 }
                 // check for tracking errors
                 if (m_measured_setpoint_check) {
