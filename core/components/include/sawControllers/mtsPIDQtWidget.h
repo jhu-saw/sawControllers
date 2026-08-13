@@ -20,7 +20,6 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _mtsPIDQtWidget_h
 #define _mtsPIDQtWidget_h
 
-#include <cisstCommon/cmnXMLPath.h>
 #include <cisstCommon/cmnUnits.h>
 #include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
