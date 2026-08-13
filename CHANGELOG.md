@@ -1,6 +1,23 @@
 Change log
 ==========
 
+2.4.0 (TBD)
+===========
+
+All changes are for mtsPID.
+
+* API changes:
+  * Simulation mode now uses `prmSimulationType`
+* Deprecated features:
+  * CMake: removed use of the legacy cisst CMake macros; use cisst's target-based dependency propagation instead
+  * Removed Qt4 CMake support
+* New features:
+  * Added a soft deadband to reduce MTM oscillations
+  * Added the `UI` component tag for component-viewer filtering
+  * Reworked simulation mode
+* Bug fixes:
+  * Fixed a memory-allocation issue that could crash simulated mode
+
 2.3.0 (2026-01-07)
 ==================
 
