@@ -10,7 +10,7 @@
 # --- end cisst license ---
 
 cmake_minimum_required (VERSION 3.16)
-project (saw_controllers_ros VERSION 2.3.0)
+project (saw_controllers_ros VERSION 2.4.0)
 
 # first test for ROS1
 set (ROS1_depends cisst_ros_crtk roscpp roslib)
@@ -106,4 +106,3 @@ if (sawControllers_FOUND)
 else (sawControllers_FOUND)
   message ("Information: code in ${CMAKE_CURRENT_SOURCE_DIR} will not be compiled, it requires sawControllers")
 endif (sawControllers_FOUND)
-

@@ -1,6 +1,19 @@
 Change log
 ==========
 
+2.4.0 (TBD)
+===========
+
+* API changes:
+  * PID simulation now uses `cisstParameterTypes::prmSimulationType`.
+* New features:
+  * Added a configurable PID soft deadband.
+  * Added the `UI` component tag.
+* Bug fixes:
+  * Fixed a simulation-mode memory allocation issue that could cause a crash.
+* Build:
+  * Updated CMake support for current cisst; removed Qt4 and cisstCommonXML dependencies.
+
 2.3.0 (2026-01-07)
 ==================
 
