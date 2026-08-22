@@ -4,15 +4,19 @@ Change log
 2.4.0 (TBD)
 ===========
 
+All changes are for mtsPID.
+
 * API changes:
-  * PID simulation now uses `cisstParameterTypes::prmSimulationType`.
+  * Simulation mode now uses `prmSimulationType`
+* Deprecated features:
+  * CMake: removed use of the legacy cisst CMake macros; use cisst's target-based dependency propagation instead
+  * Removed Qt4 CMake support
 * New features:
-  * Added a configurable PID soft deadband.
-  * Added the `UI` component tag.
+  * Added a soft deadband to reduce MTM oscillations
+  * Added the `UI` component tag for component-viewer filtering
+  * Reworked simulation mode
 * Bug fixes:
-  * Fixed a simulation-mode memory allocation issue that could cause a crash.
-* Build:
-  * Updated CMake support for current cisst; removed Qt4 and cisstCommonXML dependencies.
+  * Fixed a memory-allocation issue that could crash simulated mode
 
 2.3.0 (2026-01-07)
 ==================
