@@ -93,10 +93,9 @@ if (sawControllers_FOUND)
     )
 
   if (ROS_VERSION EQUAL 2)
-    ament_target_dependencies (
-	saw_controllers_ros
-      ${ROS2_depends}
-      )
+    foreach (_dep ${ROS2_depends})
+      target_link_libraries (saw_controllers_ros ${${_dep}_TARGETS})
+    endforeach ()
 
     ament_export_targets (saw_controllers_ros HAS_LIBRARY_TARGET)
 
