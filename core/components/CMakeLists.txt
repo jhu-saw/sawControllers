@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2025 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2026 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -10,7 +10,7 @@
 # --- end cisst license ---
 
 cmake_minimum_required (VERSION 3.16)
-project (sawControllers VERSION 2.3.0)
+project (sawControllers VERSION 2.4.0)
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
@@ -21,74 +21,69 @@ set (REQUIRED_CISST_LIBRARIES
      cisstRobot
      cisstNumerical)
 
-find_package (cisst 1.4.0 REQUIRED ${REQUIRED_CISST_LIBRARIES})
+find_package (cisst 1.5 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
-if (cisst_FOUND)
+# catkin/ROS paths
+cisst_set_output_path ()
 
-  # load cisst configuration
-  include (${CISST_USE_FILE})
+# create/configure file for find_package (sawControllers)
+set (sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include"
+                                "${sawControllers_BINARY_DIR}/include")
+set (sawControllers_HEADER_DIR "${sawControllers_SOURCE_DIR}/include/sawControllers")
+set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
+set (sawControllers_LIBRARIES sawControllers)
 
-  # catkin/ROS paths
-  cisst_set_output_path ()
+include_directories (BEFORE ${sawControllers_INCLUDE_DIR})
 
-  # create/configure file for find_package (sawControllers)
-  set (sawControllers_INCLUDE_DIR "${sawControllers_SOURCE_DIR}/include"
-                                  "${sawControllers_BINARY_DIR}/include")
-  set (sawControllers_HEADER_DIR "${sawControllers_SOURCE_DIR}/include/sawControllers")
-  set (sawControllers_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
-  set (sawControllers_LIBRARIES sawControllers)
+if (CISST_HAS_QT)
+  add_subdirectory (code/Qt)
+  set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} sawControllersQt)
+endif ()
 
-  include_directories (BEFORE ${sawControllers_INCLUDE_DIR})
+cisst_add_config_files (sawControllers)
 
-  if (CISST_HAS_QT)
-    add_subdirectory (code/Qt)
-    set (sawControllers_LIBRARIES ${sawControllers_LIBRARIES} sawControllersQt)
-  endif ()
+# create data type using the data generator
+cisst_data_generator (sawControllers
+                      "${sawControllers_BINARY_DIR}/include" # where to save the file
+                      "sawControllers/"    # sub directory for include
+                      code/mtsPIDConfiguration.cdg)
+set (HEADER_FILES
+     ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
+     ${sawControllers_HEADER_DIR}/osaCartesianImpedanceController.h
 
-  cisst_add_config_files (sawControllers)
+     ${sawControllers_HEADER_DIR}/mtsController.h
+     ${sawControllers_HEADER_DIR}/mtsPID.h)
 
-  # create data type using the data generator
-  cisst_data_generator (sawControllers
-                        "${sawControllers_BINARY_DIR}/include" # where to save the file
-                        "sawControllers/"    # sub directory for include
-                        code/mtsPIDConfiguration.cdg)
-  set (HEADER_FILES
-       ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
-       ${sawControllers_HEADER_DIR}/osaCartesianImpedanceController.h
+set (SOURCE_FILES
+     code/osaPIDAntiWindup.cpp
+     code/osaCartesianImpedanceController.cpp
 
-       ${sawControllers_HEADER_DIR}/mtsController.h
-       ${sawControllers_HEADER_DIR}/mtsPID.h)
+     code/mtsController.cpp
+     code/mtsPID.cpp)
 
-  set (SOURCE_FILES
-       code/osaPIDAntiWindup.cpp
-       code/osaCartesianImpedanceController.cpp
+add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES}
+             ${sawControllers_CISST_DG_SRCS}
+             ${sawControllers_CISST_DG_HDRS})
 
-       code/mtsController.cpp
-       code/mtsPID.cpp)
+set_target_properties (sawControllers PROPERTIES
+                       VERSION ${sawControllers_VERSION}
+                       FOLDER "sawControllers")
 
-  add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES}
-               ${sawControllers_CISST_DG_SRCS}
-               ${sawControllers_CISST_DG_HDRS})
+target_compile_features (sawControllers PRIVATE cxx_std_17)
 
-  set_target_properties (sawControllers PROPERTIES
-                         VERSION ${sawControllers_VERSION}
-                         FOLDER "sawControllers")
+target_link_libraries (sawControllers PUBLIC
+  ${cisst_LIBRARIES}
+)
 
-  target_compile_features (sawControllers PRIVATE cxx_std_17)
+# Install targets for headers and library
+install (DIRECTORY
+         ${sawControllers_SOURCE_DIR}/include/sawControllers
+         ${sawControllers_BINARY_DIR}/include/sawControllers
+         DESTINATION include
+         COMPONENT sawControllers-dev
+         PATTERN .svn EXCLUDE)
 
-  cisst_target_link_libraries (sawControllers ${REQUIRED_CISST_LIBRARIES})
-
-  # Install targets for headers and library
-  install (DIRECTORY
-           ${sawControllers_SOURCE_DIR}/include/sawControllers
-           ${sawControllers_BINARY_DIR}/include/sawControllers
-           DESTINATION include
-           COMPONENT sawControllers-dev
-           PATTERN .svn EXCLUDE)
-
-  install (TARGETS sawControllers COMPONENT sawControllers
-           RUNTIME DESTINATION bin
-           LIBRARY DESTINATION lib
-           ARCHIVE DESTINATION lib)
-
-endif( cisst_FOUND )
+install (TARGETS sawControllers COMPONENT sawControllers
+         RUNTIME DESTINATION bin
+         LIBRARY DESTINATION lib
+         ARCHIVE DESTINATION lib)

@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2011-2024 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2026 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -10,7 +10,7 @@
 # --- end cisst license ---
 
 cmake_minimum_required (VERSION 3.16)
-project (sawControllersExamples VERSION 2.2.0)
+project (sawControllersExamples VERSION 2.4.0)
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
@@ -21,49 +21,48 @@ set (REQUIRED_CISST_LIBRARIES
      cisstRobot
      cisstNumerical)
 
-find_package (cisst REQUIRED ${REQUIRED_CISST_LIBRARIES})
+find_package (cisst 1.5 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
-if (cisst_FOUND_AS_REQUIRED)
+find_package (sawControllers REQUIRED)
+find_package (sawKeyboard REQUIRED)
 
-  # load cisst configuration
-  include (${CISST_USE_FILE})
+if (sawControllers_FOUND AND sawKeyboard_FOUND)
 
-  find_package (sawControllers REQUIRED)
-  find_package (sawKeyboard REQUIRED)
+  include_directories (${sawControllers_INCLUDE_DIR}
+                       ${sawKeyboard_INCLUDE_DIR})
 
-  if (sawControllers_FOUND AND sawKeyboard_FOUND)
+  link_directories (${sawControllers_LIBRARY_DIR}
+                    ${sawKeyboard_LIBRARY_DIR})
 
-    include_directories (${sawControllers_INCLUDE_DIR}
-                         ${sawKeyboard_INCLUDE_DIR})
+  set (sawControllers_EXAMPLES
+       osaGCExample
+       osaPDGCExample
+       mtsGCExample)
 
-    link_directories (${sawControllers_LIBRARY_DIR}
-                      ${sawKeyboard_LIBRARY_DIR})
+  foreach (_example ${sawControllers_EXAMPLES})
+    add_executable (${_example} ${_example}.cpp)
+    target_link_libraries (${_example} PRIVATE
+      ${sawControllers_LIBRARIES}
+      ${cisst_LIBRARIES}
+    )
+    set_target_properties (${_example} PROPERTIES
+                           FOLDER "sawControllers")
+  endforeach ()
 
-    set (sawControllers_EXAMPLES)
+  # examples that also need sawKeyboard
+  target_link_libraries (mtsGCExample PRIVATE ${sawKeyboard_LIBRARIES})
 
-    foreach (_example ${sawControllers_EXAMPLES})
-      add_executable (${_example} ${_example}.cpp)
-      target_link_libraries (${_example} ${sawControllers_LIBRARIES})
-      cisst_target_link_libraries (${_example} ${REQUIRED_CISST_LIBRARIES})
-      set_target_properties (${_example} PROPERTIES
-                             FOLDER "sawControllers")
-    endforeach ()
+  install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
+           RUNTIME DESTINATION bin
+           LIBRARY DESTINATION lib
+           ARCHIVE DESTINATION lib)
 
-    # examples that also need sawKeyboard
+  # copy configuration XML to the executable directory
+  # add_custom_target (sawControllers_configPID ALL
+  #     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+  #             ${CMAKE_CURRENT_SOURCE_DIR}/configPID.xml
+  #             ${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/configPID.xml
+  #     SOURCES configPID.xml
+  #     COMMENT "Copying configPID.xml to the binary directory")
 
-    install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
-             RUNTIME DESTINATION bin
-             LIBRARY DESTINATION lib
-             ARCHIVE DESTINATION lib)
-
-    # copy configuration XML to the executable directory
-    # add_custom_target (sawControllers_configPID ALL
-    #     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    #             ${CMAKE_CURRENT_SOURCE_DIR}/configPID.xml
-    #             ${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/configPID.xml
-    #     SOURCES configPID.xml
-    #     COMMENT "Copying configPID.xml to the binary directory")
-
-  endif (sawControllers_FOUND AND sawKeyboard_FOUND)
-
-endif (cisst_FOUND_AS_REQUIRED)
+endif (sawControllers_FOUND AND sawKeyboard_FOUND)
