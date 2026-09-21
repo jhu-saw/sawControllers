@@ -34,10 +34,7 @@ if (sawControllers_FOUND AND sawKeyboard_FOUND)
   link_directories (${sawControllers_LIBRARY_DIR}
                     ${sawKeyboard_LIBRARY_DIR})
 
-  set (sawControllers_EXAMPLES
-       osaGCExample
-       osaPDGCExample
-       mtsGCExample)
+  set (sawControllers_EXAMPLES)
 
   foreach (_example ${sawControllers_EXAMPLES})
     add_executable (${_example} ${_example}.cpp)
@@ -48,9 +45,6 @@ if (sawControllers_FOUND AND sawKeyboard_FOUND)
     set_target_properties (${_example} PROPERTIES
                            FOLDER "sawControllers")
   endforeach ()
-
-  # examples that also need sawKeyboard
-  target_link_libraries (mtsGCExample PRIVATE ${sawKeyboard_LIBRARIES})
 
   install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
            RUNTIME DESTINATION bin

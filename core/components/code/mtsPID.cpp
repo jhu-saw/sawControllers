@@ -364,8 +364,8 @@ void mtsPID::Startup(void)
                 || (io_configuration_js.PositionMax().size() != (Eigen::Index)m_configuration_js.Name().size())) {
                 std::string message = this->GetName() + " Startup: min and max position vectors from IO don't have the correct size for " + this->GetName();
                 CMN_LOG_CLASS_INIT_ERROR << message << std::endl
-                                         << "IO configuration position min: " << io_configuration_js.PositionMin() << std::endl
-                                         << "IO configuration position max: " << io_configuration_js.PositionMax() << std::endl;
+                                         << "IO configuration position min: " << io_configuration_js.PositionMin().transpose() << std::endl
+                                         << "IO configuration position max: " << io_configuration_js.PositionMax().transpose() << std::endl;
                 cmnThrow("PID::" + message);
             } else {
                 m_configuration_js.PositionMin() = io_configuration_js.PositionMin();
@@ -380,8 +380,8 @@ void mtsPID::Startup(void)
                 || (io_configuration_js.EffortMax().size() != (Eigen::Index)m_configuration_js.Name().size())) {
                 std::string message = this->GetName() + " Startup: min and max effort vectors from IO don't have the correct size for " + this->GetName();
                 CMN_LOG_CLASS_INIT_ERROR << message << std::endl
-                                         << "IO configuration effort min: " << io_configuration_js.EffortMin() << std::endl
-                                         << "IO configuration effort max: " << io_configuration_js.EffortMax() << std::endl;
+                                         << "IO configuration effort min: " << io_configuration_js.EffortMin().transpose() << std::endl
+                                         << "IO configuration effort max: " << io_configuration_js.EffortMax().transpose() << std::endl;
                 cmnThrow("PID::" + message);
             } else {
                 m_configuration_js.EffortMin() = io_configuration_js.EffortMin();
@@ -634,17 +634,17 @@ void mtsPID::Run(void)
         if (newTrackingError) {
             std::stringstream message;
             message << this->GetName() << ": tracking error, mask (1 for error): "
-                    << m_measured_setpoint_error;
+                    << m_measured_setpoint_error.transpose();
             mInterface->SendError(message.str());
-            vctDoubleVec temp(m_number_of_joints);
+            Eigen::VectorXd temp(m_number_of_joints);
             for (size_t index = 0; index < m_number_of_joints; ++index) {
-                temp.at(index) = m_configuration.at(index).p_measured_setpoint_tolerance;
+                temp(index) = m_configuration.at(index).p_measured_setpoint_tolerance;
             }
             CMN_LOG_CLASS_RUN_ERROR << message.str() << std::endl
-                                    << "errors:     " << m_error_state.Position() << std::endl
-                                    << "tolerances: " << temp << std::endl
-                                    << "measured:   " << m_measured_js.Position() << std::endl
-                                    << "setpoint:   " << m_setpoint_js.Position() << std::endl;
+                                    << "errors:     " << m_error_state.Position().transpose() << std::endl
+                                    << "tolerances: " << temp.transpose() << std::endl
+                                    << "measured:   " << m_measured_js.Position().transpose() << std::endl
+                                    << "setpoint:   " << m_setpoint_js.Position().transpose() << std::endl;
         }
     }
 
@@ -749,9 +749,9 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
                         << mPositionLimitFlag;
                 mInterface->SendWarning(message.str());
                 CMN_LOG_CLASS_RUN_WARNING << message.str()
-                                          << ", \n requested: " << m_setpoint_js.Position()
-                                          << ", \n lower limits: " << m_configuration_js.PositionMin()
-                                          << ", \n upper limits: " << m_configuration_js.PositionMax()
+                                          << ", \n requested: " << m_setpoint_js.Position().transpose()
+                                          << ", \n lower limits: " << m_configuration_js.PositionMin().transpose()
+                                          << ", \n upper limits: " << m_configuration_js.PositionMax().transpose()
                                           << std::endl;
             }
         }
@@ -981,8 +981,8 @@ void mtsPID::CheckLowerUpper(const Eigen::ArrayXd& lower, const Eigen::ArrayXd& 
     if ((lower >= upper).any()) {
         CMN_LOG_CLASS_INIT_ERROR << this->GetName() << " " << methodName
                                     << ": lower limit greater or equal to upper limit " << std::endl
-                                    << " - lower: " << lower << std::endl
-                                    << " - upper: " << upper << std::endl;
+                                    << " - lower: " << lower.transpose() << std::endl
+                                    << " - upper: " << upper.transpose() << std::endl;
         mInterface->SendWarning(this->GetName() + "::" + methodName + ": lower limit greater or equal to upper limit");
     }
 }

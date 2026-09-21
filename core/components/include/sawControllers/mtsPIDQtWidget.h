@@ -73,14 +73,14 @@ public:
     mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg);
     ~mtsPIDQtWidget(){}
 
-    void Configure(const std::string & filename = "");
-    void Startup(void);
-    void Cleanup(void);
+    void Configure(const std::string & filename = "") override;
+    void Startup(void) override;
+    void Cleanup(void) override;
 
 protected:
     void Init(void);
     void GetConfiguration(void);
-    virtual void closeEvent(QCloseEvent * event);
+    virtual void closeEvent(QCloseEvent * event) override;
 
 signals:
     void SignalEnable(bool enable);
@@ -109,7 +109,7 @@ private slots:
     void SlotSetpointVUsedEventHandler(bool use);
 
     //! timer event to update GUI
-    void timerEvent(QTimerEvent * event);
+    void timerEvent(QTimerEvent * event) override;
 
 private:
     //! setup PID controller GUI

@@ -48,14 +48,12 @@ cisst_data_generator (sawControllers
                       "sawControllers/"    # sub directory for include
                       code/mtsPIDConfiguration.cdg)
 set (HEADER_FILES
-     ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
      ${sawControllers_HEADER_DIR}/osaCartesianImpedanceController.h
 
      ${sawControllers_HEADER_DIR}/mtsController.h
      ${sawControllers_HEADER_DIR}/mtsPID.h)
 
 set (SOURCE_FILES
-     code/osaPIDAntiWindup.cpp
      code/osaCartesianImpedanceController.cpp
 
      code/mtsController.cpp
