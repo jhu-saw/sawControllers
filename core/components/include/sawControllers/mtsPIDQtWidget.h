@@ -21,12 +21,12 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnUnits.h>
-#include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
-#include <cisstVector/vctQtWidgetDynamicVector.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <cisstVectorQt/vctPlot2DOpenGLQtWidget.h>
+#include <cisstVectorQt/vctQtWidgetDynamicVector.h>
 
 #include <QCheckBox>
 #include <QLabel>

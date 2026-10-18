@@ -272,9 +272,9 @@ void mtsPID::Configure(const std::string & filename)
     m_measured_js_previous.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
     m_measured_js_previous.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
 
-    mPositionLimitFlag = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    mPositionLimitFlag = Eigen::ArrayX<bool>::Constant(m_number_of_joints, false);
     mPositionLimitFlagPrevious = mPositionLimitFlag;
-    m_joints_enabled = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    m_joints_enabled = Eigen::ArrayX<bool>::Constant(m_number_of_joints, false);
 
     // errors
     m_error_state.Name().resize(m_number_of_joints);
@@ -292,11 +292,11 @@ void mtsPID::Configure(const std::string & filename)
     m_setpoint_filtered_v_previous = Eigen::VectorXd::Zero(m_number_of_joints);
 
     // effort mode
-    m_effort_mode = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    m_effort_mode = Eigen::ArrayX<bool>::Constant(m_number_of_joints, false);
 
     // tracking error
     m_measured_setpoint_check = false;
-    m_measured_setpoint_error = Eigen::ArrayX<bool>(m_number_of_joints, false);
+    m_measured_setpoint_error = Eigen::ArrayX<bool>::Constant(m_number_of_joints, false);
     m_previous_measured_setpoint_error = m_measured_setpoint_error;
 
     // copy data from configuration, name and type
@@ -456,25 +456,25 @@ void mtsPID::Run(void)
         setpoint_v = m_setpoint_js.Velocity().begin();
     }
 
-    CMN_ASSERT(m_joints_enabled.size() == m_number_of_joints);
-    CMN_ASSERT(m_measured_js.Position().size() == m_number_of_joints);
-    CMN_ASSERT(m_measured_js.Velocity().size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_js.Position().size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_js.Effort().size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_filtered_v.size() == m_number_of_joints);
-    CMN_ASSERT(m_setpoint_filtered_v_previous.size() == m_number_of_joints);
-    CMN_ASSERT(m_effort_mode.size() == m_number_of_joints);
-    CMN_ASSERT(m_requested_jf.ForceTorque().size() == m_number_of_joints);
+    CMN_ASSERT(m_joints_enabled.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_measured_js.Position().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_measured_js.Velocity().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_setpoint_js.Position().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_setpoint_js.Effort().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_setpoint_filtered_v.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_setpoint_filtered_v_previous.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_effort_mode.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_requested_jf.ForceTorque().size() == (Eigen::Index)m_number_of_joints);
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
-    CMN_ASSERT(mPositionLimitFlag.size() == m_number_of_joints);
-    CMN_ASSERT(m_measured_setpoint_error.size() == m_number_of_joints);
-    CMN_ASSERT(m_previous_measured_setpoint_error.size() == m_number_of_joints);
-    CMN_ASSERT(m_i_error.size() == m_number_of_joints);
-    CMN_ASSERT(m_error_state.Effort().size() == m_number_of_joints);
-    CMN_ASSERT(m_disturbance_state.size() == m_number_of_joints);
+    CMN_ASSERT(mPositionLimitFlag.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_measured_setpoint_error.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_previous_measured_setpoint_error.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_i_error.size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_error_state.Effort().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_disturbance_state.size() == (Eigen::Index)m_number_of_joints);
     CMN_ASSERT(m_configuration.size() == m_number_of_joints);
-    CMN_ASSERT(m_configuration_js.EffortMin().size() == m_number_of_joints);
-    CMN_ASSERT(m_configuration_js.EffortMax().size() == m_number_of_joints);
+    CMN_ASSERT(m_configuration_js.EffortMin().size() == (Eigen::Index)m_number_of_joints);
+    CMN_ASSERT(m_configuration_js.EffortMax().size() == (Eigen::Index)m_number_of_joints);
 
     // loop on all joints using iterators
     for (size_t i = 0;
