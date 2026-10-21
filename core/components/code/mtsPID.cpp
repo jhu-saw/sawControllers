@@ -746,7 +746,7 @@ void mtsPID::servo_jp(const prmPositionJointSet & command)
 
                 std::stringstream message;
                 message << this->GetName() << ": position limit, mask (1 for limit): "
-                        << mPositionLimitFlag;
+                        << mPositionLimitFlag.transpose();
                 mInterface->SendWarning(message.str());
                 CMN_LOG_CLASS_RUN_WARNING << message.str()
                                           << ", \n requested: " << m_setpoint_js.Position().transpose()
