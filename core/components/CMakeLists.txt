@@ -14,12 +14,11 @@ project (sawControllers VERSION 2.4.0)
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
-     cisstVector
      cisstOSAbstraction
      cisstMultiTask
      cisstParameterTypes
      cisstRobot
-     cisstNumerical)
+)
 
 find_package (cisst 1.5 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
@@ -48,25 +47,15 @@ cisst_data_generator (sawControllers
                       "sawControllers/"    # sub directory for include
                       code/mtsPIDConfiguration.cdg)
 set (HEADER_FILES
-     ${sawControllers_HEADER_DIR}/osaGravityCompensation.h
-     ${sawControllers_HEADER_DIR}/osaPDGC.h
-     ${sawControllers_HEADER_DIR}/osaPIDAntiWindup.h
      ${sawControllers_HEADER_DIR}/osaCartesianImpedanceController.h
 
      ${sawControllers_HEADER_DIR}/mtsController.h
-     ${sawControllers_HEADER_DIR}/mtsGravityCompensation.h
-     ${sawControllers_HEADER_DIR}/mtsPDGC.h
      ${sawControllers_HEADER_DIR}/mtsPID.h)
 
 set (SOURCE_FILES
-     code/osaGravityCompensation.cpp
-     code/osaPDGC.cpp
-     code/osaPIDAntiWindup.cpp
      code/osaCartesianImpedanceController.cpp
 
      code/mtsController.cpp
-     code/mtsGravityCompensation.cpp
-     code/mtsPDGC.cpp
      code/mtsPID.cpp)
 
 add_library (sawControllers ${HEADER_FILES} ${SOURCE_FILES}

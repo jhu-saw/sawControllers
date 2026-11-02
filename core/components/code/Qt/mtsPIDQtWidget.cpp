@@ -63,20 +63,19 @@ mtsPIDQtWidget::mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt & arg):
 void mtsPIDQtWidget::Init(void)
 {
     this->AddTag("UI");
-    PID.m_measured_js.Position().SetSize(m_number_of_joints);
-    PID.m_measured_js.Velocity().SetSize(m_number_of_joints);
-    PID.m_measured_js.Effort().SetSize(m_number_of_joints);
-    PID.m_setpoint_js.Position().SetSize(m_number_of_joints);
-    PID.m_setpoint_js.Velocity().SetSize(0);
-    PID.m_setpoint_js.Effort().SetSize(m_number_of_joints);
-    PID.m_error_state.Position().SetSize(m_number_of_joints);
-    PID.m_error_state.Velocity().SetSize(m_number_of_joints);
-    PID.m_error_state.Effort().SetSize(m_number_of_joints);
 
-    SetpointPosition.SetSize(m_number_of_joints);
-    SetpointPosition.SetAll(0.0);
-    UnitFactor.SetSize(m_number_of_joints);
-    UnitFactor.SetAll(1.0);
+    PID.m_measured_js.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_measured_js.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_measured_js.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_setpoint_js.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_setpoint_js.Velocity() = Eigen::VectorXd::Zero(0);
+    PID.m_setpoint_js.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_error_state.Position() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_error_state.Velocity() = Eigen::VectorXd::Zero(m_number_of_joints);
+    PID.m_error_state.Effort() = Eigen::VectorXd::Zero(m_number_of_joints);
+
+    SetpointPosition = Eigen::VectorXd::Zero(m_number_of_joints);
+    UnitFactor = Eigen::VectorXd::Zero(m_number_of_joints);
 
     DirectControl = false;
     PlotIndex = 0;
@@ -122,19 +121,18 @@ void mtsPIDQtWidget::GetConfiguration(void)
     }
 
     // convert to vectors
-    vctDoubleVec pg, ig, dg, db, co;
-    pg.SetSize(m_number_of_joints);
-    ig.SetSize(m_number_of_joints);
-    dg.SetSize(m_number_of_joints);
-    db.SetSize(m_number_of_joints);
-    co.SetSize(m_number_of_joints);
+    Eigen::VectorXd pg(m_number_of_joints);
+    Eigen::VectorXd ig(m_number_of_joints);
+    Eigen::VectorXd dg(m_number_of_joints);
+    Eigen::VectorXd db(m_number_of_joints);
+    Eigen::VectorXd co(m_number_of_joints);
     size_t index = 0;
     for (const auto & v : PID.m_configuration) {
-        pg.at(index) = v.p_gain;
-        ig.at(index) = v.i_gain;
-        dg.at(index) = v.d_gain;
-        db.at(index) = v.p_deadband;
-        co.at(index) = v.v_low_pass_cutoff;
+        pg(index) = v.p_gain;
+        ig(index) = v.i_gain;
+        dg(index) = v.d_gain;
+        db(index) = v.p_deadband;
+        co(index) = v.v_low_pass_cutoff;
         ++index;
     }
     // update widgets
@@ -161,7 +159,7 @@ void mtsPIDQtWidget::Startup(void)
     if (!result) {
         CMN_LOG_CLASS_INIT_ERROR << "Startup: Robot interface isn't connected properly, unable to get joint type.  Function call returned: "
                                  << result << std::endl;
-        UnitFactor.SetAll(0.0);
+        UnitFactor.setZero();
     } else {
         // set unitFactor;
         cmnJointTypeToFactor(PID.m_configuration_js.Type(), 1.0 / cmn_mm, cmn180_PI, UnitFactor);
@@ -208,7 +206,7 @@ void mtsPIDQtWidget::SlotEnable(bool toggle)
 
 void mtsPIDQtWidget::SlotEnabledJointsChanged(void)
 {
-    vctBoolVec enable(m_number_of_joints, false);
+    Eigen::ArrayX<bool> enable(m_number_of_joints, false);
     QVWJointsEnabled->GetValue(enable);
     PID.enable_joints(enable);
 }
@@ -228,10 +226,10 @@ void mtsPIDQtWidget::SlotEnforcePositionLimits(bool toggle)
 
 void mtsPIDQtWidget::SlotPositionChanged(void)
 {
-    SetpointPosition.SetAll(0.0);
+    SetpointPosition.setZero();
     QVWSetpointPosition->GetValue(SetpointPosition);
     SetpointPositionParam.SetGoal(SetpointPosition);
-    SetpointPositionParam.Goal().ElementwiseDivide(UnitFactor);
+    SetpointPositionParam.Goal() = SetpointPositionParam.Goal().cwiseQuotient(UnitFactor);
     PID.servo_jp(SetpointPositionParam);
 }
 
@@ -241,24 +239,24 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
     // make sure we have the latest configuration
     PID.configuration(PID.m_configuration);
     // get values from GUI
-    vctDoubleVec pg(m_number_of_joints);
+    Eigen::VectorXd pg(m_number_of_joints);
     QVWPGain->GetValue(pg);
-    vctDoubleVec dg(m_number_of_joints);
+    Eigen::VectorXd dg(m_number_of_joints);
     QVWDGain->GetValue(dg);
-    vctDoubleVec ig(m_number_of_joints);
+    Eigen::VectorXd ig(m_number_of_joints);
     QVWIGain->GetValue(ig);
-    vctDoubleVec db(m_number_of_joints);
+    Eigen::VectorXd db(m_number_of_joints);
     QVWDeadband->GetValue(db);
-    vctDoubleVec co(m_number_of_joints);
+    Eigen::VectorXd co(m_number_of_joints);
     QVWCutoff->GetValue(co);
     // copy to configuration
     size_t index = 0;
     for (auto & v : PID.m_configuration) {
-        v.p_gain = pg.at(index);
-        v.i_gain = ig.at(index);
-        v.d_gain = dg.at(index);
-        v.p_deadband = db.at(index);
-        v.v_low_pass_cutoff = co.at(index);
+        v.p_gain = pg(index);
+        v.i_gain = ig(index);
+        v.d_gain = dg(index);
+        v.p_deadband = db(index);
+        v.v_low_pass_cutoff = co(index);
         ++index;
     }
     // set
@@ -269,8 +267,7 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset setpoint position
-    vctDoubleVec goal(PID.m_measured_js.Position());
-    QVWSetpointPosition->SetValue(goal);
+    QVWSetpointPosition->SetValue(PID.m_measured_js.Position());
     SlotPositionChanged();
 }
 
@@ -372,13 +369,13 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     // get data from the PID
     PID.joints_enabled(JointsEnabled);
     PID.measured_js(PID.m_measured_js);
-    PID.m_measured_js.Position().ElementwiseMultiply(UnitFactor);
-    PID.m_measured_js.Velocity().ElementwiseMultiply(UnitFactor);
+    PID.m_measured_js.Position() = PID.m_measured_js.Position().cwiseProduct(UnitFactor);
+    PID.m_measured_js.Velocity() = PID.m_measured_js.Velocity().cwiseProduct(UnitFactor);
     PID.setpoint_js(PID.m_setpoint_js);
-    PID.m_setpoint_js.Position().ElementwiseMultiply(UnitFactor);
+    PID.m_setpoint_js.Position() = PID.m_setpoint_js.Position().cwiseProduct(UnitFactor);
     bool has_setpoint_v = (PID.m_setpoint_js.Position().size() == PID.m_setpoint_js.Velocity().size());
     if (has_setpoint_v) {
-        PID.m_setpoint_js.Velocity().ElementwiseMultiply(UnitFactor);
+        PID.m_setpoint_js.Velocity() = PID.m_setpoint_js.Velocity().cwiseProduct(UnitFactor);
     }
     PID.error_state_measured_js(PID.m_error_state);
     bool measuredSetpointCheckEnabled;
@@ -387,26 +384,26 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.position_limits_enforced(positionLimitsEnforced);
 
     // add data to plots (without displaying it)
-    signal_measured_p->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-        PID.m_measured_js.Position().Element(PlotIndex)));
-    signal_setpoint_p->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-        PID.m_setpoint_js.Position().Element(PlotIndex)));
-    signal_measured_v->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-        PID.m_measured_js.Velocity().Element(PlotIndex)));
+    signal_measured_p->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+        PID.m_measured_js.Position()(PlotIndex)));
+    signal_setpoint_p->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+        PID.m_setpoint_js.Position()(PlotIndex)));
+    signal_measured_v->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+        PID.m_measured_js.Velocity()(PlotIndex)));
     if (has_setpoint_v) {
-    signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-            PID.m_setpoint_js.Velocity().Element(PlotIndex)));
+    signal_setpoint_v->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+            PID.m_setpoint_js.Velocity()(PlotIndex)));
     } else {
-    signal_setpoint_v->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
+    signal_setpoint_v->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
             0.0));
     }
     // negate effort to plot the same direction
-    signal_measured_f->AppendPoint(vctDouble2(PID.m_measured_js.Timestamp(),
-        -PID.m_measured_js.Effort().Element(PlotIndex)));
-    signal_setpoint_f->AppendPoint(vctDouble2(PID.m_setpoint_js.Timestamp(),
-        -PID.m_setpoint_js.Effort().Element(PlotIndex)));
-    signal_disturbance->AppendPoint(vctDouble2(PID.m_error_state.Timestamp(),
-        -PID.m_error_state.Position().Element(PlotIndex)));
+    signal_measured_f->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+        -PID.m_measured_js.Effort()(PlotIndex)));
+    signal_setpoint_f->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+        -PID.m_setpoint_js.Effort()(PlotIndex)));
+    signal_disturbance->AppendPoint(Eigen::Vector2d(PID.m_error_state.Timestamp(),
+        -PID.m_error_state.Position()(PlotIndex)));
 
     // make sure we should update the display
     if (this->isHidden()) {
@@ -606,23 +603,23 @@ void mtsPIDQtWidget::setupUi(void)
 
     vctPlot2DBase::Scale * scalePosition = QVPlot->AddScale("positions");
     signal_measured_p = scalePosition->AddSignal("measured");
-    signal_measured_p->SetColor(vctDouble3(1.0, 0.0, 0.0));
+    signal_measured_p->SetColor(Eigen::Vector3d(1.0, 0.0, 0.0));
     signal_setpoint_p = scalePosition->AddSignal("setpoint");
-    signal_setpoint_p->SetColor(vctDouble3(0.0, 1.0, 0.0));
+    signal_setpoint_p->SetColor(Eigen::Vector3d(0.0, 1.0, 0.0));
 
     vctPlot2DBase::Scale * scaleVelocity = QVPlot->AddScale("velocities");
     signal_measured_v = scaleVelocity->AddSignal("measured");
-    signal_measured_v->SetColor(vctDouble3(0.7, 0.0, 0.0));
+    signal_measured_v->SetColor(Eigen::Vector3d(0.7, 0.0, 0.0));
     signal_setpoint_v = scaleVelocity->AddSignal("setpoint");
-    signal_setpoint_v->SetColor(vctDouble3(0.0, 0.7, 0.0));
+    signal_setpoint_v->SetColor(Eigen::Vector3d(0.0, 0.7, 0.0));
 
     vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
     signal_measured_f = scaleEffort->AddSignal("-measured");
-    signal_measured_f->SetColor(vctDouble3(0.0, 1.0, 1.0));
+    signal_measured_f->SetColor(Eigen::Vector3d(0.0, 1.0, 1.0));
     signal_setpoint_f = scaleEffort->AddSignal("-setpoint");
-    signal_setpoint_f->SetColor(vctDouble3(1.0, 1.0, 1.0));
+    signal_setpoint_f->SetColor(Eigen::Vector3d(1.0, 1.0, 1.0));
     signal_disturbance = scaleEffort->AddSignal("-disturbance");
-    signal_disturbance->SetColor(vctDouble3(1.0, 0.0, 1.0));
+    signal_disturbance->SetColor(Eigen::Vector3d(1.0, 0.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 

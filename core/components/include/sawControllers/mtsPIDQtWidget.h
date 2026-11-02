@@ -21,12 +21,12 @@ http://www.cisst.org/cisst/license.txt.
 #define _mtsPIDQtWidget_h
 
 #include <cisstCommon/cmnUnits.h>
-#include <cisstVector/vctPlot2DOpenGLQtWidget.h>
 #include <cisstMultiTask/mtsComponent.h>
-#include <cisstVector/vctQtWidgetDynamicVector.h>
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
+#include <cisstVectorQt/vctPlot2DOpenGLQtWidget.h>
+#include <cisstVectorQt/vctQtWidgetDynamicVector.h>
 
 #include <QCheckBox>
 #include <QLabel>
@@ -73,14 +73,14 @@ public:
     mtsPIDQtWidget(const mtsComponentConstructorNameAndUInt &arg);
     ~mtsPIDQtWidget(){}
 
-    void Configure(const std::string & filename = "");
-    void Startup(void);
-    void Cleanup(void);
+    void Configure(const std::string & filename = "") override;
+    void Startup(void) override;
+    void Cleanup(void) override;
 
 protected:
     void Init(void);
     void GetConfiguration(void);
-    virtual void closeEvent(QCloseEvent * event);
+    virtual void closeEvent(QCloseEvent * event) override;
 
 signals:
     void SignalEnable(bool enable);
@@ -109,7 +109,7 @@ private slots:
     void SlotSetpointVUsedEventHandler(bool use);
 
     //! timer event to update GUI
-    void timerEvent(QTimerEvent * event);
+    void timerEvent(QTimerEvent * event) override;
 
 private:
     //! setup PID controller GUI
@@ -152,10 +152,10 @@ private:
     bool DirectControl;
 
     //! SetPosition
-    vctBoolVec JointsEnabled;
-    vctDoubleVec SetpointPosition;
+    Eigen::ArrayX<bool> JointsEnabled;
+    Eigen::VectorXd SetpointPosition;
     prmPositionJointSet SetpointPositionParam;
-    vctDoubleVec UnitFactor;
+    Eigen::VectorXd UnitFactor;
 
     size_t m_number_of_joints;
 
