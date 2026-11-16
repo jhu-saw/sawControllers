@@ -1,4 +1,4 @@
 {
   "name": "sawControllersCore",
-  "dependencies": ["cisst", "sawKeyboardAll"]
+  "dependencies": ["cisst"]
 }

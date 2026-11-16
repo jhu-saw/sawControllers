@@ -24,20 +24,16 @@ set (REQUIRED_CISST_LIBRARIES
 find_package (cisst 1.5 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
 
 find_package (sawControllers REQUIRED)
-find_package (sawKeyboard REQUIRED)
 
-if (sawControllers_FOUND AND sawKeyboard_FOUND)
+if (sawControllers_FOUND)
 
-  include_directories (${sawControllers_INCLUDE_DIR}
-                       ${sawKeyboard_INCLUDE_DIR})
+  include_directories (${sawControllers_INCLUDE_DIR})
 
-  link_directories (${sawControllers_LIBRARY_DIR}
-                    ${sawKeyboard_LIBRARY_DIR})
+  link_directories (${sawControllers_LIBRARY_DIR})
 
   set (sawControllers_EXAMPLES
        osaGCExample
-       osaPDGCExample
-       mtsGCExample)
+       osaPDGCExample)
 
   foreach (_example ${sawControllers_EXAMPLES})
     add_executable (${_example} ${_example}.cpp)
@@ -48,9 +44,6 @@ if (sawControllers_FOUND AND sawKeyboard_FOUND)
     set_target_properties (${_example} PROPERTIES
                            FOLDER "sawControllers")
   endforeach ()
-
-  # examples that also need sawKeyboard
-  target_link_libraries (mtsGCExample PRIVATE ${sawKeyboard_LIBRARIES})
 
   install (TARGETS ${sawControllers_EXAMPLES} COMPONENT sawControllers-Examples
            RUNTIME DESTINATION bin
@@ -65,4 +58,4 @@ if (sawControllers_FOUND AND sawKeyboard_FOUND)
   #     SOURCES configPID.xml
   #     COMMENT "Copying configPID.xml to the binary directory")
 
-endif (sawControllers_FOUND AND sawKeyboard_FOUND)
+endif (sawControllers_FOUND)
