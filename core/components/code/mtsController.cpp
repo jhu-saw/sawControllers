@@ -2,10 +2,8 @@
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 
 mtsController::mtsController( const std::string& taskname,
-			      double period,
-			      osaCPUMask cpumask ) :
+			      double period) :
   mtsTaskPeriodic( taskname, period, true ),
-  cpumask( cpumask ),
   ctl( NULL ),
   mtsEnabled( false ) {
 

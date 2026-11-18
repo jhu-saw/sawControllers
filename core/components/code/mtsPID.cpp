@@ -17,15 +17,18 @@ http://www.cisst.org/cisst/license.txt.
 */
 
 #include "cisstCommon/cmnLogger.h"
+#include <chrono>
 #include <sawControllers/mtsPID.h>
 
 #include <algorithm>
 
-#include <cisstOSAbstraction/osaSleep.h>
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
 #include <sstream>
+
+using namespace std::chrono_literals;
+
 
 CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsPID, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg);
 
@@ -657,7 +660,7 @@ void mtsPID::Run(void)
     if (m_simulation_mode == prmSimulationType::KINEMATIC) { 
         m_measured_js.SetValid(true);
         m_measured_js.Position() = m_setpoint_js.Position();
-        m_measured_js.SetTimestamp(StateTable.GetTic());
+        m_measured_js.SetTimestamp(getTimestamp(StateTable.GetTic()));
     }
 }
 
@@ -866,7 +869,8 @@ void mtsPID::get_IO_data(void)
     // m_setpoint_js
     if (m_simulation_mode == prmSimulationType::KINEMATIC) {
         // check that position is not too old
-        if ((StateTable.GetTic() - m_command_time) > 20.0 * cmn_ms) {
+        const std::chrono::steady_clock::time_point command_time{durationFromSeconds<std::chrono::steady_clock>(m_command_time)};
+        if ((StateTable.GetTic() - command_time) > 20ms) {
             m_measured_js.Velocity().setZero();
         } else {
             // evaluate velocity based on positions sent by arm/client
