@@ -41,7 +41,7 @@ class CISST_EXPORT mtsClickableQLabel : public QLabel {
     Q_OBJECT;
 
 public:
-    mtsClickableQLabel(const QString &text) : QLabel(text), enabled(true), label_font(this->font()) {}
+    mtsClickableQLabel(const QString &text) : QLabel(text), enabled(true) {}
 
 protected:
     void mouseReleaseEvent(QMouseEvent * event) override {
@@ -49,6 +49,7 @@ protected:
             event->accept();
             enabled = !enabled;
             emit clicked(enabled);
+            QFont label_font = this->font();
             label_font.setStrikeOut(!enabled);
             setFont(label_font);
         }
@@ -59,7 +60,6 @@ signals:
 
 private:
     bool enabled = true;
-    QFont label_font;
 };
 
 class CISST_EXPORT mtsPIDQtWidget: public QWidget, public mtsComponent
