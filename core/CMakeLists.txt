@@ -19,10 +19,5 @@ cisst_cpack_settings (
 
 add_subdirectory (components)
 
-set (sawControllers_DIR "${sawControllersCore_BINARY_DIR}/components")
-add_subdirectory (examples)
-
 include (CPack)
 cpack_add_component (sawControllers)
-cpack_add_component (sawControllers-Examples
-                     DEPENDS sawControllers sawControllers-Qt)
