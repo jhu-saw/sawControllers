@@ -47,7 +47,6 @@ endif (catkin_FOUND)
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
      cisstCommonQt
-     cisstVectorQt
      cisstOSAbstraction
      cisstMultiTask
      cisstMultiTaskQt

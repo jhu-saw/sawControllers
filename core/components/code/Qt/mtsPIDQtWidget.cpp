@@ -136,11 +136,11 @@ void mtsPIDQtWidget::GetConfiguration(void)
         ++index;
     }
     // update widgets
-    QVWPGain->SetValue(pg);
-    QVWIGain->SetValue(ig);
-    QVWDGain->SetValue(dg);
-    QVWDeadband->SetValue(db);
-    QVWCutoff->SetValue(co);
+    QVWPGain->setValue(pg);
+    QVWIGain->setValue(ig);
+    QVWDGain->setValue(dg);
+    QVWDeadband->setValue(db);
+    QVWCutoff->setValue(co);
 }
 
 
@@ -207,7 +207,7 @@ void mtsPIDQtWidget::SlotEnable(bool toggle)
 void mtsPIDQtWidget::SlotEnabledJointsChanged(void)
 {
     Eigen::ArrayX<bool> enable(m_number_of_joints, false);
-    QVWJointsEnabled->GetValue(enable);
+    QVWJointsEnabled->readValues(enable);
     PID.enable_joints(enable);
 }
 
@@ -227,7 +227,7 @@ void mtsPIDQtWidget::SlotEnforcePositionLimits(bool toggle)
 void mtsPIDQtWidget::SlotPositionChanged(void)
 {
     SetpointPosition.setZero();
-    QVWSetpointPosition->GetValue(SetpointPosition);
+    QVWSetpointPosition->readValues(SetpointPosition);
     SetpointPositionParam.SetGoal(SetpointPosition);
     SetpointPositionParam.Goal() = SetpointPositionParam.Goal().cwiseQuotient(UnitFactor);
     PID.servo_jp(SetpointPositionParam);
@@ -240,15 +240,15 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
     PID.configuration(PID.m_configuration);
     // get values from GUI
     Eigen::VectorXd pg(m_number_of_joints);
-    QVWPGain->GetValue(pg);
+    QVWPGain->readValues(pg);
     Eigen::VectorXd dg(m_number_of_joints);
-    QVWDGain->GetValue(dg);
+    QVWDGain->readValues(dg);
     Eigen::VectorXd ig(m_number_of_joints);
-    QVWIGain->GetValue(ig);
+    QVWIGain->readValues(ig);
     Eigen::VectorXd db(m_number_of_joints);
-    QVWDeadband->GetValue(db);
+    QVWDeadband->readValues(db);
     Eigen::VectorXd co(m_number_of_joints);
-    QVWCutoff->GetValue(co);
+    QVWCutoff->readValues(co);
     // copy to configuration
     size_t index = 0;
     for (auto & v : PID.m_configuration) {
@@ -267,7 +267,7 @@ void mtsPIDQtWidget::SlotConfigurationChanged(void)
 void mtsPIDQtWidget::SlotMaintainPosition(void)
 {
     // reset setpoint position
-    QVWSetpointPosition->SetValue(PID.m_measured_js.Position());
+    QVWSetpointPosition->setValue(PID.m_measured_js.Position());
     SlotPositionChanged();
 }
 
@@ -314,7 +314,7 @@ void mtsPIDQtWidget::SlotSave(void)
 void mtsPIDQtWidget::SlotPlotIndex(int newAxis)
 {
     PlotIndex = newAxis;
-    QVPlot->SetContinuousExpandYResetSlot();
+    QVPlot->setContinuousExpandYResetSlot();
 }
 
 
@@ -384,25 +384,25 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     PID.position_limits_enforced(positionLimitsEnforced);
 
     // add data to plots (without displaying it)
-    signal_measured_p->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+    signal_measured_p->appendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
         PID.m_measured_js.Position()(PlotIndex)));
-    signal_setpoint_p->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+    signal_setpoint_p->appendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
         PID.m_setpoint_js.Position()(PlotIndex)));
-    signal_measured_v->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+    signal_measured_v->appendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
         PID.m_measured_js.Velocity()(PlotIndex)));
     if (has_setpoint_v) {
-    signal_setpoint_v->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+    signal_setpoint_v->appendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
             PID.m_setpoint_js.Velocity()(PlotIndex)));
     } else {
-    signal_setpoint_v->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+    signal_setpoint_v->appendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
             0.0));
     }
     // negate effort to plot the same direction
-    signal_measured_f->AppendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
+    signal_measured_f->appendPoint(Eigen::Vector2d(PID.m_measured_js.Timestamp(),
         -PID.m_measured_js.Effort()(PlotIndex)));
-    signal_setpoint_f->AppendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
+    signal_setpoint_f->appendPoint(Eigen::Vector2d(PID.m_setpoint_js.Timestamp(),
         -PID.m_setpoint_js.Effort()(PlotIndex)));
-    signal_disturbance->AppendPoint(Eigen::Vector2d(PID.m_error_state.Timestamp(),
+    signal_disturbance->appendPoint(Eigen::Vector2d(PID.m_error_state.Timestamp(),
         -PID.m_error_state.Position()(PlotIndex)));
 
     // make sure we should update the display
@@ -411,16 +411,16 @@ void mtsPIDQtWidget::timerEvent(QTimerEvent * CMN_UNUSED(event))
     }
 
     // update GUI
-    QVWJointsEnabled->SetValue(JointsEnabled);
-    QVRMeasuredPosition->SetValue(PID.m_measured_js.Position());
-    QVRMeasuredEffort->SetValue(PID.m_measured_js.Effort());
+    QVWJointsEnabled->setValue(JointsEnabled);
+    QVRMeasuredPosition->setValue(PID.m_measured_js.Position());
+    QVRMeasuredEffort->setValue(PID.m_measured_js.Effort());
     QCBEnableMeasuredSetpointCheck->setChecked(measuredSetpointCheckEnabled);
     QCBEnforcePositionLimits->setChecked(positionLimitsEnforced);
 
     // display requested joint positions when we are not trying to set it using GUI
     if (!DirectControl) {
-        QVWSetpointPosition->SetValue(PID.m_setpoint_js.Position());
-        QVWSetpointEffort->SetValue(PID.m_setpoint_js.Effort());
+        QVWSetpointPosition->setValue(PID.m_setpoint_js.Position());
+        QVWSetpointEffort->setValue(PID.m_setpoint_js.Effort());
     }
 
     // update plot graphics
@@ -444,90 +444,90 @@ void mtsPIDQtWidget::setupUi(void)
     QLabel * jointsEnabledLabel = new QLabel("Joints enabled");
     jointsEnabledLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(jointsEnabledLabel, row, 0);
-    QVWJointsEnabled = new vctQtWidgetDynamicVectorBoolWrite();
+    QVWJointsEnabled = new EigenQt::VectorEditor();
     gridLayout->addWidget(QVWJointsEnabled, row, 1);
     row++;
 
     QLabel * measuredPosLabel = new QLabel("Measured position (deg)");
     measuredPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(measuredPosLabel, row, 0);
-    QVRMeasuredPosition = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRMeasuredPosition->SetPrecision(3);
+    QVRMeasuredPosition = new EigenQt::VectorView();
+    QVRMeasuredPosition->setPrecision(3);
     gridLayout->addWidget(QVRMeasuredPosition, row, 1);
     row++;
 
     QLabel * setpointPosLabel = new QLabel("Setpoint position (deg)");
     setpointPosLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(setpointPosLabel, row, 0);
-    QVWSetpointPosition = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWSetpointPosition->SetStep(0.1);
-    QVWSetpointPosition->SetRange(-360.0, 360.0);
+    QVWSetpointPosition = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWSetpointPosition->setStep(0.1);
+    QVWSetpointPosition->setRange(-360.0, 360.0);
     gridLayout->addWidget(QVWSetpointPosition, row, 1);
     row++;
 
     QLabel * measuredEffortLabel = new QLabel("Measured effort (Nm)");
     measuredEffortLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(measuredEffortLabel, row, 0);
-    QVRMeasuredEffort = new vctQtWidgetDynamicVectorDoubleRead();
-    QVRMeasuredEffort->SetPrecision(3);
+    QVRMeasuredEffort = new EigenQt::VectorView();
+    QVRMeasuredEffort->setPrecision(3);
     gridLayout->addWidget(QVRMeasuredEffort, row, 1);
     row++;
 
     QLabel * setpointEffortLabel = new QLabel("Setpoint effort (Nm)");
     setpointEffortLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(setpointEffortLabel, row, 0);
-    QVWSetpointEffort = new vctQtWidgetDynamicVectorDoubleRead();
-    QVWSetpointEffort->SetPrecision(3);
+    QVWSetpointEffort = new EigenQt::VectorView();
+    QVWSetpointEffort->setPrecision(3);
     gridLayout->addWidget(QVWSetpointEffort, row, 1);
     row++;
 
     QLabel * pLabel = new QLabel("PGain");
     pLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(pLabel);
-    QVWPGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWPGain->SetStep(0.01);
-    QVWPGain->SetPrecision(3);
-    QVWPGain->SetRange(-maximum, maximum);
+    QVWPGain = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWPGain->setStep(0.01);
+    QVWPGain->setPrecision(3);
+    QVWPGain->setRange(-maximum, maximum);
     gridLayout->addWidget(QVWPGain, row, 1);
     row++;
 
     QLabel * dLabel = new QLabel("DGain");
     dLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(dLabel);
-    QVWDGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWDGain->SetStep(0.01);
-    QVWDGain->SetPrecision(3);
-    QVWDGain->SetRange(-maximum, maximum);
+    QVWDGain = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWDGain->setStep(0.01);
+    QVWDGain->setPrecision(3);
+    QVWDGain->setRange(-maximum, maximum);
     gridLayout->addWidget(QVWDGain, row, 1);
     row++;
 
     QLabel * iLabel = new QLabel("IGain");
     iLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(iLabel);
-    QVWIGain = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWIGain->SetStep(0.001);
-    QVWIGain->SetPrecision(5);
-    QVWIGain->SetRange(-maximum, maximum);
+    QVWIGain = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWIGain->setStep(0.001);
+    QVWIGain->setPrecision(5);
+    QVWIGain->setRange(-maximum, maximum);
     gridLayout->addWidget(QVWIGain, row, 1);
     row++;
 
     QLabel * dbLabel = new QLabel("Deadband");
     dbLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(dbLabel);
-    QVWDeadband = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWDeadband->SetStep(0.001);
-    QVWDeadband->SetPrecision(5);
-    QVWDeadband->SetRange(-maximum, maximum);
+    QVWDeadband = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWDeadband->setStep(0.001);
+    QVWDeadband->setPrecision(5);
+    QVWDeadband->setRange(-maximum, maximum);
     gridLayout->addWidget(QVWDeadband, row, 1);
     row++;
 
     QLabel * cLabel = new QLabel("Cutoff");
     cLabel->setAlignment(Qt::AlignRight);
     gridLayout->addWidget(cLabel);
-    QVWCutoff = new vctQtWidgetDynamicVectorDoubleWrite(vctQtWidgetDynamicVectorDoubleWrite::SPINBOX_WIDGET);
-    QVWCutoff->SetStep(0.000001);
-    QVWCutoff->SetPrecision(7);
-    QVWCutoff->SetRange(-maximum, maximum);
+    QVWCutoff = new EigenQt::VectorEditor(EigenQt::VectorEditor::SpinBox);
+    QVWCutoff->setStep(0.000001);
+    QVWCutoff->setPrecision(7);
+    QVWCutoff->setRange(-maximum, maximum);
     gridLayout->addWidget(QVWCutoff, row, 1);
     row++;
 
@@ -551,75 +551,75 @@ void mtsPIDQtWidget::setupUi(void)
     palette.setColor(QPalette::WindowText, Qt::red);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_p->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_p->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Setpoint position");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::green);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_p->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_p->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Measured velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(static_cast<int>(0.7 * 255), 0, 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_v->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_v->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Setpoint velocity");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, QColor(0, static_cast<int>(0.7 * 255), 0));
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_v->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_v->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Measured effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::cyan);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_f->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_measured_f->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Setpoint effort");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::white);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_f->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_setpoint_f->setVisible(enabled); });
     // --
     label = new mtsClickableQLabel("Disturbance");
     label->setAutoFillBackground(true);
     palette.setColor(QPalette::WindowText, Qt::magenta);
     label->setPalette(palette);
     plotButtonsLayout->addWidget(label);
-    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_disturbance->SetVisible(enabled); });
+    connect(label, &mtsClickableQLabel::clicked, this, [this](bool enabled){ signal_disturbance->setVisible(enabled); });
     // --
     plotButtonsLayout->addStretch();
     plotLayout->addLayout(plotButtonsLayout);
 
     // plotting area
-    QVPlot = new vctPlot2DOpenGLQtWidget();
+    QVPlot = new EigenQt::Plot2DWidget();
 
-    vctPlot2DBase::Scale * scalePosition = QVPlot->AddScale("positions");
-    signal_measured_p = scalePosition->AddSignal("measured");
-    signal_measured_p->SetColor(Eigen::Vector3d(1.0, 0.0, 0.0));
-    signal_setpoint_p = scalePosition->AddSignal("setpoint");
-    signal_setpoint_p->SetColor(Eigen::Vector3d(0.0, 1.0, 0.0));
+    EigenQt::Plot2D::Scale * scalePosition = QVPlot->addScale("positions");
+    signal_measured_p = scalePosition->addSignal("measured");
+    signal_measured_p->setColor(Eigen::Vector3d(1.0, 0.0, 0.0));
+    signal_setpoint_p = scalePosition->addSignal("setpoint");
+    signal_setpoint_p->setColor(Eigen::Vector3d(0.0, 1.0, 0.0));
 
-    vctPlot2DBase::Scale * scaleVelocity = QVPlot->AddScale("velocities");
-    signal_measured_v = scaleVelocity->AddSignal("measured");
-    signal_measured_v->SetColor(Eigen::Vector3d(0.7, 0.0, 0.0));
-    signal_setpoint_v = scaleVelocity->AddSignal("setpoint");
-    signal_setpoint_v->SetColor(Eigen::Vector3d(0.0, 0.7, 0.0));
+    EigenQt::Plot2D::Scale * scaleVelocity = QVPlot->addScale("velocities");
+    signal_measured_v = scaleVelocity->addSignal("measured");
+    signal_measured_v->setColor(Eigen::Vector3d(0.7, 0.0, 0.0));
+    signal_setpoint_v = scaleVelocity->addSignal("setpoint");
+    signal_setpoint_v->setColor(Eigen::Vector3d(0.0, 0.7, 0.0));
 
-    vctPlot2DBase::Scale * scaleEffort = QVPlot->AddScale("efforts");
-    signal_measured_f = scaleEffort->AddSignal("-measured");
-    signal_measured_f->SetColor(Eigen::Vector3d(0.0, 1.0, 1.0));
-    signal_setpoint_f = scaleEffort->AddSignal("-setpoint");
-    signal_setpoint_f->SetColor(Eigen::Vector3d(1.0, 1.0, 1.0));
-    signal_disturbance = scaleEffort->AddSignal("-disturbance");
-    signal_disturbance->SetColor(Eigen::Vector3d(1.0, 0.0, 1.0));
+    EigenQt::Plot2D::Scale * scaleEffort = QVPlot->addScale("efforts");
+    signal_measured_f = scaleEffort->addSignal("-measured");
+    signal_measured_f->setColor(Eigen::Vector3d(0.0, 1.0, 1.0));
+    signal_setpoint_f = scaleEffort->addSignal("-setpoint");
+    signal_setpoint_f->setColor(Eigen::Vector3d(1.0, 1.0, 1.0));
+    signal_disturbance = scaleEffort->addSignal("-disturbance");
+    signal_disturbance->setColor(Eigen::Vector3d(1.0, 0.0, 1.0));
     QVPlot->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
     plotLayout->addWidget(QVPlot);
 

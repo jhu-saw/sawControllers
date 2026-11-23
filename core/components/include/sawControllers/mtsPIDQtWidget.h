@@ -25,8 +25,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmStateJoint.h>
 #include <cisstParameterTypes/prmConfigurationJoint.h>
 #include <cisstParameterTypes/prmPositionJointSet.h>
-#include <cisstVectorQt/vctPlot2DOpenGLQtWidget.h>
-#include <cisstVectorQt/vctQtWidgetDynamicVector.h>
+#include <eigenqt/Plot2DWidget.h>
+#include <eigenqt/VectorWidget.h>
 
 #include <QCheckBox>
 #include <QLabel>
@@ -167,26 +167,26 @@ private:
     QCheckBox * QCBUseSetpointV;
     QPushButton * QPBMaintainPosition;
     QPushButton * QPBSave;
-    vctQtWidgetDynamicVectorBoolWrite * QVWJointsEnabled;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWSetpointPosition;
-    vctQtWidgetDynamicVectorDoubleRead * QVRMeasuredPosition;
-    vctQtWidgetDynamicVectorDoubleRead * QVWSetpointEffort;
-    vctQtWidgetDynamicVectorDoubleRead * QVRMeasuredEffort;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWPGain;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWDGain;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWIGain;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWDeadband;
-    vctQtWidgetDynamicVectorDoubleWrite * QVWCutoff;
+    EigenQt::VectorEditor * QVWJointsEnabled;
+    EigenQt::VectorEditor * QVWSetpointPosition;
+    EigenQt::VectorView * QVRMeasuredPosition;
+    EigenQt::VectorView * QVWSetpointEffort;
+    EigenQt::VectorView * QVRMeasuredEffort;
+    EigenQt::VectorEditor * QVWPGain;
+    EigenQt::VectorEditor * QVWDGain;
+    EigenQt::VectorEditor * QVWIGain;
+    EigenQt::VectorEditor * QVWDeadband;
+    EigenQt::VectorEditor * QVWCutoff;
 
     // GUI: plot
-    vctPlot2DOpenGLQtWidget * QVPlot;
-    vctPlot2DBase::Signal * signal_measured_p;
-    vctPlot2DBase::Signal * signal_setpoint_p;
-    vctPlot2DBase::Signal * signal_measured_v;
-    vctPlot2DBase::Signal * signal_setpoint_v;
-    vctPlot2DBase::Signal * signal_measured_f;
-    vctPlot2DBase::Signal * signal_setpoint_f;
-    vctPlot2DBase::Signal * signal_disturbance;
+    EigenQt::Plot2DWidget * QVPlot;
+    EigenQt::Plot2D::Signal * signal_measured_p;
+    EigenQt::Plot2D::Signal * signal_setpoint_p;
+    EigenQt::Plot2D::Signal * signal_measured_v;
+    EigenQt::Plot2D::Signal * signal_setpoint_v;
+    EigenQt::Plot2D::Signal * signal_measured_f;
+    EigenQt::Plot2D::Signal * signal_setpoint_f;
+    EigenQt::Plot2D::Signal * signal_disturbance;
     QSpinBox * QSBPlotIndex;
     int PlotIndex;
 };

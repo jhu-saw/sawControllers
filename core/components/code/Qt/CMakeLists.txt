@@ -11,7 +11,6 @@
 
 set (REQUIRED_CISST_LIBRARIES
      cisstCommon
-     cisstVectorQt
      cisstOSAbstraction
      cisstMultiTask
      cisstMultiTaskQt
@@ -20,6 +19,7 @@ set (REQUIRED_CISST_LIBRARIES
 
 # cisst
 find_package (cisst 1.5 REQUIRED COMPONENTS ${REQUIRED_CISST_LIBRARIES})
+find_package (EigenQt 0.1 CONFIG REQUIRED COMPONENTS Plot)
 
 # for Qt generated header files
 include_directories (${CMAKE_CURRENT_BINARY_DIR})
@@ -32,6 +32,8 @@ set_target_properties (sawControllersQt PROPERTIES
                        VERSION ${sawControllers_VERSION}
                        FOLDER "sawControllers")
 target_link_libraries (sawControllersQt PUBLIC
+  EigenQt::Widgets
+  EigenQt::Plot
   ${cisst_LIBRARIES}
   ${sawControllers_LIBRARIES}
 )
